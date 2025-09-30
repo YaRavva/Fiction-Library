@@ -44,10 +44,10 @@ export default function Home() {
           
           <div className="mt-12">
             <a 
-              href="/library"
+              href="/auth/login"
               className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
             >
-              Перейти в библиотеку
+              Войти в библиотеку
             </a>
           </div>
         </div>

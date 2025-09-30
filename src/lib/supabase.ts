@@ -52,7 +52,7 @@ export interface UserProfile {
   display_name?: string
   avatar_url?: string
   role: 'reader' | 'admin'
-  reading_preferences: Record<string, any>
+  reading_preferences: Record<string, unknown>
   created_at: string
   updated_at: string
 }
