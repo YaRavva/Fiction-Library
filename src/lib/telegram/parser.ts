@@ -23,12 +23,7 @@ export class MetadataParser {
 
     private static extractTitle(text: string): string {
         const match = text.match(/Название:\s*([^\n]+)/);
-        if (match) {
-            const title = match[1].trim();
-            // Убираем префикс "цикл" если есть, чтобы получить название серии
-            return title;
-        }
-        return '';
+        return match ? match[1].trim() : '';
     }
 
     private static extractSeries(text: string): string | undefined {
@@ -117,18 +112,27 @@ export class MetadataParser {
 
     private static extractBooks(text: string): { title: string; year: number; }[] {
         const books: { title: string; year: number; }[] = [];
-        const seriesMatch = text.match(/Состав:([^]*?)(?=\n\n|$)/);
-
+        
+        // Ищем секцию "Состав:" и извлекаем книги
+        const seriesMatch = text.match(/Состав:([^]*?)(?=\n{2,}|$)/i);
+        
         if (seriesMatch) {
             const booksText = seriesMatch[1];
-            const bookRegex = /\d+\.\s+([^\(\n]+)\s*\((\d{4})\)/g;
+            // Регулярное выражение для извлечения книг в формате "N. Название (Год)"
+            const bookRegex = /\d+\.\s+([^\(\n]+?)\s*\((\d{4})\)/g;
             let bookMatch;
 
             while ((bookMatch = bookRegex.exec(booksText)) !== null) {
-                books.push({
-                    title: bookMatch[1].trim(),
-                    year: parseInt(bookMatch[2])
-                });
+                const title = bookMatch[1].trim();
+                const year = parseInt(bookMatch[2]);
+                
+                // Проверяем, что название и год корректны
+                if (title && !isNaN(year) && year > 1900 && year <= new Date().getFullYear() + 10) {
+                    books.push({
+                        title: title,
+                        year: year
+                    });
+                }
             }
         }
 

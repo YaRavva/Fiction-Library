@@ -45,15 +45,34 @@ export class TelegramSyncService {
             // Парсим метаданные из каждого сообщения
             const metadataList: BookMetadata[] = [];
             const processedGroupIds = new Set<string>();
+            const groupedMessagesMap = new Map<string, any[]>();
 
+            // First pass: collect all grouped messages
+            for (const msg of messages) {
+                const anyMsg: any = msg as any;
+                if (anyMsg.groupedId) {
+                    const groupId = String(anyMsg.groupedId);
+                    if (!groupedMessagesMap.has(groupId)) {
+                        groupedMessagesMap.set(groupId, []);
+                    }
+                    groupedMessagesMap.get(groupId)!.push(msg);
+                }
+            }
+
+            // Second pass: process messages
             for (const msg of messages) {
                 const anyMsg: any = msg as any;
 
-                // Пропускаем сообщения без текста
+                // Пропускаем сообщения без текста (но не пропускаем если это часть необработанной группы)
                 if (!msg.text) {
-                    // Но если это часть альбома, сохраняем groupedId для обработки
+                    // Если это часть альбома, проверим, обработана ли группа
                     if (anyMsg.groupedId) {
-                        processedGroupIds.add(String(anyMsg.groupedId));
+                        const groupId = String(anyMsg.groupedId);
+                        if (!processedGroupIds.has(groupId)) {
+                            // Группа еще не обработана, но у этого сообщения нет текста
+                            // Мы обработаем группу позже с сообщением, у которого есть текст
+                            console.log(`  → Сообщение ${anyMsg.id} без текста, часть группы ${groupId}, будет обработано позже`);
+                        }
                     }
                     continue;
                 }
@@ -73,7 +92,8 @@ export class TelegramSyncService {
                         console.log(`  → Веб-превью с фото`);
                         try {
                             console.log(`  → Скачиваем фото из веб-превью...`);
-                            const photoBuffer = await this.telegramClient.downloadMedia(anyMsg.media.webpage.photo);
+                            const result = await this.telegramClient.downloadMedia(anyMsg.media.webpage.photo);
+                            const photoBuffer = result instanceof Buffer ? result : null;
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
                                 console.log(`  → Загружаем в Storage: covers/${photoKey}`);
@@ -97,32 +117,57 @@ export class TelegramSyncService {
                             processedGroupIds.add(groupId);
                             console.log(`  → Группа медиа (альбом), groupedId: ${groupId}`);
 
-                            // Находим все сообщения с этим groupedId
-                            const groupMessages = messages.filter((m: any) => String(m.groupedId) === groupId);
-                            console.log(`  → Найдено ${groupMessages.length} фото в альбоме`);
+                            // Получаем все сообщения из этой группы
+                            const groupMessages = groupedMessagesMap.get(groupId) || [];
+                            console.log(`  → Найдено ${groupMessages.length} элементов в альбоме`);
 
-                            // Скачиваем все фото из группы
+                            // Скачиваем все медиа из группы
+                            let coverCount = 0;
                             for (const groupMsg of groupMessages) {
                                 const groupAnyMsg: any = groupMsg;
-                                if (groupAnyMsg.media?.photo) {
-                                    try {
-                                        console.log(`  → Скачиваем фото ${groupAnyMsg.id} из альбома...`);
-                                        const photoBuffer = await this.telegramClient.downloadMedia(groupMsg);
-                                        if (photoBuffer) {
-                                            const photoKey = `${groupAnyMsg.id}_${Date.now()}.jpg`;
-                                            console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                            await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
-                                            const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
-                                            coverUrls.push(photoUrl);
-                                            console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-                                        } else {
-                                            console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
-                                        }
-                                    } catch (err) {
-                                        console.error(`  ❌ Ошибка загрузки обложки из альбома:`, err);
+                                try {
+                                    // Проверяем разные типы медиа
+                                    let photoBuffer: Buffer | null = null;
+                                    
+                                    // MessageMediaPhoto
+                                    if (groupAnyMsg.media?.photo) {
+                                        console.log(`  → Скачиваем фото ${groupAnyMsg.id} из альбома (MessageMediaPhoto)...`);
+                                        const result = await this.telegramClient.downloadMedia(groupMsg);
+                                        photoBuffer = result instanceof Buffer ? result : null;
                                     }
+                                    // MessageMediaDocument с изображением
+                                    else if (groupAnyMsg.media?.document) {
+                                        const mimeType = groupAnyMsg.media.document.mimeType;
+                                        if (mimeType && mimeType.startsWith('image/')) {
+                                            console.log(`  → Скачиваем изображение ${groupAnyMsg.id} из альбома (MessageMediaDocument: ${mimeType})...`);
+                                            const result = await this.telegramClient.downloadMedia(groupMsg);
+                                            photoBuffer = result instanceof Buffer ? result : null;
+                                        } else {
+                                            console.log(`  → Пропускаем документ ${groupAnyMsg.id} (тип: ${mimeType})`);
+                                        }
+                                    } else {
+                                        console.log(`  → Пропускаем сообщение ${groupAnyMsg.id} (нет медиа или неподдерживаемый тип)`);
+                                        console.log(`    Медиа:`, JSON.stringify(groupAnyMsg.media || 'none', null, 2));
+                                    }
+
+                                    if (photoBuffer) {
+                                        const photoKey = `${groupAnyMsg.id}_${Date.now()}.jpg`;
+                                        console.log(`  → Загружаем в Storage: covers/${photoKey}`);
+                                        await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
+                                        const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                        coverUrls.push(photoUrl);
+                                        coverCount++;
+                                        console.log(`  ✅ Обложка загружена: ${photoUrl}`);
+                                    } else {
+                                        console.warn(`  ⚠️ Не удалось скачать медиа (пустой буфер) для сообщения ${groupAnyMsg.id}`);
+                                    }
+                                } catch (err) {
+                                    console.error(`  ❌ Ошибка загрузки медиа из альбома (сообщение ${groupAnyMsg?.id}):`, err);
                                 }
                             }
+                            console.log(`  → Всего загружено обложек из альбома: ${coverCount}`);
+                        } else {
+                            console.log(`  → Группа ${groupId} уже обработана, пропускаем`);
                         }
                     }
                     // Если это одно фото (MessageMediaPhoto)
@@ -130,7 +175,8 @@ export class TelegramSyncService {
                         console.log(`  → Одиночное фото`);
                         try {
                             console.log(`  → Скачиваем фото...`);
-                            const photoBuffer = await this.telegramClient.downloadMedia(msg);
+                            const result = await this.telegramClient.downloadMedia(msg);
+                            const photoBuffer = result instanceof Buffer ? result : null;
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
                                 console.log(`  → Загружаем в Storage: covers/${photoKey}`);
@@ -144,6 +190,32 @@ export class TelegramSyncService {
                         } catch (err) {
                             console.error(`  ❌ Ошибка загрузки обложки:`, err);
                         }
+                    }
+                    // Если это документ с изображением
+                    else if (anyMsg.media.document) {
+                        const mimeType = anyMsg.media.document.mimeType;
+                        if (mimeType && mimeType.startsWith('image/')) {
+                            console.log(`  → Одиночное изображение (документ: ${mimeType})`);
+                            try {
+                                console.log(`  → Скачиваем изображение...`);
+                                const result = await this.telegramClient.downloadMedia(msg);
+                                const photoBuffer = result instanceof Buffer ? result : null;
+                                if (photoBuffer) {
+                                    const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
+                                    console.log(`  → Загружаем в Storage: covers/${photoKey}`);
+                                    await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
+                                    const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                    coverUrls.push(photoUrl);
+                                    console.log(`  ✅ Обложка загружена: ${photoUrl}`);
+                                } else {
+                                    console.warn(`  ⚠️ Не удалось скачать изображение (пустой буфер)`);
+                                }
+                            } catch (err) {
+                                console.error(`  ❌ Ошибка загрузки изображения:`, err);
+                            }
+                        } else {
+                            console.log(`  → Медиа не содержит фото (документ: ${mimeType})`);
+                        }
                     } else {
                         console.log(`  → Медиа не содержит фото`);
                     }
@@ -153,8 +225,20 @@ export class TelegramSyncService {
 
                 // Добавляем URL обложек к метаданным
                 metadata.coverUrls = coverUrls.length > 0 ? coverUrls : undefined;
+                
+                // Debug logging
+                console.log(`  → Итоговое количество обложек для "${metadata.title}": ${coverUrls.length}`);
+                if (coverUrls.length > 0) {
+                    console.log(`  → Обложки:`, coverUrls);
+                }
 
                 metadataList.push(metadata);
+            }
+
+            console.log(`\n📊 Всего обработано записей: ${metadataList.length}`);
+            for (let i = 0; i < metadataList.length; i++) {
+                const meta = metadataList[i];
+                console.log(`  ${i + 1}. "${meta.title}" - ${meta.coverUrls?.length || 0} обложек`);
             }
 
             return metadataList;

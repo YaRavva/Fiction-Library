@@ -93,6 +93,21 @@ export async function POST(request: NextRequest) {
 
             if (existingSeries) {
               seriesId = existingSeries.id;
+              // Update existing series with new cover URLs if they exist
+              if (book.coverUrls && book.coverUrls.length > 0) {
+                const { error: updateError } = await supabaseAdmin
+                  .from('series')
+                  .update({
+                    cover_url: book.coverUrls[0],
+                    cover_urls: book.coverUrls,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', seriesId);
+                
+                if (updateError) {
+                  console.error('Error updating series cover URLs:', updateError);
+                }
+              }
             } else {
               // Создаем новую серию
               const { data: newSeries, error: seriesError } = await supabaseAdmin
@@ -113,6 +128,8 @@ export async function POST(request: NextRequest) {
 
               if (seriesError) {
                 console.error('Error creating series:', seriesError);
+                results.failed++;
+                results.errors.push(`Failed to create series "${book.series}": ${seriesError.message}`);
               } else {
                 seriesId = newSeries.id;
               }
@@ -120,12 +137,35 @@ export async function POST(request: NextRequest) {
           }
 
           // Проверяем, существует ли книга
-          const { data: existingBook } = await supabaseAdmin
+          // Улучшенная проверка дубликатов: проверяем по title, author и дополнительно по году публикации если есть
+          let query = supabaseAdmin
             .from('books')
-            .select('id')
+            .select('id, publication_year')
             .eq('title', book.title)
-            .eq('author', book.author)
-            .single();
+            .eq('author', book.author);
+          
+          // Если у книги есть год публикации, добавляем его в проверку
+          if (book.books && book.books.length > 0) {
+            query = query.eq('publication_year', book.books[0].year);
+          }
+          
+          const { data: existingBooks, error: existingBooksError } = await query;
+          
+          // В случае ошибки запроса, возвращаемся к простой проверке
+          let existingBook = null;
+          if (existingBooksError) {
+            console.warn('Enhanced duplicate check failed, falling back to simple check:', existingBooksError.message);
+            const { data: simpleCheck } = await supabaseAdmin
+              .from('books')
+              .select('id')
+              .eq('title', book.title)
+              .eq('author', book.author)
+              .single();
+            existingBook = simpleCheck;
+          } else if (existingBooks && existingBooks.length > 0) {
+            // Если найдены книги, берем первую
+            existingBook = existingBooks[0];
+          }
 
           if (existingBook) {
             // Обновляем существующую книгу
