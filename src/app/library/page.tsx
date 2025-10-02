@@ -371,12 +371,12 @@ export default function LibraryPage() {
                       <div className="space-y-4">
                         {/* Обложка */}
                         {book.cover_url && (
-                          <div className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted">
+                          <div className="relative w-full aspect-[2/3] overflow-hidden rounded border bg-muted">
                             <Image
                               src={book.cover_url}
                               alt={book.title}
                               fill
-                              className="object-cover"
+                              className="object-contain"
                               unoptimized
                               sizes="(max-width: 640px) 100vw, 384px"
                             />
@@ -446,22 +446,24 @@ export default function LibraryPage() {
 
                         {/* Обложки серии */}
                         {seriesCoverUrls && seriesCoverUrls.length > 0 && (
-                          <div className="flex gap-2 overflow-x-auto pb-2">
-                            {seriesCoverUrls.map((coverUrl, idx) => (
-                              <div
-                                key={idx}
-                                className="relative flex-shrink-0 w-24 aspect-[2/3] overflow-hidden rounded border bg-muted"
-                              >
-                                <Image
-                                  src={coverUrl}
-                                  alt={`Обложка ${idx + 1}`}
-                                  fill
-                                  className="object-cover"
-                                  unoptimized
-                                  sizes="96px"
-                                />
-                              </div>
-                            ))}
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 gap-2">
+                              {seriesCoverUrls.map((coverUrl, idx) => (
+                                <div
+                                  key={idx}
+                                  className="relative w-full aspect-[2/3] overflow-hidden rounded border bg-muted"
+                                >
+                                  <Image
+                                    src={coverUrl}
+                                    alt={`Обложка ${idx + 1}`}
+                                    fill
+                                    className="object-contain"
+                                    unoptimized
+                                    sizes="(max-width: 640px) 100vw, 384px"
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
 
