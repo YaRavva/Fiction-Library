@@ -1,19 +1,71 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+// Проверяем переменные окружения только если они действительно нужны
+function checkEnvVars() {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required')
+  }
 }
 
 // Экспортируем функцию создания клиента для возможности создавать отдельные инстансы
 export const createClient = () => {
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey);
+  checkEnvVars();
+  return createSupabaseClient(supabaseUrl!, supabaseAnonKey!);
+};
+
+// Ленивая инициализация клиентов
+let _supabase: ReturnType<typeof createSupabaseClient> | null = null;
+let _supabaseAdmin: ReturnType<typeof createSupabaseClient> | null = null;
+
+// Экспортируем геттер для дефолтного инстанса
+export const getSupabase = () => {
+  if (!_supabase) {
+    checkEnvVars();
+    _supabase = createSupabaseClient(supabaseUrl!, supabaseAnonKey!);
+  }
+  return _supabase;
 };
 
 // Экспортируем дефолтный инстанс для обратной совместимости
-export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
+export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
+  get(target, prop) {
+    return getSupabase()[prop as keyof ReturnType<typeof createSupabaseClient>];
+  }
+});
+
+// Создаем клиент с service role для серверных операций (загрузка файлов, админские операции)
+export const getSupabaseAdmin = () => {
+  if (!_supabaseAdmin) {
+    // Перечитываем переменные окружения при первом вызове
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (url && key) {
+      _supabaseAdmin = createSupabaseClient(url, key, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      });
+    }
+  }
+  return _supabaseAdmin;
+};
+
+// Экспортируем прокси для обратной совместимости
+export const supabaseAdmin = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
+  get(target, prop) {
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+    }
+    return admin[prop as keyof ReturnType<typeof createSupabaseClient>];
+  }
+});
 
 // Types for our database tables
 export interface Series {
@@ -23,9 +75,11 @@ export interface Series {
   description?: string
   rating?: number
   cover_url?: string
+  cover_urls?: string[]
   telegram_post_id?: string
   tags: string[]
   genres: string[]
+  series_composition?: { title: string; year: number }[]
   created_at: string
   updated_at: string
 }
@@ -95,14 +149,26 @@ export interface UserRating {
 }
 
 // Upload a buffer to Supabase Storage
+// Использует service role для загрузки файлов (требуется для Storage)
 export async function uploadFileToStorage(bucket: string, path: string, buffer: Buffer, mimeType = 'application/octet-stream') {
-  const { data, error } = await supabase.storage.from(bucket).upload(path, buffer, {
+  const admin = getSupabaseAdmin();
+
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set. Cannot upload files to storage.');
+  }
+
+  const { data, error } = await admin.storage.from(bucket).upload(path, buffer, {
     contentType: mimeType,
     upsert: true,
   })
 
-  if (error) throw error
-  return data
+  if (error) {
+    console.error(`Error uploading file to ${bucket}/${path}:`, error);
+    throw error;
+  }
+
+  console.log(`✅ Successfully uploaded file to ${bucket}/${path}`);
+  return data;
 }
 
 // Insert or update a book record

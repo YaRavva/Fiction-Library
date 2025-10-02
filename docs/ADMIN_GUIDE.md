@@ -26,10 +26,10 @@ WHERE id = 'ваш-user-id';
 
 ### Доступ к админ панели
 
-1. Войдите в приложение: http://localhost:3001
-2. Перейдите в библиотеку: http://localhost:3001/library
+1. Войдите в приложение: http://localhost:3000
+2. Перейдите в библиотеку: http://localhost:3000/library
 3. Нажмите на иконку щита (🛡️) в правом верхнем углу
-4. Или перейдите напрямую: http://localhost:3001/admin
+4. Или перейдите напрямую: http://localhost:3000/admin
 
 ### Функции админ панели
 
@@ -78,7 +78,7 @@ WHERE id = 'ваш-user-id';
 Запускает синхронизацию метаданных из Telegram.
 
 ```bash
-curl -X POST http://localhost:3001/api/admin/sync \
+curl -X POST http://localhost:3000/api/admin/sync \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -111,7 +111,7 @@ curl -X POST http://localhost:3001/api/admin/sync \
 Получает статус синхронизации и статистику.
 
 ```bash
-curl http://localhost:3001/api/admin/sync \
+curl http://localhost:3000/api/admin/sync \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -140,7 +140,7 @@ curl http://localhost:3001/api/admin/sync \
 Добавляет файл в очередь загрузки.
 
 ```bash
-curl -X POST http://localhost:3001/api/admin/download-queue \
+curl -X POST http://localhost:3000/api/admin/download-queue \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -164,7 +164,7 @@ curl -X POST http://localhost:3001/api/admin/download-queue \
 Получает список задач в очереди.
 
 ```bash
-curl "http://localhost:3001/api/admin/download-queue?limit=20&status=pending" \
+curl "http://localhost:3000/api/admin/download-queue?limit=20&status=pending" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -179,7 +179,7 @@ curl "http://localhost:3001/api/admin/download-queue?limit=20&status=pending" \
 Удаляет задачу из очереди.
 
 ```bash
-curl -X DELETE "http://localhost:3001/api/admin/download-queue?id=TASK_ID" \
+curl -X DELETE "http://localhost:3000/api/admin/download-queue?id=TASK_ID" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -210,7 +210,7 @@ npx tsx src/scripts/telegram-login.ts
 
 **Важно:** Сначала убедитесь, что подключение к Telegram работает (запустите тест выше).
 
-1. Откройте админ панель: http://localhost:3001/admin
+1. Откройте админ панель: http://localhost:3000/admin
 2. Установите количество сообщений: 5
 3. Нажмите "Запустить синхронизацию"
 4. Дождитесь завершения (появится результат)

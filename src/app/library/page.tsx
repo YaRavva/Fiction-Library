@@ -4,11 +4,23 @@ import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Search, BookOpen, User, LogOut, Settings, Star, Download, Shield } from 'lucide-react'
+import { Search, BookOpen, User, LogOut, Settings, Star, Download, Shield, Library } from 'lucide-react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { getValidSession } from '@/lib/auth-helpers'
 import {
   Pagination,
@@ -29,9 +41,17 @@ interface Book {
   rating?: number
   downloads_count: number
   views_count: number
+  genres?: string[]
+  tags?: string[]
+  publication_year?: number
+  series_id?: string
+  series_order?: number
   series?: {
+    id: string
     title: string
     author: string
+    series_composition?: { title: string; year: number }[]
+    cover_urls?: string[]
   }
 }
 
@@ -75,7 +95,7 @@ export default function LibraryPage() {
         .from('books')
         .select(`
           *,
-          series:series_id(title, author)
+          series:series_id(id, title, author, series_composition, cover_urls)
         `)
         .order('created_at', { ascending: false })
         .range(from, to)
@@ -87,6 +107,8 @@ export default function LibraryPage() {
       }
     } catch (error) {
       console.error('Error loading books:', error)
+    } finally {
+      setLoading(false)
     }
   }, [supabase])
 
@@ -210,248 +232,336 @@ export default function LibraryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Загрузка библиотеки...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
+          <p className="text-muted-foreground">Загрузка библиотеки...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <BookOpen className="h-8 w-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="mr-4 flex">
+            <a href="/library" className="mr-6 flex items-center space-x-2">
+              <Library className="h-6 w-6" />
+              <span className="hidden font-bold sm:inline-block">
                 Fiction Library
-              </h1>
+              </span>
+            </a>
+          </div>
+
+          <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+            <div className="w-full flex-1 md:w-auto md:flex-none">
+              {/* Search будет ниже */}
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-                <User className="h-4 w-4" />
-                <span>{userProfile?.display_name || userProfile?.username || user?.email}</span>
-                {userProfile?.role === 'admin' && (
-                  <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs">
-                    Админ
-                  </span>
-                )}
-              </div>
-
+            <nav className="flex items-center gap-2">
               {userProfile?.role === 'admin' && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => router.push('/admin')}
-                  className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
                   title="Админ панель"
                 >
                   <Shield className="h-5 w-5" />
-                </button>
+                </Button>
               )}
 
-              <button
-                onClick={() => router.push('/profile')}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
-            </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>
+                        {(userProfile?.display_name || userProfile?.username || user?.email || 'U')[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {userProfile?.display_name || userProfile?.username || 'Пользователь'}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {userProfile?.role === 'admin' && (
+                    <>
+                      <DropdownMenuItem onClick={() => router.push('/admin')}>
+                        <Shield className="mr-2 h-4 w-4" />
+                        <span>Админ панель</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem onClick={() => router.push('/profile')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Настройки</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Выйти</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </nav>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="container py-6">
         {/* Search */}
         <div className="mb-8">
-          <div className="max-w-3xl mx-auto">
-            <Card>
-              <form onSubmit={handleSearch} className="p-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <Input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Поиск книг по названию, автору или описанию..."
-                    className="pl-10 pr-4 py-3"
-                  />
-                </div>
-              </form>
-            </Card>
+          <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск книг по названию, автору или описанию..."
+              className="pl-10"
+            />
+          </form>
+        </div>
+
+        {/* Stats */}
+        <div className="mb-6 flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            {searchQuery ? (
+              <span>Найдено книг: <strong>{totalBooks}</strong></span>
+            ) : (
+              <span>Всего книг: <strong>{totalBooks}</strong></span>
+            )}
           </div>
         </div>
 
-        {/* Books Grid and Pagination */}
+        {/* Books Grid */}
         <div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {books.length === 0 ? (
-              <div className="col-span-full text-center py-12">
-                <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 dark:text-gray-300 text-lg">
-                  {searchQuery ? 'Книги не найдены' : 'В библиотеке пока нет книг'}
-                </p>
-              </div>
-            ) : (
-              books.map((book) => (
-                <Card key={book.id} className="flex flex-col h-full">
-                  {book.cover_url && (
-                    <div className="w-full h-48 relative">
-                      <Image
-                        src={book.cover_url}
-                        alt={book.title}
-                        fill
-                        className="object-cover rounded-t-lg"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg line-clamp-2">
-                      {book.title}
-                    </CardTitle>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">
-                      {book.author}
-                    </p>
-                  </CardHeader>
-                  
-                  <CardContent className="flex-grow pb-4">
-                    {book.series && (
-                      <p className="text-blue-600 dark:text-blue-400 text-sm mb-2">
-                        Серия: {book.series.title}
-                      </p>
-                    )}
-                    
-                    {book.description && (
-                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3">
-                        {book.description}
-                      </p>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                        {book.rating && (
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                            <span>{book.rating.toFixed(1)}</span>
+          {books.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {searchQuery ? 'Книги не найдены' : 'В библиотеке пока нет книг'}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? 'Попробуйте изменить поисковый запрос' : 'Книги появятся после синхронизации с Telegram'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+              {books.map((book) => {
+                const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null
+                const seriesComposition = book.series?.series_composition
+                const seriesCoverUrls = book.series?.cover_urls
+
+                return (
+                  <Card key={book.id} className="overflow-hidden">
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        {/* Обложка */}
+                        {book.cover_url && (
+                          <div className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted">
+                            <Image
+                              src={book.cover_url}
+                              alt={book.title}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                              sizes="(max-width: 640px) 100vw, 384px"
+                            />
                           </div>
                         )}
-                        
-                        <div className="flex items-center">
-                          <Download className="h-4 w-4 mr-1" />
-                          <span>{book.downloads_count}</span>
+
+                        {/* Автор и Название */}
+                        <div className="space-y-1">
+                          <div className="text-sm">
+                            <span className="font-semibold">Автор:</span> {book.author}
+                          </div>
+                          <div className="text-sm">
+                            <span className="font-semibold">Название:</span> {book.title}
+                          </div>
                         </div>
+
+                        {/* Жанр */}
+                        {book.genres && book.genres.length > 0 && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Жанр:</span>{' '}
+                            <span className="inline-flex flex-wrap gap-1">
+                              {book.genres.map((genre, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="secondary"
+                                  className="text-xs cursor-pointer hover:bg-secondary/80"
+                                >
+                                  #{genre}
+                                </Badge>
+                              ))}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Рейтинг */}
+                        {book.rating && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Рейтинг:</span> {book.rating.toFixed(2)}{' '}
+                            {ratingTag && (
+                              <Badge variant="secondary" className="text-xs">
+                                {ratingTag}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Описание */}
+                        {book.description && (
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {book.description}
+                          </p>
+                        )}
+
+                        {/* Состав серии */}
+                        {seriesComposition && seriesComposition.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-sm font-semibold">Состав:</div>
+                            <ol className="text-sm space-y-1 list-decimal list-inside">
+                              {seriesComposition.map((item, idx) => (
+                                <li key={idx}>
+                                  {item.title} ({item.year})
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+
+                        {/* Обложки серии */}
+                        {seriesCoverUrls && seriesCoverUrls.length > 0 && (
+                          <div className="flex gap-2 overflow-x-auto pb-2">
+                            {seriesCoverUrls.map((coverUrl, idx) => (
+                              <div
+                                key={idx}
+                                className="relative flex-shrink-0 w-24 aspect-[2/3] overflow-hidden rounded border bg-muted"
+                              >
+                                <Image
+                                  src={coverUrl}
+                                  alt={`Обложка ${idx + 1}`}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                  sizes="96px"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Кнопка скачивания */}
+                        {book.file_url && (
+                          <Button
+                            className="w-full"
+                            onClick={() => {
+                              incrementDownloads(book.id)
+                              window.open(book.file_url, '_blank')
+                            }}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Скачать
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                  
-                  <CardFooter className="pt-0">
-                    {book.file_url && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          incrementDownloads(book.id)
-                          window.open(book.file_url, '_blank')
-                        }}
-                      >
-                        Скачать
-                      </Button>
-                    )}
-                  </CardFooter>
-                </Card>
-              ))
-            )}
-          </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
 
           {/* Pagination */}
-          <div className="mt-8 flex justify-center">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    href="#" 
-                    onClick={(e) => {
-                      e.preventDefault()
-                      if (currentPage > 1) {
-                        const newPage = currentPage - 1
-                        setCurrentPage(newPage)
-                        if (searchQuery) {
-                          searchBooks(searchQuery, newPage)
-                        } else {
-                          loadBooks(newPage)
-                        }
-                      }
-                    }}
-                  />
-                </PaginationItem>
-                
-                {Array.from({ length: Math.min(5, Math.ceil(totalBooks / booksPerPage)) }, (_, i) => {
-                  let page
-                  if (Math.ceil(totalBooks / booksPerPage) <= 5) {
-                    // Если всего страниц <= 5, показываем все
-                    page = i + 1
-                  } else {
-                    // Иначе показываем страницы вокруг текущей
-                    const start = Math.max(1, currentPage - 2)
-                    page = start + i
-                  }
-                  
-                  return (
-                    <PaginationItem key={page}>
-                      <PaginationLink 
-                        href="#" 
-                        isActive={page === currentPage}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setCurrentPage(page)
+          {totalBooks > booksPerPage && (
+            <div className="mt-8">
+              <Separator className="mb-8" />
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        if (currentPage > 1) {
+                          const newPage = currentPage - 1
+                          setCurrentPage(newPage)
                           if (searchQuery) {
-                            searchBooks(searchQuery, page)
+                            searchBooks(searchQuery, newPage)
                           } else {
-                            loadBooks(page)
+                            loadBooks(newPage)
                           }
-                        }}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )
-                })}
-                
-                <PaginationItem>
-                  <PaginationNext 
-                    href="#" 
-                    onClick={(e) => {
-                      e.preventDefault()
-                      const totalPages = Math.ceil(totalBooks / booksPerPage)
-                      if (currentPage < totalPages) {
-                        const newPage = currentPage + 1
-                        setCurrentPage(newPage)
-                        if (searchQuery) {
-                          searchBooks(searchQuery, newPage)
-                        } else {
-                          loadBooks(newPage)
                         }
-                      }
-                    }}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+                      }}
+                    />
+                  </PaginationItem>
+
+                  {Array.from({ length: Math.min(5, Math.ceil(totalBooks / booksPerPage)) }, (_, i) => {
+                    let page
+                    if (Math.ceil(totalBooks / booksPerPage) <= 5) {
+                      page = i + 1
+                    } else {
+                      const start = Math.max(1, currentPage - 2)
+                      page = start + i
+                    }
+
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          href="#"
+                          isActive={page === currentPage}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setCurrentPage(page)
+                            if (searchQuery) {
+                              searchBooks(searchQuery, page)
+                            } else {
+                              loadBooks(page)
+                            }
+                          }}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  })}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        const totalPages = Math.ceil(totalBooks / booksPerPage)
+                        if (currentPage < totalPages) {
+                          const newPage = currentPage + 1
+                          setCurrentPage(newPage)
+                          if (searchQuery) {
+                            searchBooks(searchQuery, newPage)
+                          } else {
+                            loadBooks(newPage)
+                          }
+                        }
+                      }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -105,6 +105,8 @@ export async function POST(request: NextRequest) {
                   genres: book.genres,
                   tags: book.tags,
                   cover_url: book.coverUrls && book.coverUrls.length > 0 ? book.coverUrls[0] : null,
+                  cover_urls: book.coverUrls || [],
+                  series_composition: book.books || [],
                 })
                 .select('id')
                 .single();

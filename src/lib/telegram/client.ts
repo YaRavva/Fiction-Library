@@ -117,12 +117,21 @@ export class TelegramService {
         }
     }
 
-    public async downloadMedia(message: any) {
+    public async downloadMedia(messageOrMedia: any) {
         try {
-            if (message.document || message.media) {
-                return await this.client.downloadMedia(message);
+            // Если это сообщение с медиа
+            if (messageOrMedia.document || messageOrMedia.media) {
+                return await this.client.downloadMedia(messageOrMedia);
             }
-            throw new Error('No document/media in message');
+            // Если это объект Photo (из веб-превью или альбома)
+            else if (messageOrMedia.className === 'Photo') {
+                return await this.client.downloadMedia(messageOrMedia);
+            }
+            // Если это другой медиа-объект
+            else if (messageOrMedia.className && messageOrMedia.className.includes('Media')) {
+                return await this.client.downloadMedia(messageOrMedia);
+            }
+            throw new Error(`No downloadable media found. Object type: ${messageOrMedia.className || 'unknown'}`);
         } catch (err) {
             console.error('Error downloading media:', err);
             throw err;

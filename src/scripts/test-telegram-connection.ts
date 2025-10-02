@@ -93,7 +93,7 @@ async function testTelegramConnection() {
 
     console.log('✅ Тестирование завершено успешно!');
     console.log('\n💡 Следующий шаг: Запустите синхронизацию через админ панель');
-    console.log('   http://localhost:3001/admin');
+    console.log('   http://localhost:3000/admin');
 
     await client.disconnect();
     process.exit(0);
