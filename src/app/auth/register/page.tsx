@@ -6,11 +6,10 @@ import { useEffect, useState } from 'react'
 
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import type { Session } from '@supabase/supabase-js'
-import type { RealtimeChannel } from '@supabase/supabase-js'
 import { UserAuthForm } from "@/components/auth/user-auth-form"
 import { Icons } from "@/components/ui/icons"
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -67,21 +66,21 @@ export default function LoginPage() {
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
           <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Добро пожаловать
+            Создать аккаунт
           </h1>
           <p className="text-sm text-muted-foreground">
-            Войдите в свой аккаунт для доступа к библиотеке
+            Зарегистрируйтесь для доступа к библиотеке
           </p>
         </div>
 
-        <UserAuthForm type="login" />
+        <UserAuthForm type="register" />
 
         <p className="px-8 text-center text-sm text-muted-foreground">
           <Link 
-            href="/auth/register"
+            href="/auth/login"
             className="hover:text-primary underline underline-offset-4"
           >
-            Зарегистрироваться
+            Уже есть аккаунт? Войти
           </Link>
         </p>
         </div>

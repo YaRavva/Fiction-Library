@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -7,7 +7,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Экспортируем функцию создания клиента для возможности создавать отдельные инстансы
+export const createClient = () => {
+  return createSupabaseClient(supabaseUrl, supabaseAnonKey);
+};
+
+// Экспортируем дефолтный инстанс для обратной совместимости
+export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
 
 // Types for our database tables
 export interface Series {
@@ -86,4 +92,22 @@ export interface UserRating {
   review?: string
   created_at: string
   updated_at: string
+}
+
+// Upload a buffer to Supabase Storage
+export async function uploadFileToStorage(bucket: string, path: string, buffer: Buffer, mimeType = 'application/octet-stream') {
+  const { data, error } = await supabase.storage.from(bucket).upload(path, buffer, {
+    contentType: mimeType,
+    upsert: true,
+  })
+
+  if (error) throw error
+  return data
+}
+
+// Insert or update a book record
+export async function upsertBookRecord(book: Partial<Book>) {
+  const { data, error } = await supabase.from('books').upsert(book).select().single()
+  if (error) throw error
+  return data
 }

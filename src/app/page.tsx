@@ -1,57 +1,72 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Icons } from "@/components/ui/icons";
+
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900">
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+    <main className="flex min-h-screen flex-col items-center justify-center">
+      <div className="container px-4 flex flex-col items-center">
+        <div className="flex flex-col items-center text-center">
+          <h1 className="font-heading text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold">
             Fiction Library
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+          <p className="mt-4 max-w-[42rem] text-muted-foreground sm:text-xl">
             Электронная библиотека с удобной читалкой FB2 файлов
           </p>
-          
-          <div className="grid md:grid-cols-3 gap-8 mt-16">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-              <div className="text-3xl mb-4">📚</div>
-              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+        </div>
+
+        <div className="grid w-full justify-center gap-4 sm:grid-cols-2 lg:grid-cols-3 md:max-w-[64rem] mt-16">
+          <Card className="flex flex-col justify-between">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icons.library className="h-5 w-5" />
                 Большая библиотека
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300">
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
                 До 1000 книг в формате FB2 с автоматической синхронизацией
               </p>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-              <div className="text-3xl mb-4">📱</div>
-              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+            </CardContent>
+          </Card>
+
+          <Card className="flex flex-col justify-between">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icons.reader className="h-5 w-5" />
                 Удобная читалка
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300">
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
                 Адаптивный дизайн, закладки, заметки и история чтения
               </p>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-              <div className="text-3xl mb-4">🔍</div>
-              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+            </CardContent>
+          </Card>
+
+          <Card className="flex flex-col justify-between">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icons.search className="h-5 w-5" />
                 Умный поиск
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300">
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
                 Полнотекстовый поиск, рекомендации и фильтрация по жанрам
               </p>
-            </div>
-          </div>
-          
-          <div className="mt-12">
-            <a 
-              href="/auth/login"
-              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-            >
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-12">
+          <Button size="lg" asChild>
+            <a href="/auth/login">
               Войти в библиотеку
             </a>
-          </div>
+          </Button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

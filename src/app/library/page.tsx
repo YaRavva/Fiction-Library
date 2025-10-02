@@ -1,14 +1,15 @@
 'use client'
 
-import { createBrowserClient } from '@supabase/ssr'
+import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Search, BookOpen, User, LogOut, Settings, Star, Download } from 'lucide-react'
+import { Search, BookOpen, User, LogOut, Settings, Star, Download, Shield } from 'lucide-react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { getValidSession } from '@/lib/auth-helpers'
 import {
   Pagination,
   PaginationContent,
@@ -42,10 +43,7 @@ interface UserProfile {
 }
 
 export default function LibraryPage() {
-  const [supabase] = useState(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ))
+  const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
   const [user, setUser] = useState<Session['user'] | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
@@ -95,10 +93,10 @@ export default function LibraryPage() {
   useEffect(() => {
     const getInitialData = async () => {
       try {
-        // Получаем сессию пользователя
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError || !session) {
+        // Проверяем и получаем валидную сессию
+        const session = await getValidSession(supabase)
+
+        if (!session) {
           router.push('/auth/login')
           return
         }
@@ -122,6 +120,7 @@ export default function LibraryPage() {
         await loadBooks(currentPage)
       } catch (error) {
         console.error('Error loading initial data:', error)
+        router.push('/auth/login')
       } finally {
         setLoading(false)
       }
@@ -243,14 +242,24 @@ export default function LibraryPage() {
                   </span>
                 )}
               </div>
-              
+
+              {userProfile?.role === 'admin' && (
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                  title="Админ панель"
+                >
+                  <Shield className="h-5 w-5" />
+                </button>
+              )}
+
               <button
                 onClick={() => router.push('/profile')}
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
               >
                 <Settings className="h-5 w-5" />
               </button>
-              
+
               <button
                 onClick={handleLogout}
                 className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
@@ -262,103 +271,112 @@ export default function LibraryPage() {
         </div>
       </header>
 
-      {/* Search */}
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSearch} className="mb-8">
-          <div className="relative max-w-md mx-auto">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <Input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск книг по названию, автору или описанию..."
-              className="pl-10 pr-4 py-3"
-            />
+        {/* Search */}
+        <div className="mb-8">
+          <div className="max-w-3xl mx-auto">
+            <Card>
+              <form onSubmit={handleSearch} className="p-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Поиск книг по названию, автору или описанию..."
+                    className="pl-10 pr-4 py-3"
+                  />
+                </div>
+              </form>
+            </Card>
           </div>
-        </form>
+        </div>
 
-        {/* Books Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {books.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-300 text-lg">
-                {searchQuery ? 'Книги не найдены' : 'В библиотеке пока нет книг'}
-              </p>
-            </div>
-          ) : (
-            books.map((book) => (
-              <Card key={book.id} className="flex flex-col h-full">
-                {book.cover_url && (
-                  <div className="w-full h-48 relative">
-                    <Image
-                      src={book.cover_url}
-                      alt={book.title}
-                      fill
-                      className="object-cover rounded-t-lg"
-                      unoptimized
-                    />
-                  </div>
-                )}
-                
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg line-clamp-2">
-                    {book.title}
-                  </CardTitle>
-                  <p className="text-gray-600 dark:text-gray-300 text-sm">
-                    {book.author}
-                  </p>
-                </CardHeader>
-                
-                <CardContent className="flex-grow pb-4">
-                  {book.series && (
-                    <p className="text-blue-600 dark:text-blue-400 text-sm mb-2">
-                      Серия: {book.series.title}
-                    </p>
+        {/* Books Grid and Pagination */}
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {books.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 dark:text-gray-300 text-lg">
+                  {searchQuery ? 'Книги не найдены' : 'В библиотеке пока нет книг'}
+                </p>
+              </div>
+            ) : (
+              books.map((book) => (
+                <Card key={book.id} className="flex flex-col h-full">
+                  {book.cover_url && (
+                    <div className="w-full h-48 relative">
+                      <Image
+                        src={book.cover_url}
+                        alt={book.title}
+                        fill
+                        className="object-cover rounded-t-lg"
+                        unoptimized
+                      />
+                    </div>
                   )}
                   
-                  {book.description && (
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3">
-                      {book.description}
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg line-clamp-2">
+                      {book.title}
+                    </CardTitle>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                      {book.author}
                     </p>
-                  )}
+                  </CardHeader>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                      {book.rating && (
+                  <CardContent className="flex-grow pb-4">
+                    {book.series && (
+                      <p className="text-blue-600 dark:text-blue-400 text-sm mb-2">
+                        Серия: {book.series.title}
+                      </p>
+                    )}
+                    
+                    {book.description && (
+                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3">
+                        {book.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                        {book.rating && (
+                          <div className="flex items-center">
+                            <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                            <span>{book.rating.toFixed(1)}</span>
+                          </div>
+                        )}
+                        
                         <div className="flex items-center">
-                          <Star className="h-4 w-4 text-yellow-500 mr-1" />
-                          <span>{book.rating.toFixed(1)}</span>
+                          <Download className="h-4 w-4 mr-1" />
+                          <span>{book.downloads_count}</span>
                         </div>
-                      )}
-                      
-                      <div className="flex items-center">
-                        <Download className="h-4 w-4 mr-1" />
-                        <span>{book.downloads_count}</span>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-                
-                <CardFooter className="pt-0">
-                  {book.file_url && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        incrementDownloads(book.id);
-                        window.open(book.file_url, '_blank');
-                      }}
-                    >
-                      Скачать
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            ))
+                  </CardContent>
+                  
+                  <CardFooter className="pt-0">
+                    {book.file_url && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          incrementDownloads(book.id)
+                          window.open(book.file_url, '_blank')
+                        }}
+                      >
+                        Скачать
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              ))
+            )}
           </div>
-          
+
           {/* Pagination */}
           <div className="mt-8 flex justify-center">
             <Pagination>
@@ -367,30 +385,29 @@ export default function LibraryPage() {
                   <PaginationPrevious 
                     href="#" 
                     onClick={(e) => {
-                      e.preventDefault();
+                      e.preventDefault()
                       if (currentPage > 1) {
-                        const newPage = currentPage - 1;
-                        setCurrentPage(newPage);
+                        const newPage = currentPage - 1
+                        setCurrentPage(newPage)
                         if (searchQuery) {
-                          searchBooks(searchQuery, newPage);
+                          searchBooks(searchQuery, newPage)
                         } else {
-                          loadBooks(newPage);
+                          loadBooks(newPage)
                         }
                       }
                     }}
                   />
                 </PaginationItem>
                 
-                {/* Отображаем до 5 страниц вокруг текущей */}
                 {Array.from({ length: Math.min(5, Math.ceil(totalBooks / booksPerPage)) }, (_, i) => {
-                  let page;
+                  let page
                   if (Math.ceil(totalBooks / booksPerPage) <= 5) {
                     // Если всего страниц <= 5, показываем все
-                    page = i + 1;
+                    page = i + 1
                   } else {
                     // Иначе показываем страницы вокруг текущей
-                    const start = Math.max(1, currentPage - 2);
-                    page = start + i;
+                    const start = Math.max(1, currentPage - 2)
+                    page = start + i
                   }
                   
                   return (
@@ -399,34 +416,34 @@ export default function LibraryPage() {
                         href="#" 
                         isActive={page === currentPage}
                         onClick={(e) => {
-                          e.preventDefault();
-                          setCurrentPage(page);
+                          e.preventDefault()
+                          setCurrentPage(page)
                           if (searchQuery) {
-                            searchBooks(searchQuery, page);
+                            searchBooks(searchQuery, page)
                           } else {
-                            loadBooks(page);
+                            loadBooks(page)
                           }
                         }}
                       >
                         {page}
                       </PaginationLink>
                     </PaginationItem>
-                  );
+                  )
                 })}
                 
                 <PaginationItem>
                   <PaginationNext 
                     href="#" 
                     onClick={(e) => {
-                      e.preventDefault();
-                      const totalPages = Math.ceil(totalBooks / booksPerPage);
+                      e.preventDefault()
+                      const totalPages = Math.ceil(totalBooks / booksPerPage)
                       if (currentPage < totalPages) {
-                        const newPage = currentPage + 1;
-                        setCurrentPage(newPage);
+                        const newPage = currentPage + 1
+                        setCurrentPage(newPage)
                         if (searchQuery) {
-                          searchBooks(searchQuery, newPage);
+                          searchBooks(searchQuery, newPage)
                         } else {
-                          loadBooks(newPage);
+                          loadBooks(newPage)
                         }
                       }
                     }}

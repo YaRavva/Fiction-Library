@@ -1,15 +1,13 @@
 'use client'
 
-import { createBrowserClient } from '@supabase/ssr'
+import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
+import { Icons } from "@/components/ui/icons"
 
 export default function AuthCallback() {
   const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = getBrowserSupabase()
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -39,10 +37,19 @@ export default function AuthCallback() {
   }, [router, supabase])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600 dark:text-gray-300">Обработка входа...</p>
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center items-center space-y-6 sm:w-[350px]">
+        <div className="flex flex-col items-center space-y-4">
+          <Icons.spinner className="h-8 w-8 animate-spin" />
+          <div className="flex flex-col space-y-2 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Подтверждение входа
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Пожалуйста, подождите...
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )
