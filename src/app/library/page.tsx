@@ -437,41 +437,71 @@ export default function LibraryPage() {
                               {/* Если есть обложки серии, показываем их */}
                               {seriesCoverUrls && seriesCoverUrls.length > 0 ? (
                                 seriesCoverUrls.map((coverUrl, idx) => {
+                                  // Определяем, является ли обложка широкой (тройной) по соотношению сторон
+                                  const isWideCover = () => {
+                                    // Проверяем по URL (старый способ)
+                                    if (coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
+                                        coverUrl.includes('3109e8fdf303b46ee64f1')) { // цикл Одаренные
+                                      return true;
+                                    }
+
+                                    // TODO: В будущем можно добавить динамическую проверку размеров изображения
+                                    // Пока что для тестирования считаем широкими обложки с определенными характеристиками
+                                    return false;
+                                  };
+
+                                  const wideCover = isWideCover();
+
                                   return (
                                     <div key={idx} className="relative w-full overflow-hidden rounded border bg-muted">
-                                      {/* Контейнер фиксированной высоты 480px */}
-                                      <div className="relative w-full h-[480px]">
-                                        {/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
-                                        <div className="absolute inset-0">
+                                      {wideCover ? (
+                                        // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
+                                        // Используем object-cover для обрезки по краям
+                                        <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
                                           <Image
                                             src={coverUrl}
                                             alt={`Обложка ${idx + 1}`}
                                             fill
-                                            className="object-cover scale-110 blur-sm opacity-30"
+                                            className="object-cover"
                                             unoptimized
                                             sizes="(max-width: 640px) 100vw, 384px"
                                           />
                                         </div>
-                                        {/* Основная обложка по центру */}
-                                        <div className="relative w-full h-full flex items-center justify-center">
-                                          <div style={{ 
-                                            height: '480px', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            justifyContent: 'center' 
-                                          }}>
-                                            <img
+                                      ) : (
+                                        // Для одинарных обложек используем фиксированную высоту 480px с блюром по бокам
+                                        <div className="relative w-full h-[480px]">
+                                          {/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
+                                          <div className="absolute inset-0">
+                                            <Image
                                               src={coverUrl}
                                               alt={`Обложка ${idx + 1}`}
-                                              style={{
-                                                maxHeight: '480px',
-                                                maxWidth: '100%',
-                                                objectFit: 'contain'
-                                              }}
+                                              fill
+                                              className="object-cover scale-110 blur-sm opacity-30"
+                                              unoptimized
+                                              sizes="(max-width: 640px) 100vw, 384px"
                                             />
                                           </div>
+                                          {/* Основная обложка по центру */}
+                                          <div className="relative w-full h-full flex items-center justify-center">
+                                            <div style={{ 
+                                              height: '480px', 
+                                              display: 'flex', 
+                                              alignItems: 'center', 
+                                              justifyContent: 'center' 
+                                            }}>
+                                              <img
+                                                src={coverUrl}
+                                                alt={`Обложка ${idx + 1}`}
+                                                style={{
+                                                  maxHeight: '480px',
+                                                  maxWidth: '100%',
+                                                  objectFit: 'contain'
+                                                }}
+                                              />
+                                            </div>
+                                          </div>
                                         </div>
-                                      </div>
+                                      )}
                                     </div>
                                   );
                                 })
