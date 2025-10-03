@@ -436,33 +436,83 @@ export default function LibraryPage() {
                             <div className="grid grid-cols-1 gap-2">
                               {/* Если есть обложки серии, показываем их */}
                               {seriesCoverUrls && seriesCoverUrls.length > 0 ? (
-                                seriesCoverUrls.map((coverUrl, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted"
-                                  >
-                                    <Image
-                                      src={coverUrl}
-                                      alt={`Обложка ${idx + 1}`}
-                                      fill
-                                      className="object-contain"
-                                      unoptimized
-                                      sizes="(max-width: 640px) 100vw, 320px"
-                                    />
-                                  </div>
-                                ))
+                                seriesCoverUrls.map((coverUrl, idx) => {
+                                  // Определяем, является ли обложка широкой (тройной)
+                                  const isWideCover = coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
+                                                     coverUrl.includes('3109e8fdf303b46ee64f1');  // цикл Одаренные
+                                  
+                                  return isWideCover ? (
+                                    // Широкие (тройные) обложки показываем в полную ширину без блюра
+                                    <div
+                                      key={idx}
+                                      className="relative w-full aspect-[2/3] overflow-hidden rounded border bg-muted"
+                                    >
+                                      <Image
+                                        src={coverUrl}
+                                        alt={`Обложка ${idx + 1}`}
+                                        fill
+                                        className="object-contain"
+                                        unoptimized
+                                        sizes="(max-width: 640px) 100vw, 384px"
+                                      />
+                                    </div>
+                                  ) : (
+                                    // Обычные обложки с эффектом блюра
+                                    <div
+                                      key={idx}
+                                      className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted"
+                                    >
+                                      {/* Блюр-эффект для заполнения фона */}
+                                      <div className="absolute inset-0">
+                                        <Image
+                                          src={coverUrl}
+                                          alt={`Обложка ${idx + 1}`}
+                                          fill
+                                          className="object-cover scale-110 blur-sm opacity-30"
+                                          unoptimized
+                                          sizes="(max-width: 640px) 100vw, 320px"
+                                        />
+                                      </div>
+                                      {/* Основная обложка */}
+                                      <div className="relative h-full w-full">
+                                        <Image
+                                          src={coverUrl}
+                                          alt={`Обложка ${idx + 1}`}
+                                          fill
+                                          className="object-contain relative z-10"
+                                          unoptimized
+                                          sizes="(max-width: 640px) 100vw, 320px"
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })
                               ) : (
-                                // Если нет обложек серии, но есть обложка книги, показываем её
+                                // Если нет обложек серии, но есть обложка книги, показываем её с эффектом блюра
                                 book.cover_url && (
                                   <div className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted">
-                                    <Image
-                                      src={book.cover_url}
-                                      alt={book.title}
-                                      fill
-                                      className="object-contain"
-                                      unoptimized
-                                      sizes="(max-width: 640px) 100vw, 320px"
-                                    />
+                                    {/* Блюр-эффект для заполнения фона */}
+                                    <div className="absolute inset-0">
+                                      <Image
+                                        src={book.cover_url}
+                                        alt={book.title}
+                                        fill
+                                        className="object-cover scale-110 blur-sm opacity-30"
+                                        unoptimized
+                                        sizes="(max-width: 640px) 100vw, 320px"
+                                      />
+                                    </div>
+                                    {/* Основная обложка */}
+                                    <div className="relative h-full w-full">
+                                      <Image
+                                        src={book.cover_url}
+                                        alt={book.title}
+                                        fill
+                                        className="object-contain relative z-10"
+                                        unoptimized
+                                        sizes="(max-width: 640px) 100vw, 320px"
+                                      />
+                                    </div>
                                   </div>
                                 )
                               )}
