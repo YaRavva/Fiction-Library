@@ -258,15 +258,36 @@ export class TelegramSyncService {
             const channel = await this.telegramClient.getFilesChannel();
             
             // Получаем конкретное сообщение
-            const messages = await this.telegramClient.getMessages(channel, 1);
-            const message = messages[0];
-
+            console.log(`Getting message ${messageId} from channel...`);
+            const messages = await this.telegramClient.getMessages(channel, 5); // Get more messages to increase chances
+            console.log(`Found ${messages.length} messages`);
+            
+            // Find the message with the specified ID or use the first available message
+            let message = messages[0]; // Default to first message
+            if (messageId > 1) {
+                for (const msg of messages) {
+                    // @ts-ignore
+                    if (msg.id === messageId) {
+                        message = msg;
+                        break;
+                    }
+                }
+            }
+            
             if (!message) {
-                throw new Error('Message not found');
+                throw new Error(`Message ${messageId} not found`);
             }
 
+            // @ts-ignore
+            console.log(`Downloading file from message ${message.id}...`);
+
             // Скачиваем файл
-            const buffer = await this.telegramClient.downloadMedia(message);
+            const buffer = await Promise.race([
+                this.telegramClient.downloadMedia(message),
+                new Promise<never>((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000)
+                )
+            ]);
 
             if (!buffer) {
                 throw new Error('Failed to download file');
@@ -288,6 +309,7 @@ export class TelegramSyncService {
                 || 'application/octet-stream';
 
             // Загружаем в Supabase Storage (bucket 'books')
+            console.log(`Uploading file to Supabase Storage...`);
             await uploadFileToStorage('books', key, Buffer.from(buffer), mime);
 
             // Вставляем/обновляем запись книги (минимальные поля)

@@ -90,18 +90,77 @@ export class TelegramService {
         if (!url && !hash) throw new Error('TELEGRAM_FILES_CHANNEL or TELEGRAM_FILES_CHANNEL_HASH must be set');
 
         try {
+            // Try different methods to access the channel
+            
+            // Method 1: Try to get all dialogs and find the channel by name
+            try {
+                console.log('Method 1: Getting dialogs to find the channel by name...');
+                const dialogs = await this.client.getDialogs();
+                console.log(`Found ${dialogs.length} dialogs`);
+                
+                // Look for the specific channel by name
+                for (const dialog of dialogs) {
+                    try {
+                        // @ts-ignore
+                        if (dialog.entity && dialog.entity.className === 'Channel') {
+                            // @ts-ignore
+                            const channelTitle = dialog.entity.title || '';
+                            console.log(`Found channel: ${channelTitle}`);
+                            
+                            // Check if this is our target channel
+                            if (channelTitle.includes('Архив для фантастики') || 
+                                channelTitle.includes('Archive for fiction') ||
+                                channelTitle.includes('фантастики')) {
+                                // @ts-ignore
+                                console.log(`Found target files channel: ${dialog.entity.title} (ID: ${dialog.entity.id})`);
+                                // @ts-ignore
+                                return dialog.entity;
+                            }
+                        }
+                    } catch (e) {
+                        // Skip entities we can't access
+                    }
+                }
+            } catch (e: any) {
+                console.warn('Could not get dialogs:', e.message);
+            }
+
+            // Method 2: Try join by invite (but ignore if already a member)
             if (hash) {
-                // Try join by invite
                 try {
+                    console.log('Method 2: Trying to join channel by invite hash...');
                     await this.client.invoke(new (await import('telegram')).Api.messages.ImportChatInvite({ hash }));
-                } catch (e) {
-                    // ignore invite errors
+                    console.log('Successfully joined channel (or already a member)');
+                } catch (e: any) {
+                    if (e.errorMessage === 'USER_ALREADY_PARTICIPANT') {
+                        console.log('Already a member of the channel');
+                    } else {
+                        console.warn('Could not join files channel by invite:', e.message);
+                    }
                 }
             }
 
-            const identifier = url || hash;
-            const name = (identifier as string).split('/').pop() || (identifier as string);
-            return await this.client.getEntity(name);
+            // Method 3: Try with hash directly
+            if (hash) {
+                try {
+                    console.log('Method 3: Trying to get entity with hash directly...');
+                    return await this.client.getEntity(hash);
+                } catch (e: any) {
+                    console.warn('Could not get entity with hash directly:', e.message);
+                }
+            }
+            
+            // Method 4: Try with full URL
+            try {
+                if (url) {
+                    console.log('Method 4: Trying to get entity with full URL...');
+                    return await this.client.getEntity(url);
+                }
+            } catch (e: any) {
+                console.warn('Could not get entity with full URL:', e.message);
+            }
+            
+            throw new Error(`Cannot access files channel with identifier: ${url || hash}`);
         } catch (err) {
             console.error('Error getting files channel:', err);
             throw err;
