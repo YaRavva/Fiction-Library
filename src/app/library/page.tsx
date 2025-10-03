@@ -3,7 +3,7 @@
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-import { Search, BookOpen, User, LogOut, Settings, Star, Download, Shield, Library, LayoutGrid, Grid3X3, Table } from 'lucide-react'
+import { Search, BookOpen, User, LogOut, Settings, Star, Download, Shield, Library, LayoutGrid, Grid3X3, Table, X } from 'lucide-react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -65,7 +65,8 @@ export default function LibraryPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalBooks, setTotalBooks] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>('large-cards')
-  const booksPerPage = 20
+  const [booksPerPage, setBooksPerPage] = useState(100)
+  const [customBooksPerPage, setCustomBooksPerPage] = useState('100')
 
   const loadBooks = useCallback(async (page = 1) => {
     try {
@@ -81,29 +82,46 @@ export default function LibraryPage() {
       }
 
       // Затем получаем книги для текущей страницы
-      const from = (page - 1) * booksPerPage
-      const to = from + booksPerPage - 1
+      // Если booksPerPage равно 0 ("Все"), то загружаем все книги
+      if (booksPerPage === 0) {
+        const { data, error } = await supabase
+          .from('books')
+          .select(`
+            *,
+            series:series_id(id, title, author, series_composition, cover_urls)
+          `)
+          .order('created_at', { ascending: false })
 
-      const { data, error } = await supabase
-        .from('books')
-        .select(`
-          *,
-          series:series_id(id, title, author, series_composition, cover_urls)
-        `)
-        .order('created_at', { ascending: false })
-        .range(from, to)
-
-      if (error) {
-        console.error('Error loading books:', error)
+        if (error) {
+          console.error('Error loading books:', error)
+        } else {
+          setBooks(data || [])
+        }
       } else {
-        setBooks(data || [])
+        const from = (page - 1) * booksPerPage
+        const to = from + booksPerPage - 1
+
+        const { data, error } = await supabase
+          .from('books')
+          .select(`
+            *,
+            series:series_id(id, title, author, series_composition, cover_urls)
+          `)
+          .order('created_at', { ascending: false })
+          .range(from, to)
+
+        if (error) {
+          console.error('Error loading books:', error)
+        } else {
+          setBooks(data || [])
+        }
       }
     } catch (error) {
       console.error('Error loading books:', error)
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, booksPerPage])
 
   useEffect(() => {
     const getInitialData = async () => {
@@ -162,6 +180,13 @@ export default function LibraryPage() {
     }
 
     try {
+      // Проверяем, является ли запрос поиском по тегу (начинается с #)
+      if (query.startsWith('#')) {
+        const tag = query.substring(1);
+        await searchBooksByTag(tag, page);
+        return;
+      }
+
       // Сначала получаем общее количество книг по запросу
       const { count, error: countError } = await supabase
         .from('books')
@@ -175,26 +200,105 @@ export default function LibraryPage() {
       }
 
       // Затем получаем книги для текущей страницы
-      const from = (page - 1) * booksPerPage
-      const to = from + booksPerPage - 1
+      // Если booksPerPage равно 0 ("Все"), то загружаем все книги
+      if (booksPerPage === 0) {
+        const { data, error } = await supabase
+          .from('books')
+          .select(`
+            *,
+            series:series_id(title, author)
+          `)
+          .or(`title.ilike.%${query}%,author.ilike.%${query}%,description.ilike.%${query}%`)
+          .order('created_at', { ascending: false })
 
-      const { data, error } = await supabase
-        .from('books')
-        .select(`
-          *,
-          series:series_id(title, author)
-        `)
-        .or(`title.ilike.%${query}%,author.ilike.%${query}%,description.ilike.%${query}%`)
-        .order('created_at', { ascending: false })
-        .range(from, to)
-
-      if (error) {
-        console.error('Error searching books:', error)
+        if (error) {
+          console.error('Error searching books:', error)
+        } else {
+          setBooks(data || [])
+        }
       } else {
-        setBooks(data || [])
+        const from = (page - 1) * booksPerPage
+        const to = from + booksPerPage - 1
+
+        const { data, error } = await supabase
+          .from('books')
+          .select(`
+            *,
+            series:series_id(title, author)
+          `)
+          .or(`title.ilike.%${query}%,author.ilike.%${query}%,description.ilike.%${query}%`)
+          .order('created_at', { ascending: false })
+          .range(from, to)
+
+        if (error) {
+          console.error('Error searching books:', error)
+        } else {
+          setBooks(data || [])
+        }
       }
     } catch (error) {
       console.error('Error searching books:', error)
+    }
+  }
+
+  // Новая функция для поиска по тегам
+  const searchBooksByTag = async (tag: string, page = 1) => {
+    try {
+      // Сначала получаем общее количество книг по тегу или жанру
+      const { count, error: countError } = await supabase
+        .from('books')
+        .select('*', { count: 'exact', head: true })
+        .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
+
+      if (countError) {
+        console.error('Error counting books by tag:', countError)
+      } else {
+        setTotalBooks(count || 0)
+      }
+
+      // Затем получаем книги для текущей страницы
+      // Если booksPerPage равно 0 ("Все"), то загружаем все книги
+      if (booksPerPage === 0) {
+        const { data, error } = await supabase
+          .from('books')
+          .select(`
+            *,
+            series:series_id(title, author)
+          `)
+          .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Error searching books by tag:', error)
+        } else {
+          setBooks(data || [])
+          setSearchQuery(`#${tag}`)
+          setCurrentPage(1)
+        }
+      } else {
+        const from = (page - 1) * booksPerPage
+        const to = from + booksPerPage - 1
+
+        const { data, error } = await supabase
+          .from('books')
+          .select(`
+            *,
+            series:series_id(title, author)
+          `)
+          .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
+          .order('created_at', { ascending: false })
+          .range(from, to)
+
+        if (error) {
+          console.error('Error searching books by tag:', error)
+        } else {
+          setBooks(data || [])
+          setSearchQuery(`#${tag}`)
+          setCurrentPage(page)
+        }
+      }
+    } catch (error) {
+      console.error('Error searching books by tag:', error)
     }
   }
 
@@ -333,34 +437,189 @@ export default function LibraryPage() {
 
       {/* Main Content */}
       <div className="container py-6">
-        {/* Search */}
-        <div className="mb-8">
-          <form onSubmit={handleSearch} className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск книг по названию, автору или описанию..."
-              className="pl-10"
-            />
-          </form>
+        {/* Top Controls Row - Search, Stats, View Mode */}
+        <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          {/* Search */}
+          <div className="w-full max-w-md">
+            <form onSubmit={handleSearch} className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск книг по названию, автору или описанию..."
+                className="pl-10 pr-10 w-full"
+              />
+              {searchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full p-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setCurrentPage(1)
+                    loadBooks(1)
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </form>
+          </div>
+
+          {/* Stats and View Mode Toggle */}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-grow">
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                {searchQuery ? (
+                  <span>Найдено книг: </span>
+                ) : (
+                  <span>Всего книг: </span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 text-sm font-normal"
+                  onClick={() => {
+                    // Можно добавить функционал при клике на общее количество книг
+                  }}
+                >
+                  <strong>{totalBooks}</strong>
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Показывать по:</span>
+                <div className="flex gap-1">
+                  {[10, 50, 100].map((count) => (
+                    <Button
+                      key={count}
+                      variant={booksPerPage === count ? "default" : "outline"}
+                      size="sm"
+                      className="h-8 px-3 text-xs"
+                      onClick={() => {
+                        setBooksPerPage(count)
+                        setCustomBooksPerPage(count.toString())
+                        setCurrentPage(1)
+                        if (searchQuery) {
+                          searchBooks(searchQuery, 1)
+                        } else {
+                          loadBooks(1)
+                        }
+                      }}
+                    >
+                      {count}
+                    </Button>
+                  ))}
+                  <Button
+                    variant={booksPerPage === 0 ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => {
+                      setBooksPerPage(0)
+                      setCustomBooksPerPage('Все')
+                      setCurrentPage(1)
+                      if (searchQuery) {
+                        searchBooks(searchQuery, 1)
+                      } else {
+                        loadBooks(1)
+                      }
+                    }}
+                  >
+                    Все
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
         </div>
 
-        {/* Stats and View Mode Toggle */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {searchQuery ? (
-              <span>Найдено книг: <strong>{totalBooks}</strong></span>
-            ) : (
-              <span>Всего книг: <strong>{totalBooks}</strong></span>
-            )}
+        {/* Pagination */}
+        {totalBooks > (booksPerPage || totalBooks) && booksPerPage !== 0 && (
+          <div className="flex justify-center mb-6">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (currentPage > 1) {
+                        const newPage = currentPage - 1
+                        setCurrentPage(newPage)
+                        if (searchQuery) {
+                          searchBooks(searchQuery, newPage)
+                        } else {
+                          loadBooks(newPage)
+                        }
+                      }
+                    }}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                  >
+                    Назад
+                  </PaginationPrevious>
+                </PaginationItem>
+
+                {Array.from({ length: Math.min(5, Math.ceil(totalBooks / booksPerPage)) }, (_, i) => {
+                  let page
+                  if (Math.ceil(totalBooks / booksPerPage) <= 5) {
+                    page = i + 1
+                  } else {
+                    const start = Math.max(1, currentPage - 2)
+                    page = start + i
+                  }
+
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        isActive={page === currentPage}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setCurrentPage(page)
+                          if (searchQuery) {
+                            searchBooks(searchQuery, page)
+                          } else {
+                            loadBooks(page)
+                          }
+                        }}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      const totalPages = Math.ceil(totalBooks / booksPerPage)
+                      if (currentPage < totalPages) {
+                        const newPage = currentPage + 1
+                        setCurrentPage(newPage)
+                        if (searchQuery) {
+                          searchBooks(searchQuery, newPage)
+                        } else {
+                          loadBooks(newPage)
+                        }
+                      }
+                    }}
+                    className={currentPage === Math.ceil(totalBooks / booksPerPage) ? "pointer-events-none opacity-50" : ""}
+                  >
+                    Вперед
+                  </PaginationNext>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
-          <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-        </div>
+        )}
 
         {/* Books Display */}
         <div>
+
           {books.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
@@ -380,6 +639,7 @@ export default function LibraryPage() {
                       key={book.id} 
                       book={book} 
                       onDownload={handleDownload}
+                      onTagClick={searchBooksByTag}
                     />
                   ))}
                 </div>
@@ -392,6 +652,7 @@ export default function LibraryPage() {
                       key={book.id} 
                       book={book} 
                       onClick={() => handleBookClick(book)} 
+                      onTagClick={searchBooksByTag}
                     />
                   ))}
                 </div>
@@ -402,88 +663,97 @@ export default function LibraryPage() {
                   books={books} 
                   onBookClick={handleBookClick}
                   onDownloadClick={handleDownloadClick}
+                  onReadClick={handleBookClick}
+                  onTagClick={searchBooksByTag}
                 />
               )}
             </>
           )}
 
-          {/* Pagination */}
-          {totalBooks > booksPerPage && (
-            <div className="mt-8">
-              <Separator className="mb-8" />
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        if (currentPage > 1) {
-                          const newPage = currentPage - 1
-                          setCurrentPage(newPage)
-                          if (searchQuery) {
-                            searchBooks(searchQuery, newPage)
-                          } else {
-                            loadBooks(newPage)
-                          }
-                        }
-                      }}
-                    />
-                  </PaginationItem>
-
-                  {Array.from({ length: Math.min(5, Math.ceil(totalBooks / booksPerPage)) }, (_, i) => {
-                    let page
-                    if (Math.ceil(totalBooks / booksPerPage) <= 5) {
-                      page = i + 1
-                    } else {
-                      const start = Math.max(1, currentPage - 2)
-                      page = start + i
-                    }
-
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          href="#"
-                          isActive={page === currentPage}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            setCurrentPage(page)
-                            if (searchQuery) {
-                              searchBooks(searchQuery, page)
-                            } else {
-                              loadBooks(page)
-                            }
-                          }}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  })}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        const totalPages = Math.ceil(totalBooks / booksPerPage)
-                        if (currentPage < totalPages) {
-                          const newPage = currentPage + 1
-                          setCurrentPage(newPage)
-                          if (searchQuery) {
-                            searchBooks(searchQuery, newPage)
-                          } else {
-                            loadBooks(newPage)
-                          }
-                        }
-                      }}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
+          
         </div>
+
+        {/* Bottom Pagination */}
+        {totalBooks > (booksPerPage || totalBooks) && booksPerPage !== 0 && (
+          <div className="flex justify-center mt-6">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (currentPage > 1) {
+                        const newPage = currentPage - 1
+                        setCurrentPage(newPage)
+                        if (searchQuery) {
+                          searchBooks(searchQuery, newPage)
+                        } else {
+                          loadBooks(newPage)
+                        }
+                      }
+                    }}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                  >
+                    Назад
+                  </PaginationPrevious>
+                </PaginationItem>
+
+                {Array.from({ length: Math.min(5, Math.ceil(totalBooks / booksPerPage)) }, (_, i) => {
+                  let page
+                  if (Math.ceil(totalBooks / booksPerPage) <= 5) {
+                    page = i + 1
+                  } else {
+                    const start = Math.max(1, currentPage - 2)
+                    page = start + i
+                  }
+
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        isActive={page === currentPage}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setCurrentPage(page)
+                          if (searchQuery) {
+                            searchBooks(searchQuery, page)
+                          } else {
+                            loadBooks(page)
+                          }
+                        }}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      const totalPages = Math.ceil(totalBooks / booksPerPage)
+                      if (currentPage < totalPages) {
+                        const newPage = currentPage + 1
+                        setCurrentPage(newPage)
+                        if (searchQuery) {
+                          searchBooks(searchQuery, newPage)
+                        } else {
+                          loadBooks(newPage)
+                        }
+                      }
+                    }}
+                    className={currentPage === Math.ceil(totalBooks / booksPerPage) ? "pointer-events-none opacity-50" : ""}
+                  >
+                    Вперед
+                  </PaginationNext>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -16,9 +16,10 @@ interface BookCardLargeProps {
     }
   }
   onDownload: (bookId: string, fileUrl: string | undefined) => void
+  onTagClick?: (tag: string) => void
 }
 
-export function BookCardLarge({ book, onDownload }: BookCardLargeProps) {
+export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargeProps) {
   const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null
   const seriesComposition = book.series?.series_composition
   const seriesCoverUrls = book.series?.cover_urls
@@ -47,6 +48,7 @@ export function BookCardLarge({ book, onDownload }: BookCardLargeProps) {
                     key={idx}
                     variant="secondary"
                     className="text-xs cursor-pointer hover:bg-secondary/80"
+                    onClick={() => onTagClick && onTagClick(genre)}
                   >
                     #{genre}
                   </Badge>
