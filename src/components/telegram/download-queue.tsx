@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { DownloadQueue, DownloadTask } from '@/lib/telegram/queue'
+import { Button } from '@/components/ui/button'
 
 export function DownloadQueueMonitor() {
   const [tasks, setTasks] = useState<DownloadTask[]>([])
@@ -23,13 +24,51 @@ export function DownloadQueueMonitor() {
     return () => clearInterval(interval)
   }, [])
 
+  // Функция для синхронизации файлов из канала "Архив для фантастики"
+  const syncArchiveFiles = async () => {
+    try {
+      const response = await fetch('/api/admin/sync-files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ limit: 10, addToQueue: true }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Sync result:', result);
+      
+      // Обновляем список задач
+      const [newTasks, newStats] = await Promise.all([
+        queue.getActiveTasks(),
+        queue.getQueueStats()
+      ])
+      setTasks(newTasks)
+      setStats(newStats)
+      
+      alert(`Успешно обработано файлов: ${result.files.length}`);
+    } catch (error) {
+      console.error('Error syncing archive files:', error);
+      alert('Ошибка при синхронизации файлов');
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Загрузки</h3>
-        <span className="text-sm text-muted-foreground">
-          В очереди: {stats.pending}
-        </span>
+        <div className="flex items-center gap-2">
+          <Button onClick={syncArchiveFiles} size="sm">
+            Синхронизировать файлы
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            В очереди: {stats.pending}
+          </span>
+        </div>
       </div>
       
       <div className="grid gap-4">

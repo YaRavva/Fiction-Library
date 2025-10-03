@@ -13,7 +13,10 @@ function checkEnvVars() {
 
 // Экспортируем функцию создания клиента для возможности создавать отдельные инстансы
 export const createClient = () => {
-  checkEnvVars();
+  // Откладываем проверку переменных окружения до фактического использования
+  if (!supabaseUrl || !supabaseAnonKey) {
+    checkEnvVars();
+  }
   return createSupabaseClient(supabaseUrl!, supabaseAnonKey!);
 };
 
@@ -173,7 +176,7 @@ export async function uploadFileToStorage(bucket: string, path: string, buffer: 
 
 // Insert or update a book record
 export async function upsertBookRecord(book: Partial<Book>) {
-  const { data, error } = await supabase.from('books').upsert(book).select().single()
+  const { data, error } = await (supabase.from('books') as any).upsert(book).select().single()
   if (error) throw error
   return data
 }

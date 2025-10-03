@@ -107,9 +107,19 @@ export function UserAuthForm({
       <form onSubmit={onSubmit}>
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="email">
-              Email
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="email">
+                Email
+              </Label>
+              {type === 'login' && (
+                <Link
+                  href="/auth/reset-password"
+                  className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+                >
+                  Забыли пароль?
+                </Link>
+              )}
+            </div>
             <Input
               id="email"
               placeholder="name@example.com"
@@ -127,17 +137,7 @@ export function UserAuthForm({
             )}
           </div>
           <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Пароль</Label>
-              {type === 'login' && (
-                <Link
-                  href="/auth/reset-password"
-                  className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
-                >
-                  Забыли пароль?
-                </Link>
-              )}
-            </div>
+            <Label htmlFor="password">Пароль</Label>
             <Input
               id="password"
               placeholder="••••••••"

@@ -1,6 +1,7 @@
 import { TelegramService } from './client';
 import { MetadataParser, BookMetadata } from './parser';
 import { uploadFileToStorage, upsertBookRecord } from '../supabase';
+import { serverSupabase } from '../serverSupabase';
 import path from 'path';
 
 /**
@@ -331,6 +332,112 @@ export class TelegramSyncService {
             return Buffer.from(buffer);
         } catch (error) {
             console.error('Error downloading book:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Скачивает файлы из канала "Архив для фантастики" и добавляет их в очередь загрузки
+     * @param limit Количество сообщений для обработки
+     * @param addToQueue Флаг, определяющий, добавлять ли файлы в очередь загрузки
+     */
+    public async downloadFilesFromArchiveChannel(limit: number = 10, addToQueue: boolean = true): Promise<any[]> {
+        if (!this.telegramClient) {
+            throw new Error('Telegram client not initialized');
+        }
+
+        try {
+            // Получаем канал с файлами
+            console.log('📚 Получаем доступ к каналу "Архив для фантастики"...');
+            const channel = await this.telegramClient.getFilesChannel();
+            
+            // Получаем сообщения
+            console.log(`📖 Получаем последние ${limit} сообщений...`);
+            const messages = await this.telegramClient.getMessages(channel, limit);
+            console.log(`✅ Получено ${messages.length} сообщений\n`);
+
+            const results: any[] = [];
+            
+            // Обрабатываем каждое сообщение
+            for (const msg of messages) {
+                const anyMsg: any = msg as any;
+                console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
+                
+                // Проверяем, есть ли в сообщении медиа (файл)
+                if (!anyMsg.media) {
+                    console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа, пропускаем`);
+                    continue;
+                }
+                
+                try {
+                    // Определяем имя файла
+                    let filename = `book_${anyMsg.id}.fb2`;
+                    if (anyMsg.document && anyMsg.document.attributes) {
+                        // Ищем атрибут с именем файла
+                        const attrFileName = anyMsg.document.attributes.find((attr: any) => 
+                          attr.className === 'DocumentAttributeFilename'
+                        );
+                        if (attrFileName && attrFileName.fileName) {
+                          filename = attrFileName.fileName;
+                        }
+                    }
+                    
+                    console.log(`  📄 Найден файл: ${filename}`);
+                    
+                    // Если нужно добавить в очередь загрузки
+                    if (addToQueue) {
+                        // Формируем file_id как messageId (канал будем получать внутри downloadFile)
+                        const fileId = String(anyMsg.id);
+                        
+                        // Создаем запись о файле в БД (временно, для отслеживания)
+                        const fileRecord = {
+                          telegram_message_id: String(anyMsg.id),
+                          channel: 'Архив для фантастики',
+                          raw_text: anyMsg.message || '',
+                          processed_at: new Date().toISOString()
+                        };
+                        
+                        try {
+                          // Вставляем запись о сообщении
+                          await (serverSupabase.from('telegram_messages') as any).upsert(fileRecord);
+                        } catch (dbError) {
+                          console.warn(`  ⚠️ Ошибка при сохранении записи о сообщении:`, dbError);
+                        }
+                        
+                        // Добавляем задачу в очередь загрузки
+                        const downloadTask = {
+                          message_id: String(anyMsg.id),
+                          channel_id: String(anyMsg.peerId || channel.id),
+                          file_id: fileId,
+                          status: 'pending',
+                          priority: 0,
+                          scheduled_for: new Date().toISOString()
+                        };
+                        
+                        try {
+                          await (serverSupabase.from('telegram_download_queue') as any).upsert(downloadTask);
+                          console.log(`  ✅ Файл добавлен в очередь загрузки: ${fileId}`);
+                        } catch (queueError) {
+                          console.error(`  ❌ Ошибка при добавлении в очередь:`, queueError);
+                        }
+                    }
+                    
+                    results.push({
+                      messageId: anyMsg.id,
+                      filename,
+                      hasMedia: !!anyMsg.media,
+                      addedToQueue: addToQueue
+                    });
+                    
+                } catch (msgError) {
+                    console.error(`  ❌ Ошибка обработки сообщения ${anyMsg.id}:`, msgError);
+                }
+            }
+            
+            console.log(`\n📊 Всего обработано файлов: ${results.length}`);
+            return results;
+        } catch (error) {
+            console.error('Error downloading files from archive channel:', error);
             throw error;
         }
     }

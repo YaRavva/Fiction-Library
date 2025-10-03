@@ -118,7 +118,33 @@ WHERE id = 'ваш-user-id';
 См. документацию: `docs/ADMIN_GUIDE.md`
 
 ### Добавить загрузку файлов
-Реализовать worker для обработки очереди загрузок файлов из приватного канала.
+
+Теперь вы можете сканировать приватный канал "Архив для фантастики" и загружать файлы:
+
+1. **Сканирование канала:**
+   ```powershell
+   npx tsx src/scripts/sync-archive-files.ts --limit=10
+   ```
+
+2. **Запуск worker'а загрузки:**
+   ```powershell
+   npx tsx src/scripts/start-download-worker.ts
+   ```
+
+3. **Или через API:**
+   ```bash
+   curl -X POST http://localhost:3000/api/admin/sync-files \
+     -H "Content-Type: application/json" \
+     -d '{"limit": 10, "addToQueue": true}'
+   ```
+
+Worker будет автоматически:
+- Скачивать файлы из Telegram
+- Загружать их в Supabase Storage (бакет books)
+- Создавать записи в таблице books
+- Обновлять статус задач в очереди
+
+Подробная инструкция: `TELEGRAM_SYNC_INSTRUCTIONS.md`
 
 ---
 

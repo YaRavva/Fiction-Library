@@ -48,16 +48,36 @@ export class TelegramService {
     public async downloadFile(fileId: string): Promise<Buffer> {
         try {
             // Получаем сообщение с файлом
-            const [channelId, messageId] = fileId.split(':').map(Number);
-            const channel = await this.client.getEntity(channelId);
-            const message = await this.client.getMessages(channel, { ids: [messageId] });
-
-            if (!Array.isArray(message) || !message[0]?.media) {
-                throw new Error('Message or media not found');
+            const messageId = Number(fileId);
+            
+            // Получаем канал с файлами
+            const channel = await this.getFilesChannel();
+            
+            // Получаем сообщения и ищем нужное
+            const messages = await this.getMessages(channel, 20); // Получаем больше сообщений для увеличения шансов
+            
+            // Ищем сообщение с указанным ID
+            let targetMessage = null;
+            if (Array.isArray(messages)) {
+                for (const msg of messages) {
+                    // @ts-ignore
+                    if (msg && msg.id === messageId) {
+                        targetMessage = msg;
+                        break;
+                    }
+                }
+            }
+            
+            if (!targetMessage) {
+                throw new Error(`Message with ID ${messageId} not found`);
+            }
+            
+            if (!targetMessage.media) {
+                throw new Error(`Message with ID ${messageId} has no media`);
             }
 
             // Скачиваем файл
-            const buffer = await this.client.downloadMedia(message[0].media);
+            const buffer = await this.downloadMedia(targetMessage);
 
             if (buffer instanceof Buffer) {
                 return buffer;
