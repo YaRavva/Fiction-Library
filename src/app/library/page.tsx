@@ -456,12 +456,13 @@ export default function LibraryPage() {
                                     <div key={idx} className="relative w-full overflow-hidden rounded border bg-muted">
                                       {wideCover ? (
                                         // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
+                                        // Используем object-cover для обрезки по краям
                                         <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
                                           <Image
                                             src={coverUrl}
                                             alt={`Обложка ${idx + 1}`}
                                             fill
-                                            className="object-contain"
+                                            className="object-cover"
                                             unoptimized
                                             sizes="(max-width: 640px) 100vw, 384px"
                                           />
