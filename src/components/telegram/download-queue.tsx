@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { DownloadQueue, DownloadTask } from '@/lib/telegram/queue'
 import { Button } from '@/components/ui/button'
+import { Toast } from '@/components/ui/toast'
 
 export function DownloadQueueMonitor() {
   const [tasks, setTasks] = useState<DownloadTask[]>([])
   const [stats, setStats] = useState({ pending: 0 })
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const queue = new DownloadQueue()
 
   useEffect(() => {
@@ -50,10 +52,39 @@ export function DownloadQueueMonitor() {
       setTasks(newTasks)
       setStats(newStats)
       
-      alert(`Успешно обработано файлов: ${result.files.length}`);
+      setToastMessage(`Успешно обработано файлов: ${result.files.length}`);
     } catch (error) {
       console.error('Error syncing archive files:', error);
-      alert('Ошибка при синхронизации файлов');
+      setToastMessage('Ошибка при синхронизации файлов');
+    }
+  }
+
+  // Функция для запуска дедупликации
+  const runDeduplication = async (mode: 'dry-run' | 'execute' = 'dry-run') => {
+    try {
+      const response = await fetch('/api/admin/deduplicate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mode, limit: 100 }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Deduplication result:', result);
+      
+      if (mode === 'execute') {
+        setToastMessage(`Дедупликация завершена:\nНайдено дубликатов: ${result.duplicatesFound}\nУдалено: ${result.duplicatesRemoved}`);
+      } else {
+        setToastMessage(`Анализ дедупликации завершен:\nНайдено дубликатов: ${result.duplicatesFound}`);
+      }
+    } catch (error) {
+      console.error('Error running deduplication:', error);
+      setToastMessage('Ошибка при выполнении дедупликации');
     }
   }
 
@@ -102,6 +133,10 @@ export function DownloadQueueMonitor() {
           </Card>
         ))}
       </div>
+      
+      {toastMessage && (
+        <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+      )}
     </div>
   )
 }

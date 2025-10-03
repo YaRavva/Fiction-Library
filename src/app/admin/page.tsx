@@ -3,13 +3,24 @@
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, Database, BookOpen, Users, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { RefreshCw, Database, BookOpen, Users, AlertCircle, CheckCircle, Clock, Library, LogOut, Settings, Shield, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DownloadQueueMonitor } from '@/components/telegram/download-queue'
+import { TimerSettings } from '@/components/admin/timer-settings'
 import { getValidSession } from '@/lib/auth-helpers'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
 
 interface SyncStatus {
   id: string
@@ -31,6 +42,13 @@ interface SyncResult {
   errors: string[]
 }
 
+interface UserProfile {
+  id: string
+  username?: string
+  display_name?: string
+  role: string
+}
+
 export default function AdminPage() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
@@ -41,6 +59,8 @@ export default function AdminPage() {
   const [stats, setStats] = useState<SyncStats>({ totalBooks: 0, totalSeries: 0 })
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [user, setUser] = useState<any>(null)
 
   const loadSyncStatus = useCallback(async () => {
     try {
@@ -70,6 +90,11 @@ export default function AdminPage() {
     }
   }, [supabase, router])
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -83,10 +108,12 @@ export default function AdminPage() {
           return
         }
 
+        setUser(session.user)
+
         // Проверяем роль пользователя
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
-          .select('role')
+          .select('*')
           .eq('id', session.user.id)
           .single()
 
@@ -102,6 +129,7 @@ export default function AdminPage() {
           return
         }
 
+        setUserProfile(profile)
         await loadSyncStatus()
       } catch (error) {
         console.error('Error checking auth:', error)
@@ -156,10 +184,10 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Загрузка...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
+          <p className="text-muted-foreground">Загрузка админ панели...</p>
         </div>
       </div>
     )
@@ -167,16 +195,16 @@ export default function AdminPage() {
 
   if (error && !syncing) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle className="flex items-center text-red-600">
+            <CardTitle className="flex items-center text-destructive">
               <AlertCircle className="mr-2" />
               Ошибка
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
             <Button onClick={() => router.push('/library')}>
               Вернуться в библиотеку
             </Button>
@@ -187,20 +215,79 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Админ панель
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
+    <div className="min-h-screen">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="mr-4 flex">
+            <a href="/library" className="mr-6 flex items-center space-x-2">
+              <Library className="h-6 w-6" />
+              <span className="hidden font-bold sm:inline-block">
+                Fiction Library
+              </span>
+            </a>
+          </div>
+
+          <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+            <div className="w-full flex-1 md:w-auto md:flex-none">
+              {/* Search would go here if needed */}
+            </div>
+
+            <nav className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>
+                        {(userProfile?.display_name || userProfile?.username || user?.email || 'U')[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {userProfile?.display_name || userProfile?.username || 'Пользователь'}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/library')}>
+                    <Library className="mr-2 h-4 w-4" />
+                    <span>Библиотека</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/profile')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Настройки</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Выйти</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="container py-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Админ панель</h1>
+          <p className="text-muted-foreground">
             Управление синхронизацией с Telegram
           </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Всего книг</CardTitle>
@@ -237,7 +324,7 @@ export default function AdminPage() {
         </div>
 
         {/* Sync Control */}
-        <Card className="mb-8">
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle>Синхронизация метаданных</CardTitle>
             <CardDescription>
@@ -270,15 +357,15 @@ export default function AdminPage() {
               </div>
 
               {lastSyncResult && (
-                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="mt-4 p-4 bg-muted rounded-lg">
                   <h3 className="font-semibold mb-2">Результаты последней синхронизации:</h3>
                   <div className="space-y-2">
-                    <div className="flex items-center text-green-600">
+                    <div className="flex items-center text-green-600 dark:text-green-400">
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Успешно: {lastSyncResult.success}
                     </div>
                     {lastSyncResult.failed > 0 && (
-                      <div className="flex items-center text-red-600">
+                      <div className="flex items-center text-destructive">
                         <AlertCircle className="h-4 w-4 mr-2" />
                         Ошибок: {lastSyncResult.failed}
                       </div>
@@ -286,7 +373,7 @@ export default function AdminPage() {
                     {lastSyncResult.errors.length > 0 && (
                       <div className="mt-2">
                         <p className="text-sm font-medium mb-1">Детали ошибок:</p>
-                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                        <ul className="text-sm text-muted-foreground space-y-1">
                           {lastSyncResult.errors.map((error, index) => (
                             <li key={index} className="truncate">• {error}</li>
                           ))}
@@ -301,7 +388,7 @@ export default function AdminPage() {
         </Card>
 
         {/* Download Queue Monitor */}
-        <Card className="mb-8">
+        <Card className="mb-6">
           <CardHeader>
             <CardTitle>Очередь загрузок</CardTitle>
             <CardDescription>
@@ -313,6 +400,11 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
+        {/* Timer Settings */}
+        <div className="mb-6">
+          <TimerSettings />
+        </div>
+        
         {/* Back to Library */}
         <div className="flex justify-center">
           <Button variant="outline" onClick={() => router.push('/library')}>
@@ -323,4 +415,3 @@ export default function AdminPage() {
     </div>
   )
 }
-

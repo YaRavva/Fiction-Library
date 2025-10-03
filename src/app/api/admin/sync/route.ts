@@ -14,6 +14,44 @@ if (!supabaseUrl || !serviceRoleKey) {
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 /**
+ * Enhanced duplicate checking function
+ * Checks for duplicates based on multiple criteria
+ */
+async function checkForDuplicates(
+  title: string, 
+  author: string, 
+  publicationYear?: number
+): Promise<{ exists: boolean; book?: any }> {
+  try {
+    let query = supabaseAdmin
+      .from('books')
+      .select('id, title, author, publication_year, file_url, created_at, updated_at')
+      .eq('title', title)
+      .eq('author', author);
+    
+    // If publication year is provided, use it for more precise matching
+    if (publicationYear) {
+      query = query.eq('publication_year', publicationYear);
+    }
+    
+    const { data, error } = await query.limit(1).single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "single row expected" which is expected when no rows found
+      console.error('Error checking for duplicates:', error);
+      return { exists: false };
+    }
+    
+    return { 
+      exists: !!data, 
+      book: data || undefined 
+    };
+  } catch (error) {
+    console.error('Error in duplicate check:', error);
+    return { exists: false };
+  }
+}
+
+/**
  * POST /api/admin/sync
  * Запускает синхронизацию метаданных из Telegram канала
  * 
@@ -140,7 +178,7 @@ export async function POST(request: NextRequest) {
           // Улучшенная проверка дубликатов: проверяем по title, author и дополнительно по году публикации если есть
           let query = supabaseAdmin
             .from('books')
-            .select('id, publication_year')
+            .select('id, publication_year, file_url')
             .eq('title', book.title)
             .eq('author', book.author);
           
@@ -157,7 +195,7 @@ export async function POST(request: NextRequest) {
             console.warn('Enhanced duplicate check failed, falling back to simple check:', existingBooksError.message);
             const { data: simpleCheck } = await supabaseAdmin
               .from('books')
-              .select('id')
+              .select('id, file_url')
               .eq('title', book.title)
               .eq('author', book.author)
               .single();
@@ -168,36 +206,81 @@ export async function POST(request: NextRequest) {
           }
 
           if (existingBook) {
-            // Обновляем существующую книгу
-            const updateData: any = {
-              series_id: seriesId,
-              description: book.description,
-              rating: book.rating,
-              genres: book.genres,
-              tags: book.tags,
-              updated_at: new Date().toISOString(),
-            };
-
-            // Добавляем обложку, если есть
-            if (book.coverUrls && book.coverUrls.length > 0) {
+            // Найден дубликат - обрабатываем в зависимости от наличия файла
+            // Проверяем, есть ли у существующей книги файл
+            // Если у существующей книги нет файла, но у текущей есть (обложка)
+            if (!existingBook.file_url && book.coverUrls && book.coverUrls.length > 0) {
+              // Обновляем существующую книгу с обложкой
+              const updateData: any = {
+                updated_at: new Date().toISOString(),
+              };
+              
+              // Добавляем обложку
               updateData.cover_url = book.coverUrls[0];
-            }
 
-            // Если есть книги в серии, обновляем год первой книги
-            if (book.books && book.books.length > 0) {
-              updateData.publication_year = book.books[0].year;
-            }
+              // Если есть книги в серии, обновляем год первой книги
+              if (book.books && book.books.length > 0) {
+                updateData.publication_year = book.books[0].year;
+              }
+              
+              // Добавляем другие метаданные
+              updateData.description = book.description;
+              updateData.rating = book.rating;
+              updateData.genres = book.genres;
+              updateData.tags = book.tags;
 
-            const { error: updateError } = await supabaseAdmin
-              .from('books')
-              .update(updateData)
-              .eq('id', existingBook.id);
+              const { error: updateError } = await supabaseAdmin
+                .from('books')
+                .update(updateData)
+                .eq('id', existingBook.id);
 
-            if (updateError) {
+              if (updateError) {
+                results.failed++;
+                results.errors.push(`Failed to update book "${book.title}" with cover: ${updateError.message}`);
+              } else {
+                results.success++;
+                results.errors.push(`Updated existing book "${book.title}" with cover`);
+              }
+            } 
+            // Если у обеих книг есть файлы (обложки), пропускаем дубликат
+            else if (existingBook.file_url && book.coverUrls && book.coverUrls.length > 0) {
               results.failed++;
-              results.errors.push(`Failed to update book "${book.title}": ${updateError.message}`);
-            } else {
-              results.success++;
+              results.errors.push(`Duplicate book "${book.title}" skipped (both have covers)`);
+            }
+            // Если ни у одной книги нет файла, обновляем метаданные
+            else {
+              // Обновляем существующую книгу с новыми метаданными
+              const updateData: any = {
+                series_id: seriesId,
+                description: book.description,
+                rating: book.rating,
+                genres: book.genres,
+                tags: book.tags,
+                updated_at: new Date().toISOString(),
+              };
+
+              // Добавляем обложку, если есть
+              if (book.coverUrls && book.coverUrls.length > 0) {
+                updateData.cover_url = book.coverUrls[0];
+              }
+
+              // Если есть книги в серии, обновляем год первой книги
+              if (book.books && book.books.length > 0) {
+                updateData.publication_year = book.books[0].year;
+              }
+
+              const { error: updateError } = await supabaseAdmin
+                .from('books')
+                .update(updateData)
+                .eq('id', existingBook.id);
+
+              if (updateError) {
+                results.failed++;
+                results.errors.push(`Failed to update book "${book.title}" metadata: ${updateError.message}`);
+              } else {
+                results.success++;
+                results.errors.push(`Updated existing book "${book.title}" metadata`);
+              }
             }
           } else {
             // Создаем новую книгу
