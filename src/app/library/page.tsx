@@ -369,20 +369,6 @@ export default function LibraryPage() {
                   <Card key={book.id} className="overflow-hidden">
                     <CardContent className="p-6">
                       <div className="space-y-4">
-                        {/* Обложка */}
-                        {book.cover_url && (
-                          <div className="relative w-full aspect-[2/3] overflow-hidden rounded border bg-muted">
-                            <Image
-                              src={book.cover_url}
-                              alt={book.title}
-                              fill
-                              className="object-contain"
-                              unoptimized
-                              sizes="(max-width: 640px) 100vw, 384px"
-                            />
-                          </div>
-                        )}
-
                         {/* Автор и Название */}
                         <div className="space-y-1">
                           <div className="text-sm">
@@ -444,25 +430,42 @@ export default function LibraryPage() {
                           </div>
                         )}
 
-                        {/* Обложки серии */}
-                        {seriesCoverUrls && seriesCoverUrls.length > 0 && (
+                        {/* Обложки - только внизу карточки */}
+                        {(book.cover_url || (seriesCoverUrls && seriesCoverUrls.length > 0)) && (
                           <div className="space-y-2">
                             <div className="grid grid-cols-1 gap-2">
-                              {seriesCoverUrls.map((coverUrl, idx) => (
-                                <div
-                                  key={idx}
-                                  className="relative w-full aspect-[2/3] overflow-hidden rounded border bg-muted"
-                                >
-                                  <Image
-                                    src={coverUrl}
-                                    alt={`Обложка ${idx + 1}`}
-                                    fill
-                                    className="object-contain"
-                                    unoptimized
-                                    sizes="(max-width: 640px) 100vw, 384px"
-                                  />
-                                </div>
-                              ))}
+                              {/* Если есть обложки серии, показываем их */}
+                              {seriesCoverUrls && seriesCoverUrls.length > 0 ? (
+                                seriesCoverUrls.map((coverUrl, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted"
+                                  >
+                                    <Image
+                                      src={coverUrl}
+                                      alt={`Обложка ${idx + 1}`}
+                                      fill
+                                      className="object-contain"
+                                      unoptimized
+                                      sizes="(max-width: 640px) 100vw, 320px"
+                                    />
+                                  </div>
+                                ))
+                              ) : (
+                                // Если нет обложек серии, но есть обложка книги, показываем её
+                                book.cover_url && (
+                                  <div className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted">
+                                    <Image
+                                      src={book.cover_url}
+                                      alt={book.title}
+                                      fill
+                                      className="object-contain"
+                                      unoptimized
+                                      sizes="(max-width: 640px) 100vw, 320px"
+                                    />
+                                  </div>
+                                )
+                              )}
                             </div>
                           </div>
                         )}
