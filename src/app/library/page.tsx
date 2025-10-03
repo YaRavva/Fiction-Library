@@ -437,13 +437,24 @@ export default function LibraryPage() {
                               {/* Если есть обложки серии, показываем их */}
                               {seriesCoverUrls && seriesCoverUrls.length > 0 ? (
                                 seriesCoverUrls.map((coverUrl, idx) => {
-                                  // Определяем, является ли обложка широкой (тройной)
-                                  const isWideCover = coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
-                                                     coverUrl.includes('3109e8fdf303b46ee64f1');  // цикл Одаренные
+                                  // Определяем, является ли обложка широкой (тройной) по соотношению сторон
+                                  const isWideCover = () => {
+                                    // Проверяем по URL (старый способ)
+                                    if (coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
+                                        coverUrl.includes('3109e8fdf303b46ee64f1')) { // цикл Одаренные
+                                      return true;
+                                    }
+                                    
+                                    // TODO: В будущем можно добавить динамическую проверку размеров изображения
+                                    // Пока что для тестирования считаем широкими обложки с определенными характеристиками
+                                    return false;
+                                  };
+                                  
+                                  const wideCover = isWideCover();
                                   
                                   return (
                                     <div key={idx} className="relative w-full overflow-hidden rounded border bg-muted">
-                                      {isWideCover ? (
+                                      {wideCover ? (
                                         // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
                                         <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
                                           <Image
