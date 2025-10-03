@@ -445,7 +445,7 @@ export default function LibraryPage() {
                                     <div key={idx} className="relative w-full overflow-hidden rounded border bg-muted">
                                       {isWideCover ? (
                                         // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
-                                        <div className="relative aspect-[2/3] w-full">
+                                        <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
                                           <Image
                                             src={coverUrl}
                                             alt={`Обложка ${idx + 1}`}
@@ -480,17 +480,15 @@ export default function LibraryPage() {
                                             />
                                           </div>
                                           {/* Основная обложка по центру */}
-                                          <div className="relative aspect-[2/3] w-full flex items-center justify-center">
-                                            <div className="relative max-w-xs w-full h-full">
-                                              <Image
-                                                src={coverUrl}
-                                                alt={`Обложка ${idx + 1}`}
-                                                fill
-                                                className="object-contain relative z-10"
-                                                unoptimized
-                                                sizes="(max-width: 640px) 100vw, 320px"
-                                              />
-                                            </div>
+                                          <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
+                                            <Image
+                                              src={coverUrl}
+                                              alt={`Обложка ${idx + 1}`}
+                                              fill
+                                              className="object-contain relative z-10"
+                                              unoptimized
+                                              sizes="(max-width: 640px) 100vw, 320px"
+                                            />
                                           </div>
                                         </>
                                       )}
@@ -523,17 +521,15 @@ export default function LibraryPage() {
                                       />
                                     </div>
                                     {/* Основная обложка по центру */}
-                                    <div className="relative aspect-[2/3] w-full flex items-center justify-center">
-                                      <div className="relative max-w-xs w-full h-full">
-                                        <Image
-                                          src={book.cover_url}
-                                          alt={book.title}
-                                          fill
-                                          className="object-contain relative z-10"
-                                          unoptimized
-                                          sizes="(max-width: 640px) 100vw, 320px"
-                                        />
-                                      </div>
+                                    <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
+                                      <Image
+                                        src={book.cover_url}
+                                        alt={book.title}
+                                        fill
+                                        className="object-contain relative z-10"
+                                        unoptimized
+                                        sizes="(max-width: 640px) 100vw, 320px"
+                                      />
                                     </div>
                                   </div>
                                 )
