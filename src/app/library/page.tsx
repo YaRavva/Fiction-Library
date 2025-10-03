@@ -456,17 +456,27 @@ export default function LibraryPage() {
                                           />
                                         </div>
                                       ) : (
-                                        // Обычные обложки с эффектом блюра по бокам, растянутые на всю ширину карточки
+                                        // Обычные обложки с эффектом блюра только по бокам, растянутые на всю ширину карточки
                                         <>
-                                          {/* Блюр-эффект по бокам */}
-                                          <div className="absolute inset-0">
+                                          {/* Блюр-эффект только по бокам */}
+                                          <div className="absolute inset-y-0 left-0 w-1/4">
                                             <Image
                                               src={coverUrl}
                                               alt={`Обложка ${idx + 1}`}
                                               fill
-                                              className="object-cover scale-110 blur-sm opacity-30"
+                                              className="object-cover scale-125 blur-sm opacity-30"
                                               unoptimized
-                                              sizes="(max-width: 640px) 100vw, 320px"
+                                              sizes="(max-width: 640px) 25vw, 80px"
+                                            />
+                                          </div>
+                                          <div className="absolute inset-y-0 right-0 w-1/4">
+                                            <Image
+                                              src={coverUrl}
+                                              alt={`Обложка ${idx + 1}`}
+                                              fill
+                                              className="object-cover scale-125 blur-sm opacity-30"
+                                              unoptimized
+                                              sizes="(max-width: 640px) 25vw, 80px"
                                             />
                                           </div>
                                           {/* Основная обложка по центру */}
@@ -488,18 +498,28 @@ export default function LibraryPage() {
                                   );
                                 })
                               ) : (
-                                // Если нет обложек серии, но есть обложка книги, показываем её с эффектом блюра по бокам
+                                // Если нет обложек серии, но есть обложка книги, показываем её с эффектом блюра только по бокам
                                 book.cover_url && (
                                   <div className="relative w-full overflow-hidden rounded border bg-muted">
-                                    {/* Блюр-эффект по бокам */}
-                                    <div className="absolute inset-0">
+                                    {/* Блюр-эффект только по бокам */}
+                                    <div className="absolute inset-y-0 left-0 w-1/4">
                                       <Image
                                         src={book.cover_url}
                                         alt={book.title}
                                         fill
-                                        className="object-cover scale-110 blur-sm opacity-30"
+                                        className="object-cover scale-125 blur-sm opacity-30"
                                         unoptimized
-                                        sizes="(max-width: 640px) 100vw, 320px"
+                                        sizes="(max-width: 640px) 25vw, 80px"
+                                      />
+                                    </div>
+                                    <div className="absolute inset-y-0 right-0 w-1/4">
+                                      <Image
+                                        src={book.cover_url}
+                                        alt={book.title}
+                                        fill
+                                        className="object-cover scale-125 blur-sm opacity-30"
+                                        unoptimized
+                                        sizes="(max-width: 640px) 25vw, 80px"
                                       />
                                     </div>
                                     {/* Основная обложка по центру */}
