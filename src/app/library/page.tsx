@@ -359,7 +359,7 @@ export default function LibraryPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-1">
               {books.map((book) => {
                 const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null
                 const seriesComposition = book.series?.series_composition
@@ -437,110 +437,80 @@ export default function LibraryPage() {
                               {/* Если есть обложки серии, показываем их */}
                               {seriesCoverUrls && seriesCoverUrls.length > 0 ? (
                                 seriesCoverUrls.map((coverUrl, idx) => {
-                                  // Определяем, является ли обложка широкой (тройной) по соотношению сторон
-                                  const isWideCover = () => {
-                                    // Проверяем по URL (старый способ)
-                                    if (coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
-                                        coverUrl.includes('3109e8fdf303b46ee64f1')) { // цикл Одаренные
-                                      return true;
-                                    }
-                                    
-                                    // TODO: В будущем можно добавить динамическую проверку размеров изображения
-                                    // Пока что для тестирования считаем широкими обложки с определенными характеристиками
-                                    return false;
-                                  };
-                                  
-                                  const wideCover = isWideCover();
-                                  
                                   return (
                                     <div key={idx} className="relative w-full overflow-hidden rounded border bg-muted">
-                                      {wideCover ? (
-                                        // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
-                                        <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
+                                      {/* Контейнер фиксированной высоты 480px */}
+                                      <div className="relative w-full h-[480px]">
+                                        {/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
+                                        <div className="absolute inset-0">
                                           <Image
                                             src={coverUrl}
                                             alt={`Обложка ${idx + 1}`}
                                             fill
-                                            className="object-contain"
+                                            className="object-cover scale-110 blur-sm opacity-30"
                                             unoptimized
                                             sizes="(max-width: 640px) 100vw, 384px"
                                           />
                                         </div>
-                                      ) : (
-                                        // Обычные обложки с эффектом блюра только по бокам, растянутые на всю ширину карточки
-                                        <>
-                                          {/* Блюр-эффект только по бокам */}
-                                          <div className="absolute inset-y-0 left-0 w-1/4">
-                                            <Image
+                                        {/* Основная обложка по центру */}
+                                        <div className="relative w-full h-full flex items-center justify-center">
+                                          <div style={{ 
+                                            height: '480px', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center' 
+                                          }}>
+                                            <img
                                               src={coverUrl}
                                               alt={`Обложка ${idx + 1}`}
-                                              fill
-                                              className="object-cover scale-125 blur-sm opacity-30"
-                                              unoptimized
-                                              sizes="(max-width: 640px) 25vw, 80px"
+                                              style={{
+                                                maxHeight: '480px',
+                                                maxWidth: '100%',
+                                                objectFit: 'contain'
+                                              }}
                                             />
                                           </div>
-                                          <div className="absolute inset-y-0 right-0 w-1/4">
-                                            <Image
-                                              src={coverUrl}
-                                              alt={`Обложка ${idx + 1}`}
-                                              fill
-                                              className="object-cover scale-125 blur-sm opacity-30"
-                                              unoptimized
-                                              sizes="(max-width: 640px) 25vw, 80px"
-                                            />
-                                          </div>
-                                          {/* Основная обложка по центру */}
-                                          <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
-                                            <Image
-                                              src={coverUrl}
-                                              alt={`Обложка ${idx + 1}`}
-                                              fill
-                                              className="object-contain relative z-10"
-                                              unoptimized
-                                              sizes="(max-width: 640px) 100vw, 320px"
-                                            />
-                                          </div>
-                                        </>
-                                      )}
+                                        </div>
+                                      </div>
                                     </div>
                                   );
                                 })
                               ) : (
-                                // Если нет обложек серии, но есть обложка книги, показываем её с эффектом блюра только по бокам
+                                // Если нет обложек серии, но есть обложка книги
                                 book.cover_url && (
                                   <div className="relative w-full overflow-hidden rounded border bg-muted">
-                                    {/* Блюр-эффект только по бокам */}
-                                    <div className="absolute inset-y-0 left-0 w-1/4">
-                                      <Image
-                                        src={book.cover_url}
-                                        alt={book.title}
-                                        fill
-                                        className="object-cover scale-125 blur-sm opacity-30"
-                                        unoptimized
-                                        sizes="(max-width: 640px) 25vw, 80px"
-                                      />
-                                    </div>
-                                    <div className="absolute inset-y-0 right-0 w-1/4">
-                                      <Image
-                                        src={book.cover_url}
-                                        alt={book.title}
-                                        fill
-                                        className="object-cover scale-125 blur-sm opacity-30"
-                                        unoptimized
-                                        sizes="(max-width: 640px) 25vw, 80px"
-                                      />
-                                    </div>
-                                    {/* Основная обложка по центру */}
-                                    <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
-                                      <Image
-                                        src={book.cover_url}
-                                        alt={book.title}
-                                        fill
-                                        className="object-contain relative z-10"
-                                        unoptimized
-                                        sizes="(max-width: 640px) 100vw, 320px"
-                                      />
+                                    {/* Контейнер фиксированной высоты 480px */}
+                                    <div className="relative w-full h-[480px]">
+                                      {/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
+                                      <div className="absolute inset-0">
+                                        <Image
+                                          src={book.cover_url}
+                                          alt={book.title}
+                                          fill
+                                          className="object-cover scale-110 blur-sm opacity-30"
+                                          unoptimized
+                                          sizes="(max-width: 640px) 100vw, 384px"
+                                        />
+                                      </div>
+                                      {/* Основная обложка по центру */}
+                                      <div className="relative w-full h-full flex items-center justify-center">
+                                        <div style={{ 
+                                          height: '480px', 
+                                          display: 'flex', 
+                                          alignItems: 'center', 
+                                          justifyContent: 'center' 
+                                        }}>
+                                          <img
+                                            src={book.cover_url}
+                                            alt={book.title}
+                                            style={{
+                                              maxHeight: '480px',
+                                              maxWidth: '100%',
+                                              objectFit: 'contain'
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 )
