@@ -441,56 +441,56 @@ export default function LibraryPage() {
                                   const isWideCover = coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
                                                      coverUrl.includes('3109e8fdf303b46ee64f1');  // цикл Одаренные
                                   
-                                  return isWideCover ? (
-                                    // Широкие (тройные) обложки показываем в полную ширину без блюра
-                                    <div
-                                      key={idx}
-                                      className="relative w-full aspect-[2/3] overflow-hidden rounded border bg-muted"
-                                    >
-                                      <Image
-                                        src={coverUrl}
-                                        alt={`Обложка ${idx + 1}`}
-                                        fill
-                                        className="object-contain"
-                                        unoptimized
-                                        sizes="(max-width: 640px) 100vw, 384px"
-                                      />
-                                    </div>
-                                  ) : (
-                                    // Обычные обложки с эффектом блюра по бокам
-                                    <div className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted">
-                                      {/* Блюр-эффект по бокам */}
-                                      <div className="absolute inset-0">
-                                        <Image
-                                          src={coverUrl}
-                                          alt={`Обложка ${idx + 1}`}
-                                          fill
-                                          className="object-cover scale-110 blur-sm opacity-30"
-                                          unoptimized
-                                          sizes="(max-width: 640px) 100vw, 320px"
-                                        />
-                                      </div>
-                                      {/* Основная обложка по центру */}
-                                      <div className="relative h-full w-full flex items-center justify-center">
-                                        <div className="relative" style={{ maxWidth: '80%', maxHeight: '80%' }}>
+                                  return (
+                                    <div key={idx} className="relative w-full overflow-hidden rounded border bg-muted">
+                                      {isWideCover ? (
+                                        // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
+                                        <div className="relative aspect-[2/3] w-full">
                                           <Image
                                             src={coverUrl}
                                             alt={`Обложка ${idx + 1}`}
-                                            layout="responsive"
-                                            width={200}
-                                            height={300}
-                                            className="object-contain relative z-10"
+                                            fill
+                                            className="object-contain"
                                             unoptimized
+                                            sizes="(max-width: 640px) 100vw, 384px"
                                           />
                                         </div>
-                                      </div>
+                                      ) : (
+                                        // Обычные обложки с эффектом блюра по бокам, растянутые на всю ширину карточки
+                                        <>
+                                          {/* Блюр-эффект по бокам */}
+                                          <div className="absolute inset-0">
+                                            <Image
+                                              src={coverUrl}
+                                              alt={`Обложка ${idx + 1}`}
+                                              fill
+                                              className="object-cover scale-110 blur-sm opacity-30"
+                                              unoptimized
+                                              sizes="(max-width: 640px) 100vw, 320px"
+                                            />
+                                          </div>
+                                          {/* Основная обложка по центру */}
+                                          <div className="relative aspect-[2/3] w-full flex items-center justify-center">
+                                            <div className="relative max-w-xs w-full h-full">
+                                              <Image
+                                                src={coverUrl}
+                                                alt={`Обложка ${idx + 1}`}
+                                                fill
+                                                className="object-contain relative z-10"
+                                                unoptimized
+                                                sizes="(max-width: 640px) 100vw, 320px"
+                                              />
+                                            </div>
+                                          </div>
+                                        </>
+                                      )}
                                     </div>
                                   );
                                 })
                               ) : (
                                 // Если нет обложек серии, но есть обложка книги, показываем её с эффектом блюра по бокам
                                 book.cover_url && (
-                                  <div className="relative w-full max-w-xs mx-auto aspect-[2/3] overflow-hidden rounded border bg-muted">
+                                  <div className="relative w-full overflow-hidden rounded border bg-muted">
                                     {/* Блюр-эффект по бокам */}
                                     <div className="absolute inset-0">
                                       <Image
@@ -503,16 +503,15 @@ export default function LibraryPage() {
                                       />
                                     </div>
                                     {/* Основная обложка по центру */}
-                                    <div className="relative h-full w-full flex items-center justify-center">
-                                      <div className="relative" style={{ maxWidth: '80%', maxHeight: '80%' }}>
+                                    <div className="relative aspect-[2/3] w-full flex items-center justify-center">
+                                      <div className="relative max-w-xs w-full h-full">
                                         <Image
                                           src={book.cover_url}
                                           alt={book.title}
-                                          layout="responsive"
-                                          width={200}
-                                          height={300}
+                                          fill
                                           className="object-contain relative z-10"
                                           unoptimized
+                                          sizes="(max-width: 640px) 100vw, 320px"
                                         />
                                       </div>
                                     </div>
