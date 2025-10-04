@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DownloadQueueMonitor } from '@/components/telegram/download-queue'
 import { TimerSettings } from '@/components/admin/timer-settings'
+import { TelegramStatsSection } from '@/components/admin/telegram-stats'
 import { getValidSession } from '@/lib/auth-helpers'
 import {
   DropdownMenu,
@@ -218,8 +219,8 @@ export default function AdminPage() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <div className="mr-4 flex">
+        <div className="container flex h-14 items-center justify-between">
+          <div className="flex items-center">
             <a href="/library" className="mr-6 flex items-center space-x-2">
               <Library className="h-6 w-6" />
               <span className="hidden font-bold sm:inline-block">
@@ -227,8 +228,14 @@ export default function AdminPage() {
               </span>
             </a>
           </div>
+          <div className="hidden md:block text-center absolute left-1/2 transform -translate-x-1/2">
+            <h1 className="text-lg font-bold">Админ панель</h1>
+            <p className="text-xs text-muted-foreground">
+              Управление синхронизацией с Telegram
+            </p>
+          </div>
 
-          <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+          <div className="flex flex-1 items-center justify-end space-x-2">
             <div className="w-full flex-1 md:w-auto md:flex-none">
               {/* Search would go here if needed */}
             </div>
@@ -279,15 +286,21 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <div className="container py-6">
+        {/* Заголовок перемещен в навбар */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold">Админ панель</h1>
+          {/* <h1 className="text-3xl font-bold">Админ панель</h1>
           <p className="text-muted-foreground">
             Управление синхронизацией с Telegram
-          </p>
+          </p> */}
+        </div>
+        
+        {/* Telegram Stats - перемещен в самый верх */}
+        <div className="mb-6">
+          <TelegramStatsSection />
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Stats Cards - удалены по требованию */}
+        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Всего книг</CardTitle>
@@ -321,12 +334,12 @@ export default function AdminPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div> */}
 
         {/* Sync Control */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Синхронизация метаданных</CardTitle>
+            <CardTitle>Синхронизация данных</CardTitle>
             <CardDescription>
               Загрузить метаданные книг из Telegram канала
             </CardDescription>
@@ -387,16 +400,27 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        {/* Download Queue Monitor */}
+        {/* Результаты последней операции */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Очередь загрузок</CardTitle>
-            <CardDescription>
-              Мониторинг загрузки файлов из Telegram
-            </CardDescription>
+            <CardTitle>Результаты последней операции</CardTitle>
           </CardHeader>
           <CardContent>
-            <DownloadQueueMonitor />
+            <div className="border rounded-md p-2 bg-muted">
+              <textarea
+                value={lastSyncResult ? 
+                  `Успешно: ${lastSyncResult.success}\n` +
+                  `Ошибок: ${lastSyncResult.failed}` +
+                  (lastSyncResult.errors.length > 0 ? 
+                    `\n\nДетали ошибок:\n` + 
+                    lastSyncResult.errors.join('\n') : 
+                    '') : 
+                  'Нет данных'}
+                readOnly
+                className="w-full h-96 font-mono text-xs overflow-y-auto max-h-96 p-2 bg-background border rounded"
+                placeholder="Результаты последней операции..."
+              />
+            </div>
           </CardContent>
         </Card>
 

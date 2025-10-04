@@ -103,7 +103,29 @@ export function BookCardSmall({ book, onClick, onTagClick }: BookCardSmallProps)
               onClick={(e) => {
                 e.stopPropagation();
                 if (book.file_url) {
-                  window.open(book.file_url, '_blank');
+                  // Create a custom filename in the format "author - title.zip"
+                  const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+                  const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+                  const filename = `${sanitizedAuthor} - ${sanitizedTitle}.zip`;
+                  
+                  // Fetch the file and trigger download with custom filename
+                  fetch(book.file_url)
+                    .then(response => response.blob())
+                    .then(blob => {
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    })
+                    .catch(error => {
+                      console.error('Error downloading file:', error);
+                      // Fallback to opening in new tab if download fails
+                      window.open(book.file_url, '_blank');
+                    });
                 }
               }}
             >

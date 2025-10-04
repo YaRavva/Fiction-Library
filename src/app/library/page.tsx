@@ -346,8 +346,38 @@ export default function LibraryPage() {
 
   const handleDownload = (bookId: string, fileUrl: string | undefined) => {
     if (fileUrl) {
-      incrementDownloads(bookId)
-      window.open(fileUrl, '_blank')
+      incrementDownloads(bookId);
+      
+      // Find the book to get its title and author
+      const book = books.find(b => b.id === bookId);
+      if (book) {
+        // Create a custom filename in the format "author - title.zip"
+        const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+        const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+        const filename = `${sanitizedAuthor} - ${sanitizedTitle}.zip`;
+        
+        // Fetch the file and trigger download with custom filename
+        fetch(fileUrl)
+          .then(response => response.blob())
+          .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          })
+          .catch(error => {
+            console.error('Error downloading file:', error);
+            // Fallback to opening in new tab if download fails
+            window.open(fileUrl, '_blank');
+          });
+      } else {
+        // Fallback if book not found
+        window.open(fileUrl, '_blank');
+      }
     }
   }
 
