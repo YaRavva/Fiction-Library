@@ -62,7 +62,7 @@ export function BookCardSmall({ book, onClick, onTagClick }: BookCardSmallProps)
           <div className="flex flex-wrap gap-1 mt-2">
             {book.genres.slice(0, 3).map((genre, idx) => (
               <span
-                key={idx}
+                key={`${book.id}-genre-${idx}`}
                 className="text-xs bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded cursor-pointer hover:bg-secondary/80"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -74,21 +74,44 @@ export function BookCardSmall({ book, onClick, onTagClick }: BookCardSmallProps)
             ))}
           </div>
         )}
-        
+
         <div className="flex items-center justify-between mt-auto pt-2">
           <div className="flex items-center gap-1">
             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
             <span className="text-xs font-medium">{book.rating?.toFixed(1) || '—'}</span>
           </div>
           <div className="flex gap-1">
-            <Button size="icon" variant="outline" disabled className="h-6 w-6 p-0">
+            <Button 
+              size="icon" 
+              variant="outline" 
+              className="h-6 w-6 p-0"
+              disabled={!book.file_url}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (book.file_url) {
+                  window.open(book.file_url, '_blank');
+                }
+              }}
+            >
               <BookOpen className="h-3 w-3" />
             </Button>
-            <Button size="icon" variant="outline" disabled className="h-6 w-6 p-0">
+            <Button 
+              size="icon" 
+              variant="outline" 
+              className="h-6 w-6 p-0"
+              disabled={!book.file_url}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (book.file_url) {
+                  window.open(book.file_url, '_blank');
+                }
+              }}
+            >
               <Download className="h-3 w-3" />
             </Button>
           </div>
         </div>
+
       </div>
     </div>
   )

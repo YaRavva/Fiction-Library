@@ -328,7 +328,12 @@ export default function LibraryPage() {
   }
 
   const handleBookClick = (book: Book) => {
-    // TODO: Implement book detail view
+    // Если у книги есть файл, открываем его для чтения
+    if (book.file_url) {
+      incrementDownloads(book.id)
+      window.open(book.file_url, '_blank')
+    }
+    // TODO: Implement book detail view for books without files
     console.log('Book clicked:', book)
   }
 
@@ -633,7 +638,7 @@ export default function LibraryPage() {
           ) : (
             <>
               {viewMode === 'large-cards' && (
-                <div className="grid gap-6 sm:grid-cols-1">
+                <div className="grid gap-6 sm:grid-cols-1" style={{ width: '75%', margin: '0 auto' }}>
                   {books.map((book) => (
                     <BookCardLarge 
                       key={book.id} 

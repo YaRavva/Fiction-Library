@@ -1,9 +1,8 @@
 import { Book } from '@/lib/supabase'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Image from 'next/image'
-import { Download } from 'lucide-react'
+import { BookOpen, Download } from 'lucide-react'
 
 interface BookCardLargeProps {
   book: Book & {
@@ -25,11 +24,15 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
   const seriesCoverUrls = book.series?.cover_urls
 
   return (
-    <Card key={book.id} className="overflow-hidden">
-      <CardContent className="p-6">
-        <div className="space-y-4">
-          {/* Автор и Название */}
-          <div className="space-y-1">
+    // Replaced shadcn/ui Card with custom div for full layout control
+    <div 
+      key={book.id} 
+      className="w-full max-w-3xl mx-auto border rounded-lg bg-card text-card-foreground overflow-hidden"
+    >
+      <div className="p-3"> {/* Using same padding as small cards */}
+        {/* Header with author, title and action buttons */}
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex-1 min-w-0">
             <div className="text-sm">
               <span className="font-semibold">Автор:</span> {book.author}
             </div>
@@ -37,7 +40,39 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
               <span className="font-semibold">Название:</span> {book.title}
             </div>
           </div>
+          
+          {/* Action buttons in top right corner */}
+          <div className="flex gap-1 ml-2">
+            <Button 
+              size="icon" 
+              variant="outline" 
+              className="h-8 w-8 p-0"
+              disabled={!book.file_url}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (book.file_url) {
+                  window.open(book.file_url, '_blank');
+                }
+              }}
+            >
+              <BookOpen className="h-4 w-4" />
+            </Button>
+            <Button 
+              size="icon" 
+              variant="outline" 
+              className="h-8 w-8 p-0"
+              disabled={!book.file_url}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDownload(book.id, book.file_url);
+              }}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
+        <div className="space-y-3">
           {/* Жанр */}
           {book.genres && book.genres.length > 0 && (
             <div className="text-sm">
@@ -45,7 +80,7 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
               <span className="inline-flex flex-wrap gap-1">
                 {book.genres.map((genre, idx) => (
                   <Badge
-                    key={idx}
+                    key={`${book.id}-genre-${idx}`}
                     variant="secondary"
                     className="text-xs cursor-pointer hover:bg-secondary/80"
                     onClick={() => onTagClick && onTagClick(genre)}
@@ -82,7 +117,7 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
               <div className="text-sm font-semibold">Состав:</div>
               <ol className="text-sm space-y-1 list-decimal list-inside">
                 {seriesComposition.map((item, idx) => (
-                  <li key={idx}>
+                  <li key={`${book.id}-series-${idx}`}>
                     {item.title} ({item.year})
                   </li>
                 ))}
@@ -90,7 +125,7 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
             </div>
           )}
 
-          {/* Обложки - только внизу карточки */}
+          {/* Обложки - only at the bottom of the card */}
           {(book.cover_url || (seriesCoverUrls && seriesCoverUrls.length > 0)) && (
             <div className="space-y-2">
               <div className="grid grid-cols-1 gap-2">
@@ -113,7 +148,7 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
                     const wideCover = isWideCover();
 
                     return (
-                      <div key={idx} className="relative w-full overflow-hidden rounded border bg-muted">
+                      <div key={`${book.id}-cover-${idx}`} className="relative w-full overflow-hidden rounded border bg-muted">
                         {wideCover ? (
                           // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
                           // Используем object-cover для обрезки по краям
@@ -208,19 +243,8 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
               </div>
             </div>
           )}
-
-          {/* Кнопка скачивания */}
-          {book.file_url && (
-            <Button
-              className="w-full"
-              onClick={() => onDownload(book.id, book.file_url)}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Скачать
-            </Button>
-          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

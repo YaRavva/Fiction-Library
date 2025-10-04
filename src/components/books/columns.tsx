@@ -87,9 +87,9 @@ export const columns: ColumnDef<Book>[] = [
       
       return (
         <div className="flex flex-wrap gap-1">
-          {tags?.map((tag) => (
+          {tags?.map((tag, index) => (
             <Badge 
-              key={tag} 
+              key={`${row.original.id}-${tag}-${index}`} 
               variant="secondary" 
               className="text-xs cursor-pointer hover:bg-secondary/80"
               onClick={() => onTagClick && onTagClick(tag)}
@@ -100,5 +100,6 @@ export const columns: ColumnDef<Book>[] = [
         </div>
       )
     },
+
   },
 ]
