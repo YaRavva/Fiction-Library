@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS timer_settings (
 INSERT INTO timer_settings (process_name, enabled, interval_minutes)
 VALUES 
     ('deduplication', false, 60),
-    ('channel_sync', false, 30)
+    ('channel_sync', false, 30),
+    ('file_download', false, 15)
 ON CONFLICT (process_name) DO NOTHING;
 
 -- Create indexes for better performance

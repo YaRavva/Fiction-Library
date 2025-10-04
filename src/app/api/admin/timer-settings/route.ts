@@ -143,7 +143,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     
     // Обновляем настройки для каждого процесса
-    const processes = ['deduplication', 'channel_sync'];
+    const processes = ['deduplication', 'channel_sync', 'file_download'];
     
     for (const process of processes) {
       if (body[process]) {
@@ -159,7 +159,7 @@ export async function PUT(request: NextRequest) {
         }
 
         if (intervalMinutes !== undefined) {
-          updateData.interval_minutes = Math.max(5, Math.min(1440, intervalMinutes));
+          updateData.interval_minutes = Math.max(1, Math.min(1440, intervalMinutes));
         }
 
         // Если включаем таймер, вычисляем следующее время запуска

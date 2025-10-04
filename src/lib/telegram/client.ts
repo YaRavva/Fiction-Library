@@ -187,9 +187,13 @@ export class TelegramService {
         }
     }
 
-    public async getMessages(entity: any, limit = 10) {
+    public async getMessages(entity: any, limit = 10, offsetId?: number) {
         try {
-            return await this.client.getMessages(entity, { limit });
+            const params: any = { limit };
+            if (offsetId) {
+                params.offsetId = offsetId;
+            }
+            return await this.client.getMessages(entity, params);
         } catch (err) {
             console.error('Error getting messages:', err);
             throw err;
@@ -222,7 +226,11 @@ export class TelegramService {
             // GramJS provides a disconnect method
             // @ts-ignore
             if (this.client && typeof (this.client as any).disconnect === 'function') {
-                await (this.client as any).disconnect();
+                // Добавляем таймаут для принудительного завершения
+                await Promise.race([
+                    (this.client as any).disconnect(),
+                    new Promise(resolve => setTimeout(resolve, 3000)) // 3 секунды таймаут
+                ]);
             }
         } catch (err) {
             console.warn('Error during Telegram client disconnect:', err);

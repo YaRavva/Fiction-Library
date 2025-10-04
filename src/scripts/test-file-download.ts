@@ -1,77 +1,53 @@
 /**
- * Script to test downloading a specific file from Telegram
+ * Тестовый скрипт для проверки загрузки файлов из Telegram
+ *
+ * Использование:
+ * npx tsx src/scripts/test-file-download.ts
  */
 
-import { config } from 'dotenv';
-import { TelegramService } from '../lib/telegram/client';
+// Загружаем переменные окружения ПЕРВЫМ делом
+import dotenv from 'dotenv';
+import path from 'path';
 
-// Load environment variables
-config({ path: '.env' });
+// Загружаем .env из корна проекта
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
+// Проверяем, что переменные загружены
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ Ошибка: Переменные окружения не загружены из .env файла');
+  console.error('Проверьте, что файл .env существует в корне проекта');
+  process.exit(1);
+}
+
+import { TelegramSyncService } from '../lib/telegram/sync.js';
 
 async function testFileDownload() {
-  let telegramClient: TelegramService | null = null;
-  
+  console.log('🚀 Запускаем тест загрузки файлов...\n');
+
   try {
-    console.log('🔍 Testing Telegram file download...\n');
+    // Создаем экземпляр TelegramSyncService
+    const syncService = await TelegramSyncService.getInstance();
     
-    // Initialize Telegram client
-    console.log('Initializing Telegram client...');
-    telegramClient = await TelegramService.getInstance();
-    console.log('✅ Telegram client initialized');
+    console.log('✅ Telegram клиент инициализирован');
     
-    // Access the files channel
-    console.log('Accessing files channel...');
-    const channel = await telegramClient.getFilesChannel();
-    // @ts-ignore
-    console.log(`✅ Channel: ${channel.title}`);
+    // Тестируем загрузку файлов (ограничиваем до 3 файлов для теста)
+    console.log('📥 Начинаем загрузку файлов (максимум 3 файла)...');
+    const results = await syncService.downloadAndProcessFilesDirectly(3);
     
-    // Get messages
-    console.log('Getting messages...');
-    const messages = await telegramClient.getMessages(channel, 5);
-    console.log(`✅ Found ${messages.length} messages`);
+    console.log('\n📊 Результаты загрузки:');
+    console.log(JSON.stringify(results, null, 2));
     
-    // Find a message with a document
-    let targetMessage = null;
-    for (const msg of messages) {
-      // @ts-ignore
-      if (msg.media && msg.media.className === 'MessageMediaDocument') {
-        targetMessage = msg;
-        // @ts-ignore
-        console.log(`Found message with document: ${msg.id}`);
-        break;
-      }
-    }
+    console.log('\n✅ Тест завершен успешно');
     
-    if (!targetMessage) {
-      console.log('No message with document found');
-      return;
-    }
-    
-    // Try to download the media with a timeout
-    console.log('Downloading media...');
-    const buffer = await Promise.race([
-      telegramClient.downloadMedia(targetMessage),
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout: Media download took too long')), 30000)
-      )
-    ]);
-    
-    if (buffer instanceof Buffer) {
-      console.log(`✅ Successfully downloaded file (${buffer.length} bytes)`);
-    } else {
-      console.log('❌ Downloaded content is not a Buffer');
-    }
-    
-    console.log('\n✅ File download test completed');
+    // Завершаем работу клиента
+    await syncService.shutdown();
+    console.log('🔌 Telegram клиент отключен');
     
   } catch (error) {
-    console.error('❌ Error during test:', error);
+    console.error('❌ Ошибка при тестировании загрузки файлов:', error);
     process.exit(1);
   }
 }
 
-// Run the script
-testFileDownload().catch(error => {
-  console.error('Unhandled error:', error);
-  process.exit(1);
-});
+// Запускаем тест
+testFileDownload();

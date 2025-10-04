@@ -16,6 +16,7 @@ interface TimerSettingsData {
 interface ProcessSettings {
   deduplication: TimerSettingsData
   channelSync: TimerSettingsData
+  fileDownload: TimerSettingsData
 }
 
 export function TimerSettings() {
@@ -27,6 +28,10 @@ export function TimerSettings() {
     channelSync: {
       enabled: false,
       intervalMinutes: 30,
+    },
+    fileDownload: {
+      enabled: false,
+      intervalMinutes: 15,
     },
   })
   const [status, setStatus] = useState({
@@ -65,6 +70,10 @@ export function TimerSettings() {
               enabled: data.channelSync?.enabled || false,
               intervalMinutes: data.channelSync?.intervalMinutes || 30,
             },
+            fileDownload: {
+              enabled: data.fileDownload?.enabled || false,
+              intervalMinutes: data.fileDownload?.intervalMinutes || 15,
+            },
           })
           setStatus({
             lastRun: data.lastRun,
@@ -95,6 +104,7 @@ export function TimerSettings() {
       const requestBody = {
         deduplication: settings.deduplication,
         channelSync: settings.channelSync,
+        fileDownload: settings.fileDownload,
       };
 
       const response = await fetch('/api/admin/timer-settings', {
@@ -242,6 +252,50 @@ export function TimerSettings() {
                 />
                 <p className="text-sm text-muted-foreground">
                   Минимум 5 минут, максимум 1440 минут (24 часа)
+                </p>
+              </div>
+            )}
+          </div>
+          
+          {/* File Download Settings */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Загрузка файлов</h3>
+                <p className="text-sm text-muted-foreground">
+                  Автоматическая загрузка файлов из приватного канала
+                </p>
+              </div>
+              <Button 
+                variant={settings.fileDownload.enabled ? "default" : "outline"}
+                onClick={() => toggleProcess('fileDownload')}
+              >
+                {settings.fileDownload.enabled ? "Включено" : "Выключено"}
+              </Button>
+            </div>
+            
+            {settings.fileDownload.enabled && (
+              <div className="space-y-2 pl-2 border-l-2 border-muted">
+                <Label htmlFor="file-download-interval">Интервал (в минутах)</Label>
+                <Input
+                  id="file-download-interval"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  value={settings.fileDownload.intervalMinutes}
+                  onChange={(e) => 
+                    setSettings(prev => ({ 
+                      ...prev, 
+                      fileDownload: {
+                        ...prev.fileDownload,
+                        intervalMinutes: Math.max(1, Math.min(1440, parseInt(e.target.value) || 15))
+                      }
+                    }))
+                  }
+                  className="max-w-[200px]"
+                />
+                <p className="text-sm text-muted-foreground">
+                  Минимум 1 минута, максимум 1440 минут (24 часа)
                 </p>
               </div>
             )}

@@ -107,6 +107,7 @@ export interface Book {
   views_count: number
   created_at: string
   updated_at: string
+  storage_path?: string
 }
 
 export interface UserProfile {
@@ -176,7 +177,95 @@ export async function uploadFileToStorage(bucket: string, path: string, buffer: 
 
 // Insert or update a book record
 export async function upsertBookRecord(book: Partial<Book>) {
-  const { data, error } = await (supabase.from('books') as any).upsert(book).select().single()
-  if (error) throw error
-  return data
+  const admin = getSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set. Cannot upsert book record.');
+  }
+  
+  console.log(`🔍 Ищем книгу по метаданным: title="${book.title}", author="${book.author}"`);
+  
+  // Сначала проверяем существующую запись по автору и названию
+  if (book.title && book.author) {
+    const { data: existingBook, error: fetchError } = await (admin as any)
+      .from('books')
+      .select('id')
+      .eq('title', book.title)
+      .eq('author', book.author)
+      .single();
+    
+    if (!fetchError && existingBook) {
+      console.log(`✅ Найдена существующая книга: ${existingBook.id}`);
+      // Обновляем существующую запись, добавляя информацию о файле
+      const updateData: Partial<Book> = {};
+      
+      // Копируем только те поля, которые есть в новой записи
+      if (book.file_url) updateData.file_url = book.file_url;
+      if (book.file_size) updateData.file_size = book.file_size;
+      if (book.file_format) updateData.file_format = book.file_format;
+      if (book.telegram_file_id) updateData.telegram_file_id = book.telegram_file_id;
+      if (book.storage_path) updateData.storage_path = book.storage_path;
+      
+      // Обновляем только если есть новые данные
+      if (Object.keys(updateData).length > 0) {
+        const { data, error } = await (admin as any)
+          .from('books')
+          .update(updateData)
+          .eq('id', existingBook.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        console.log(`✅ Книга обновлена с информацией о файле`);
+        return data;
+      }
+      
+      // Если нет новых данных, возвращаем существующую запись
+      console.log(`ℹ️  Книга уже имеет всю необходимую информацию`);
+      return existingBook;
+    } else {
+      console.log(`⚠️  Книга не найдена по метаданным`);
+      if (fetchError) {
+        console.log(`  Ошибка поиска: ${fetchError.message}`);
+      }
+    }
+    
+    // Если книги не существует, возвращаем null, чтобы файл не загружался
+    return null;
+  }
+  
+  console.log(`⚠️  Недостаточно метаданных для поиска книги`);
+  
+  // Если есть telegram_file_id, пытаемся найти существующую запись для обновления
+  if (book.telegram_file_id) {
+    console.log(`🔍 Ищем книгу по telegram_file_id: ${book.telegram_file_id}`);
+    const { data: existingBook, error: fetchError } = await (admin as any)
+      .from('books')
+      .select('id')
+      .eq('telegram_file_id', book.telegram_file_id)
+      .single();
+    
+    if (!fetchError && existingBook) {
+      console.log(`✅ Найдена существующая книга по telegram_file_id: ${existingBook.id}`);
+      // Обновляем существующую запись
+      const { data, error } = await (admin as any)
+        .from('books')
+        .update(book)
+        .eq('id', existingBook.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      console.log(`✅ Книга обновлена по telegram_file_id`);
+      return data;
+    } else {
+      console.log(`⚠️  Книга не найдена по telegram_file_id`);
+      if (fetchError) {
+        console.log(`  Ошибка поиска: ${fetchError.message}`);
+      }
+    }
+  }
+  
+  // Если нет метаданных для поиска, возвращаем null
+  console.log(`⚠️  Нет метаданных для поиска книги`);
+  return null;
 }

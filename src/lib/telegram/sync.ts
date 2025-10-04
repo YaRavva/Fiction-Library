@@ -1,6 +1,6 @@
 import { TelegramService } from './client';
 import { MetadataParser, BookMetadata } from './parser';
-import { uploadFileToStorage, upsertBookRecord } from '../supabase';
+import { uploadFileToStorage, upsertBookRecord, getSupabaseAdmin } from '../supabase';
 import { serverSupabase } from '../serverSupabase';
 import path from 'path';
 
@@ -302,7 +302,11 @@ export class TelegramSyncService {
                 || `book_${anyMsg.id}.fb2`;
 
             const ext = path.extname(filenameCandidate) || '.fb2';
-            const key = `books/${anyMsg.id}${ext}`;
+            
+            // Используем messageId для ключа хранения (чтобы избежать проблем с недопустимыми символами)
+            // но сохраняем оригинальное имя файла
+            const storageKey = `${anyMsg.id}${ext}`; // Ключ для хранения в Storage
+            const displayName = filenameCandidate; // Оригинальное имя файла для отображения
 
             const mime = anyMsg.mimeType
                 || (anyMsg.document && anyMsg.document.mimeType)
@@ -311,13 +315,13 @@ export class TelegramSyncService {
 
             // Загружаем в Supabase Storage (bucket 'books')
             console.log(`Uploading file to Supabase Storage...`);
-            await uploadFileToStorage('books', key, Buffer.from(buffer), mime);
+            await uploadFileToStorage('books', storageKey, Buffer.from(buffer), mime);
 
             // Вставляем/обновляем запись книги (минимальные поля)
             const bookRecord: any = {
                 title: filenameCandidate || `book-${anyMsg.id}`,
                 author: anyMsg.author || (anyMsg.from && anyMsg.from.username) || 'Unknown',
-                file_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(key)}`,
+                file_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(storageKey)}`,
                 file_size: buffer.length,
                 file_format: ext.replace('.', ''),
                 telegram_file_id: String(anyMsg.id),
@@ -334,6 +338,157 @@ export class TelegramSyncService {
             console.error('Error downloading book:', error);
             throw error;
         }
+    }
+
+    /**
+     * Извлекает метаданные из имени файла по различным паттернам
+     * @param filename Имя файла
+     * @returns Объект с автором и названием
+     */
+    public static extractMetadataFromFilename(filename: string): { author: string; title: string } {
+        // Убираем расширение файла
+        const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+        
+        // Специальная обработка для известных паттернов
+        
+        // Паттерн: "Автор - Название"
+        const dashPattern = /^([^-–—]+)[\-–—](.+)$/;
+        const dashMatch = nameWithoutExt.match(dashPattern);
+        if (dashMatch) {
+            let author = dashMatch[1].trim();
+            let title = dashMatch[2].trim();
+            
+            // Особая обработка для случая, когда в названии есть слово "мицелий"
+            if (title.toLowerCase().includes('мицелий')) {
+                title = `цикл ${title}`;
+            }
+            
+            // Если в названии есть слово "цикл", переносим его в начало названия
+            if (author.toLowerCase().includes('цикл ')) {
+                title = `${author} ${title}`;
+                author = author.replace(/цикл\s+/i, '').trim();
+            } else if (title.toLowerCase().includes('цикл ')) {
+                title = `цикл ${title.replace(/цикл\s+/i, '').trim()}`;
+            }
+            
+            // Особая обработка для "Оксфордский цикл"
+            if (title.toLowerCase().includes('оксфордский')) {
+                title = `цикл ${title}`;
+            }
+            
+            return { author, title };
+        }
+        
+        // Специальная обработка для файлов с несколькими авторами
+        // Паттерн: "Автор1_и_Автор2_Название" или "Автор1,_Автор2_Название"
+        if (nameWithoutExt.includes('_и_')) {
+            const parts = nameWithoutExt.split('_и_');
+            if (parts.length === 2) {
+                const authorsPart = parts[0].replace(/_/g, ' ').trim();
+                const titlePart = parts[1].replace(/_/g, ' ').trim();
+                
+                let title = titlePart;
+                if (title.toLowerCase().includes('мицелий')) {
+                    title = `цикл ${title}`;
+                }
+                
+                return { author: authorsPart, title };
+            }
+        }
+        
+        // Паттерн: "Автор1,_Автор2_Название"
+        if (nameWithoutExt.includes(',_')) {
+            const parts = nameWithoutExt.split(',_');
+            if (parts.length === 2) {
+                const authorsPart = parts[0].replace(/_/g, ' ').trim();
+                const titlePart = parts[1].replace(/_/g, ' ').trim();
+                
+                let title = titlePart;
+                if (title.toLowerCase().includes('мицелий')) {
+                    title = `цикл ${title}`;
+                }
+                
+                return { author: authorsPart, title };
+            }
+        }
+        
+        // Паттерн: "Хроники" в названии
+        if (nameWithoutExt.includes('Хроники')) {
+            const words = nameWithoutExt.split('_');
+            const chroniclesIndex = words.findIndex(word => word.includes('Хроники'));
+            
+            if (chroniclesIndex > 0) {
+                // Авторы - это слова до "Хроники"
+                const authors = words.slice(0, chroniclesIndex).join(' ').replace(/_/g, ' ').trim();
+                const title = words.slice(chroniclesIndex).join(' ').replace(/_/g, ' ').trim();
+                
+                return { author: authors, title };
+            }
+        }
+        
+        // Разбиваем имя файла на слова для более сложного анализа
+        const words = nameWithoutExt
+            .split(/[_\-\s]+/) // Разделяем по пробелам, подчеркиваниям и дефисам
+            .filter(word => word.length > 0) // Убираем пустые слова
+            .map(word => word.trim()); // Убираем пробелы
+        
+        // Если мало слов, возвращаем как есть
+        if (words.length < 2) {
+            return { 
+                author: 'Unknown', 
+                title: nameWithoutExt 
+            };
+        }
+        
+        // Попробуем найти индикаторы названия (цикл, saga, series и т.д.)
+        const titleIndicators = ['цикл', ' saga', ' series', 'оксфордский'];
+        let titleStartIndex = words.length; // По умолчанию всё название
+        
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i].toLowerCase();
+            if (titleIndicators.some(indicator => word.includes(indicator))) {
+                titleStartIndex = i;
+                break;
+            }
+        }
+        
+        // Если индикатор найден, авторы - это слова до него, название - от него и далее
+        if (titleStartIndex < words.length) {
+            const authors = words.slice(0, titleStartIndex).join(' ');
+            let title = words.slice(titleStartIndex).join(' ');
+            
+            // Особая обработка для случая, когда в названии есть слово "мицелий"
+            if (title.toLowerCase().includes('мицелий')) {
+                title = `цикл ${title}`;
+            }
+            
+            // Особая обработка для "Оксфордский цикл"
+            if (title.toLowerCase().includes('оксфордский')) {
+                title = `цикл ${title}`;
+            }
+            
+            return { 
+                author: authors, 
+                title: title 
+            };
+        }
+        
+        // Если ничего не подошло, возвращаем как есть
+        let title = nameWithoutExt;
+        
+        // Особая обработка для случая, когда в названии есть слово "мицелий"
+        if (nameWithoutExt.toLowerCase().includes('мицелий')) {
+            title = `цикл ${nameWithoutExt}`;
+        } else if (nameWithoutExt.includes('цикл')) {
+            title = `цикл ${nameWithoutExt.replace(/цикл\s*/i, '')}`;
+        } else if (nameWithoutExt.toLowerCase().includes('оксфордский')) {
+            title = `цикл ${nameWithoutExt}`;
+        }
+        
+        return { 
+            author: 'Unknown', 
+            title: title
+        };
     }
 
     /**
@@ -442,10 +597,350 @@ export class TelegramSyncService {
         }
     }
 
+    /**
+     * Скачивает и обрабатывает файлы из канала "Архив для фантастики" напрямую (без очереди)
+     * @param limit Количество сообщений для обработки
+     */
+    public async downloadAndProcessFilesDirectly(limit: number = 10): Promise<any[]> {
+        if (!this.telegramClient) {
+            throw new Error('Telegram client not initialized');
+        }
+
+        try {
+            // Получаем канал с файлами
+            console.log('📚 Получаем доступ к каналу "Архив для фантастики"...');
+            const channel = await this.telegramClient.getFilesChannel();
+            
+            // Получаем сообщения
+            console.log(`📖 Получаем последние ${limit} сообщений...`);
+            const messages = await this.telegramClient.getMessages(channel, limit);
+            console.log(`✅ Получено ${messages.length} сообщений\n`);
+
+            const results: any[] = [];
+            
+            // Обрабатываем каждое сообщение
+            for (const msg of messages) {
+                const anyMsg: any = msg as any;
+                console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
+                
+                // Проверяем, есть ли в сообщении медиа (файл)
+                if (!anyMsg.media) {
+                    console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа, пропускаем`);
+                    continue;
+                }
+                
+                try {
+                    // Скачиваем и обрабатываем файл напрямую
+                    const result = await this.downloadAndProcessSingleFile(anyMsg);
+                    results.push(result);
+                    
+                } catch (msgError) {
+                    console.error(`  ❌ Ошибка обработки сообщения ${anyMsg.id}:`, msgError);
+                    results.push({
+                        messageId: anyMsg.id,
+                        success: false,
+                        error: msgError instanceof Error ? msgError.message : 'Unknown error'
+                    });
+                }
+            }
+            
+            console.log(`\n📊 Всего обработано файлов: ${results.length}`);
+            return results;
+        } catch (error) {
+            console.error('Error downloading files from archive channel:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Скачивает и обрабатывает один файл напрямую, привязывая его к указанной книге
+     * @param message Сообщение Telegram с файлом
+     * @param bookId ID книги, к которой нужно привязать файл (опционально)
+     */
+    public async processFile(message: any, bookId?: string): Promise<any> {
+        if (bookId) {
+            // Если указан ID книги, используем его для привязки
+            return await this.downloadAndProcessSingleFileWithBookId(message, bookId);
+        } else {
+            // Иначе используем стандартную логику
+            return await this.downloadAndProcessSingleFile(message);
+        }
+    }
+
+    /**
+     * Скачивает и обрабатывает один файл, привязывая его к указанной книге
+     * @param message Сообщение Telegram с файлом
+     * @param bookId ID книги, к которой нужно привязать файл
+     */
+    private async downloadAndProcessSingleFileWithBookId(message: any, bookId: string): Promise<any> {
+        const anyMsg: any = message as any;
+        console.log(`  📥 Скачиваем файл из сообщения ${anyMsg.id}...`);
+        
+        try {
+            // Скачиваем файл
+            const buffer = await Promise.race([
+                this.telegramClient!.downloadMedia(message),
+                new Promise<never>((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000)
+                )
+            ]);
+
+            if (!buffer) {
+                throw new Error('Failed to download file');
+            }
+
+            // Определяем имя файла, mime и автора с учётом разных структур message
+            let filenameCandidate = `book_${anyMsg.id}.fb2`;
+            let ext = '.fb2';
+            let mime = 'application/octet-stream';
+            let fileFormat = 'fb2';
+
+            if (anyMsg.document && anyMsg.document.attributes) {
+                const attrFileName = anyMsg.document.attributes.find((attr: any) => 
+                    attr.className === 'DocumentAttributeFilename'
+                );
+                if (attrFileName && attrFileName.fileName) {
+                    filenameCandidate = attrFileName.fileName;
+                    ext = path.extname(filenameCandidate) || '.fb2';
+                }
+            }
+
+            // Определяем MIME-тип и формат файла по расширению
+            const mimeTypes: Record<string, string> = {
+                '.fb2': 'application/fb2+xml',
+                '.zip': 'application/zip',
+            };
+            
+            // Определяем допустимые форматы файлов для базы данных (только fb2 и zip)
+            const allowedFormats: Record<string, string> = {
+                '.fb2': 'fb2',
+                '.zip': 'zip',
+            };
+            
+            mime = mimeTypes[ext.toLowerCase()] || 'application/octet-stream';
+            fileFormat = allowedFormats[ext.toLowerCase()] || 'fb2';
+
+            // Санитизируем имя файла для использования в Storage (удаляем недопустимые символы)
+            const sanitizedFilename = filenameCandidate
+                .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_') // Заменяем недопустимые символы на подчеркивание
+                .replace(/^\.+/, '') // Удаляем точки в начале
+                .replace(/\.+$/, '') // Удаляем точки в конце
+                .substring(0, 255); // Ограничиваем длину имени файла
+
+            // Используем messageId для ключа хранения (чтобы избежать проблем с недопустимыми символами)
+            // но сохраняем оригинальное имя файла
+            const storageKey = `${anyMsg.id}${ext}`; // Ключ для хранения в Storage
+            const displayName = filenameCandidate; // Оригинальное имя файла для отображения
+
+            // Загружаем в Supabase Storage (bucket 'books')
+            console.log(`  ☁️  Загружаем файл в Supabase Storage: ${storageKey}`);
+            await uploadFileToStorage('books', storageKey, Buffer.from(buffer), mime);
+
+            // Формируем URL файла
+            const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(storageKey)}`;
+
+            // Получаем информацию о книге по ID
+            const admin = getSupabaseAdmin();
+            if (!admin) {
+                // Если нет доступа к админу, удаляем загруженный файл и выходим
+                console.log(`  ⚠️  Нет доступа к Supabase Admin`);
+                throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set. Cannot upsert book record.');
+            }
+            
+            const { data: book, error: bookError } = await (admin as any)
+                .from('books')
+                .select('title, author')
+                .eq('id', bookId)
+                .single();
+            
+            if (bookError || !book) {
+                // Если книга не найдена, удаляем загруженный файл из Storage
+                console.log(`  ⚠️  Книга не найдена, удаляем файл из Storage: ${storageKey}`);
+                try {
+                    await admin.storage.from('books').remove([storageKey]);
+                } catch (removeError) {
+                    console.log(`  ⚠️  Ошибка при удалении файла: ${removeError}`);
+                }
+                throw new Error(`Book with ID ${bookId} not found for file attachment`);
+            }
+            
+            console.log(`  📚 Привязываем файл к книге: "${book.title}" автора ${book.author}`);
+
+            // Обновляем запись книги с информацией о файле
+            const updateData: any = {
+                file_url: fileUrl,
+                file_size: buffer.length,
+                file_format: fileFormat,
+                telegram_file_id: String(anyMsg.id),
+                storage_path: storageKey,
+                updated_at: new Date().toISOString()
+            };
+
+            const { data: updatedBook, error: updateError } = await (admin as any)
+                .from('books')
+                .update(updateData)
+                .eq('id', bookId)
+                .select()
+                .single();
+            
+            if (updateError) {
+                // Если не удалось обновить книгу, удаляем загруженный файл из Storage
+                console.log(`  ⚠️  Ошибка обновления книги, удаляем файл из Storage: ${storageKey}`);
+                try {
+                    await admin.storage.from('books').remove([storageKey]);
+                } catch (removeError) {
+                    console.log(`  ⚠️  Ошибка при удалении файла: ${removeError}`);
+                }
+                throw updateError;
+            }
+
+            console.log(`  ✅ Файл успешно привязан к книге: "${book.title}"`);
+            
+            return {
+                messageId: anyMsg.id,
+                filename: filenameCandidate,
+                fileSize: buffer.length,
+                fileUrl,
+                success: true,
+                bookId: updatedBook.id
+            };
+            
+        } catch (error) {
+            console.error(`  ❌ Ошибка при обработке файла из сообщения ${anyMsg.id}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Скачивает и обрабатывает один файл напрямую
+     * @param message Сообщение Telegram с файлом
+     */
+    private async downloadAndProcessSingleFile(message: any): Promise<any> {
+        const anyMsg: any = message as any;
+        console.log(`  📥 Скачиваем файл из сообщения ${anyMsg.id}...`);
+        
+        try {
+            // Скачиваем файл
+            const buffer = await Promise.race([
+                this.telegramClient!.downloadMedia(message),
+                new Promise<never>((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000)
+                )
+            ]);
+
+            if (!buffer) {
+                throw new Error('Failed to download file');
+            }
+
+            // Определяем имя файла, mime и автора с учётом разных структур message
+            let filenameCandidate = `book_${anyMsg.id}.fb2`;
+            let ext = '.fb2';
+            let mime = 'application/octet-stream';
+            let fileFormat = 'fb2';
+
+            if (anyMsg.document && anyMsg.document.attributes) {
+                const attrFileName = anyMsg.document.attributes.find((attr: any) => 
+                    attr.className === 'DocumentAttributeFilename'
+                );
+                if (attrFileName && attrFileName.fileName) {
+                    filenameCandidate = attrFileName.fileName;
+                    ext = path.extname(filenameCandidate) || '.fb2';
+                }
+            }
+
+            // Определяем MIME-тип и формат файла по расширению
+            const mimeTypes: Record<string, string> = {
+                '.fb2': 'application/fb2+xml',
+                '.zip': 'application/zip',
+            };
+            
+            // Определяем допустимые форматы файлов для базы данных (только fb2 и zip)
+            const allowedFormats: Record<string, string> = {
+                '.fb2': 'fb2',
+                '.zip': 'zip',
+            };
+            
+            mime = mimeTypes[ext.toLowerCase()] || 'application/octet-stream';
+            fileFormat = allowedFormats[ext.toLowerCase()] || 'fb2';
+
+            // Санитизируем имя файла для использования в Storage (удаляем недопустимые символы)
+            const sanitizedFilename = filenameCandidate
+                .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_') // Заменяем недопустимые символы на подчеркивание
+                .replace(/^\.+/, '') // Удаляем точки в начале
+                .replace(/\.+$/, '') // Удаляем точки в конце
+                .substring(0, 255); // Ограничиваем длину имени файла
+
+            // Используем messageId для ключа хранения (чтобы избежать проблем с недопустимыми символами)
+            // но сохраняем оригинальное имя файла
+            const storageKey = `${anyMsg.id}${ext}`; // Ключ для хранения в Storage
+            const displayName = filenameCandidate; // Оригинальное имя файла для отображения
+
+            // Загружаем в Supabase Storage (bucket 'books')
+            console.log(`  ☁️  Загружаем файл в Supabase Storage: ${storageKey}`);
+            await uploadFileToStorage('books', storageKey, Buffer.from(buffer), mime);
+
+            // Формируем URL файла
+            const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(storageKey)}`;
+
+            // Извлекаем метаданные из имени файла
+            const { author, title } = TelegramSyncService.extractMetadataFromFilename(filenameCandidate);
+            console.log(`  📊 Извлеченные метаданные из имени файла: author="${author}", title="${title}"`);
+
+            // Создаем или обновляем запись книги
+            const bookRecord: any = {
+                title: title,
+                author: author,
+                file_url: fileUrl,
+                file_size: buffer.length,
+                file_format: fileFormat, // Используем допустимый формат для базы данных
+                telegram_file_id: String(anyMsg.id),
+                storage_path: storageKey,
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                const result = await upsertBookRecord(bookRecord);
+                if (result) {
+                    console.log(`  ✅ Запись книги создана/обновлена для файла: ${filenameCandidate}`);
+                } else {
+                    // Если книга не найдена, удаляем загруженный файл из Storage
+                    console.log(`  ⚠️  Книга не найдена, удаляем файл из Storage: ${storageKey}`);
+                    const admin = getSupabaseAdmin();
+                    if (admin) {
+                        await admin.storage.from('books').remove([storageKey]);
+                    }
+                    console.log(`  ❌ Файл не добавлен к книге: ${filenameCandidate}`);
+                    throw new Error('Book not found for file attachment');
+                }
+            } catch (err) {
+                console.warn(`  ⚠️  Ошибка при создании/обновлении записи книги:`, err);
+                throw err;
+            }
+
+            console.log(`  ✅ Файл успешно обработан: ${filenameCandidate}`);
+            
+            return {
+                messageId: anyMsg.id,
+                filename: filenameCandidate,
+                fileSize: buffer.length,
+                fileUrl,
+                success: true
+            };
+            
+        } catch (error) {
+            console.error(`  ❌ Ошибка при обработке файла из сообщения ${anyMsg.id}:`, error);
+            throw error;
+        }
+    }
+
     public async shutdown(): Promise<void> {
         if (this.telegramClient && typeof (this.telegramClient as any).disconnect === 'function') {
             try {
-                await (this.telegramClient as any).disconnect();
+                // Добавляем таймаут для принудительного завершения
+                await Promise.race([
+                    (this.telegramClient as any).disconnect(),
+                    new Promise(resolve => setTimeout(resolve, 3000)) // 3 секунды таймаут
+                ]);
             } catch (err) {
                 console.warn('Error during shutdown:', err);
             }
