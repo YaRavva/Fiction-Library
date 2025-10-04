@@ -42,19 +42,23 @@ async function findExactBookMatch(admin: any, filename: string) {
 
 // Функция для поиска книг по словам из имени файла
 async function searchBooksByWords(admin: any, words: string[]) {
-    // Ищем книги, где в названии или авторе встречаются слова из имени файла
+    if (words.length === 0) {
+        return [];
+    }
+    
+    // Ищем книги, где в названии или авторе встречаются слова из поискового запроса
     const searchPromises = words.map(async (word) => {
-        const { data: titleMatches, error: titleError } = await (admin as any)
+        const { data: titleMatches } = await (admin as any)
             .from('books')
             .select('id, title, author')
             .ilike('title', `%${word}%`)
-            .limit(3);
+            .limit(5);
         
-        const { data: authorMatches, error: authorError } = await (admin as any)
+        const { data: authorMatches } = await (admin as any)
             .from('books')
             .select('id, title, author')
             .ilike('author', `%${word}%`)
-            .limit(3);
+            .limit(5);
         
         const allMatches = [...(titleMatches || []), ...(authorMatches || [])];
         
@@ -77,22 +81,39 @@ async function searchBooksByWords(admin: any, words: string[]) {
         index === self.findIndex(b => b.id === book.id)
     );
     
-    // Сортируем по релевантности (простая сортировка по количеству совпадений)
+    // Сортируем по релевантности (по количеству совпадений)
     const matchesWithScores = uniqueMatches.map(book => {
-        const titleWords = book.title.toLowerCase().split(/\s+/);
-        const authorWords = book.author.toLowerCase().split(/\s+/);
-        const allBookWords = [...titleWords, ...authorWords];
-        
-        const score = words.filter(word => 
-            allBookWords.some(bookWord => bookWord.includes(word))
-        ).length;
+        const bookTitleWords = book.title.toLowerCase().split(/\s+/);
+        const bookAuthorWords = book.author.toLowerCase().split(/\s+/);
+        const allBookWords = [...bookTitleWords, ...bookAuthorWords];
+
+        // Считаем количество совпадений поисковых слов с словами в книге
+        let score = 0;
+        for (const searchWord of words) {
+          const normalizedSearchWord = searchWord.toLowerCase();
+          let found = false;
+          for (const bookWord of allBookWords) {
+            const normalizedBookWord = bookWord.toLowerCase();
+            // Проверяем точное совпадение или частичное включение
+            if (normalizedBookWord.includes(normalizedSearchWord) || normalizedSearchWord.includes(normalizedBookWord)) {
+              score++;
+              found = true;
+              break; // Не увеличиваем счетчик больше одного раза для одного поискового слова
+            }
+          }
+        }
         
         return { ...book, score };
     });
     
+    // Сортируем по убыванию счета
     matchesWithScores.sort((a, b) => b.score - a.score);
     
-    return matchesWithScores.slice(0, 3); // Ограничиваем 3 результатами
+    // Берем только лучшие совпадения и фильтруем по минимальной релевантности
+    const topMatches = matchesWithScores.slice(0, 5);
+    
+    // Возвращаем только совпадения с релевантностью >= 2
+    return topMatches.filter(match => match.score >= 2);
 }
 
 async function processAndAttachFiles() {

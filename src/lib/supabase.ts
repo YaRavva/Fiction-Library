@@ -184,7 +184,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
   
   console.log(`🔍 Ищем книгу по метаданным: title="${book.title}", author="${book.author}"`);
   
-  // Сначала проверяем существующую запись по автору и названию
+  // Сначала проверяем существующую запись по автору и названию (точное совпадение)
   if (book.title && book.author) {
     const { data: existingBook, error: fetchError } = await (admin as any)
       .from('books')
@@ -194,7 +194,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
       .single();
     
     if (!fetchError && existingBook) {
-      console.log(`✅ Найдена существующая книга: ${existingBook.id}`);
+      console.log(`✅ Найдена существующая книга (точное совпадение): ${existingBook.id}`);
       // Обновляем существующую запись, добавляя информацию о файле
       const updateData: Partial<Book> = {};
       
@@ -223,49 +223,97 @@ export async function upsertBookRecord(book: Partial<Book>) {
       console.log(`ℹ️  Книга уже имеет всю необходимую информацию`);
       return existingBook;
     } else {
-      console.log(`⚠️  Книга не найдена по метаданным`);
+      console.log(`⚠️  Книга не найдена по точному совпадению`);
       if (fetchError) {
         console.log(`  Ошибка поиска: ${fetchError.message}`);
       }
     }
     
-    // Если книги не существует, возвращаем null, чтобы файл не загружался
-    return null;
-  }
-  
-  console.log(`⚠️  Недостаточно метаданных для поиска книги`);
-  
-  // Если есть telegram_file_id, пытаемся найти существующую запись для обновления
-  if (book.telegram_file_id) {
-    console.log(`🔍 Ищем книгу по telegram_file_id: ${book.telegram_file_id}`);
-    const { data: existingBook, error: fetchError } = await (admin as any)
-      .from('books')
-      .select('id')
-      .eq('telegram_file_id', book.telegram_file_id)
-      .single();
+    // Если точное совпадение не найдено, пробуем поиск с релевантностью
+    console.log(`🔍 Пробуем поиск с релевантностью для: title="${book.title}", author="${book.author}"`);
     
-    if (!fetchError && existingBook) {
-      console.log(`✅ Найдена существующая книга по telegram_file_id: ${existingBook.id}`);
-      // Обновляем существующую запись
-      const { data, error } = await (admin as any)
-        .from('books')
-        .update(book)
-        .eq('id', existingBook.id)
-        .select()
-        .single();
+    // Разбиваем автора и название на слова для поиска
+    const titleWords = (book.title || '').split(/\s+/).filter(word => word.length > 2);
+    const authorWords = (book.author || '').split(/\s+/).filter(word => word.length > 2);
+    const allSearchWords = [...titleWords, ...authorWords].filter(word => word.length > 0);
+    
+    console.log(`  Слова для поиска: [${allSearchWords.join(', ')}]`);
+    
+    if (allSearchWords.length > 0) {
+      // Ищем книги, где в названии или авторе встречаются слова из поискового запроса
+      const searchPromises = allSearchWords.map(async (word) => {
+        const { data: titleMatches } = await (admin as any)
+          .from('books')
+          .select('id, title, author')
+          .ilike('title', `%${word}%`)
+          .limit(5);
+        
+        const { data: authorMatches } = await (admin as any)
+          .from('books')
+          .select('id, title, author')
+          .ilike('author', `%${word}%`)
+          .limit(5);
+        
+        const allMatches = [...(titleMatches || []), ...(authorMatches || [])];
+        
+        // Удаляем дубликаты по ID
+        const uniqueMatches = allMatches.filter((bookItem, index, self) => 
+          index === self.findIndex(b => b.id === bookItem.id)
+        );
+        
+        return uniqueMatches;
+      });
       
-      if (error) throw error;
-      console.log(`✅ Книга обновлена по telegram_file_id`);
-      return data;
+      // Выполняем все поисковые запросы параллельно
+      const results = await Promise.all(searchPromises);
+      
+      // Объединяем все результаты
+      const allMatches = results.flat();
+      
+      // Удаляем дубликаты по ID
+      const uniqueMatches = allMatches.filter((bookItem, index, self) => 
+        index === self.findIndex(b => b.id === bookItem.id)
+      );
+      
+      // Сортируем по релевантности (по количеству совпадений)
+      const matchesWithScores = uniqueMatches.map(bookItem => {
+        const bookTitleWords = bookItem.title.toLowerCase().split(/\s+/);
+        const bookAuthorWords = bookItem.author.toLowerCase().split(/\s+/);
+        const allBookWords = [...bookTitleWords, ...bookAuthorWords];
+        
+        // Считаем количество совпадений поисковых слов с словами в книге
+        let score = 0;
+        for (const searchWord of allSearchWords) {
+          const normalizedSearchWord = searchWord.toLowerCase();
+          let found = false;
+          for (const bookWord of allBookWords) {
+            const normalizedBookWord = bookWord.toLowerCase();
+            // Проверяем точное совпадение или частичное включение
+            if (normalizedBookWord.includes(normalizedSearchWord) || normalizedSearchWord.includes(normalizedBookWord)) {
+              score++;
+              found = true;
+              break; // Не увеличиваем счетчик больше одного раза для одного поискового слова
+            }
+          }
+        }
+        
+        return { ...bookItem, score };
+      });
+      
+      // Сортируем по убыванию счета
+      matchesWithScores.sort((a, b) => b.score - a.score);
+      
+      // Берем только лучшие совпадения и фильтруем по минимальной релевантности
+      const topMatches = matchesWithScores.slice(0, 5);
+      
+      // Возвращаем только совпадения с релевантностью >= 2
+      return topMatches.filter(match => match.score >= 2);
     } else {
-      console.log(`⚠️  Книга не найдена по telegram_file_id`);
-      if (fetchError) {
-        console.log(`  Ошибка поиска: ${fetchError.message}`);
-      }
+      console.log(`⚠️  Недостаточно слов для поиска с релевантностью`);
     }
   }
   
-  // Если нет метаданных для поиска, возвращаем null
-  console.log(`⚠️  Нет метаданных для поиска книги`);
+  // Если книга не найдена по релевантности или нет достаточных метаданных, не создаем новую запись
+  console.log(`⚠️  Книга не найдена и не будет создана автоматически`);
   return null;
 }

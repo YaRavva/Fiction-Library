@@ -76,22 +76,38 @@ async function searchBooksByWords(admin: any, words: string[]) {
         index === self.findIndex(b => b.id === book.id)
     );
     
-    // Сортируем по релевантности (простая сортировка по количеству совпадений)
+    // Сортируем по релевантности (по количеству совпадений)
     const matchesWithScores = uniqueMatches.map(book => {
-        const titleWords = book.title.toLowerCase().split(/\s+/);
-        const authorWords = book.author.toLowerCase().split(/\s+/);
-        const allBookWords = [...titleWords, ...authorWords];
+        const bookTitleWords = book.title.toLowerCase().split(/\s+/);
+        const bookAuthorWords = book.author.toLowerCase().split(/\s+/);
+        const allBookWords = [...bookTitleWords, ...bookAuthorWords];
         
-        const score = words.filter(word => 
-            allBookWords.some(bookWord => bookWord.includes(word))
-        ).length;
+        // Считаем количество совпадений поисковых слов с словами в книге
+        let score = 0;
+        for (const searchWord of words) {
+          const normalizedSearchWord = searchWord.toLowerCase();
+          let found = false;
+          for (const bookWord of allBookWords) {
+            const normalizedBookWord = bookWord.toLowerCase();
+            // Проверяем точное совпадение или частичное включение
+            if (normalizedBookWord.includes(normalizedSearchWord) || normalizedSearchWord.includes(normalizedBookWord)) {
+              score++;
+              found = true;
+              break; // Не увеличиваем счетчик больше одного раза для одного поискового слова
+            }
+          }
+        }
         
         return { ...book, score };
     });
     
     matchesWithScores.sort((a, b) => b.score - a.score);
     
-    return matchesWithScores.slice(0, 5); // Ограничиваем 5 результатами
+    // Берем только лучшие совпадения и фильтруем по минимальной релевантности
+    const topMatches = matchesWithScores.slice(0, 5);
+    
+    // Возвращаем только совпадения с релевантностью >= 2
+    return topMatches.filter(match => match.score >= 2);
 }
 
 async function showFileMatchingResults() {

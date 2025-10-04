@@ -49,9 +49,6 @@ async function testSync() {
       if (book.rating) {
         console.log(`   Рейтинг: ${book.rating}`);
       }
-      if (book.year) {
-        console.log(`   Год: ${book.year}`);
-      }
       if (book.genres.length > 0) {
         console.log(`   Жанры: ${book.genres.join(', ')}`);
       }

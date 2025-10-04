@@ -3,6 +3,19 @@ import { serverSupabase } from '@/lib/serverSupabase';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+// Интерфейсы для типизации данных
+interface Book {
+  id: string;
+  storage_path: string;
+  // ... другие поля книги
+}
+
+interface DownloadTask {
+  id: string;
+  storage_path: string;
+  // ... другие поля задачи
+}
+
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'books';
 const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
 
@@ -82,7 +95,7 @@ export async function GET(request: NextRequest) {
         .from('books')
         .select('storage_path')
         .eq('id', bookId)
-        .single();
+        .single<Book>();
 
       if (bookError || !book) {
         return NextResponse.json(
@@ -97,7 +110,7 @@ export async function GET(request: NextRequest) {
         .from('download_queue')
         .select('storage_path')
         .eq('id', taskId)
-        .single();
+        .single<DownloadTask>();
 
       if (taskError || !task) {
         return NextResponse.json(
@@ -143,4 +156,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

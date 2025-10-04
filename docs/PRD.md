@@ -313,3 +313,76 @@ CREATE INDEX idx_reading_history_user ON reading_history(user_id);
 ---
 
 **Это техническое задание готово для начала разработки. Нужны ли дополнительные уточнения по каким-либо пунктам?**
+
+# Product Requirements Document: File Upload and Attachment Algorithm
+
+## Overview
+This document describes the algorithm for uploading and attaching files from Telegram to books in the database.
+
+## File Processing Algorithm
+
+### 1. File Already Exists in Bucket
+If a file already exists in the bucket:
+- Skip the file processing
+- Do not re-upload or re-process
+
+### 2. File Not in Bucket
+If a file is not present in the bucket:
+1. Extract metadata (author and title) from filename
+2. Search for existing book in database using relevance algorithm:
+   - Split author and title into words (filter words shorter than 3 characters)
+   - Search for books where:
+     - Each word from the title is found in the book's title (using ilike)
+     - Each word from the author is found in the book's author (using ilike)
+   - Require high degree of relevance (both author(s) and title must have significant matches)
+3. If a highly relevant book is found:
+   - Download file from Telegram
+   - Upload file to Supabase Storage bucket
+   - Attach file to the existing book record
+4. If no book is found or relevance is low:
+   - Skip the file
+   - Do not create new book records automatically
+
+### 3. Relevance Algorithm Details
+The relevance algorithm works as follows:
+1. Normalize text (lowercase, remove punctuation)
+2. Split author and title into words (filter words shorter than 3 characters)
+3. Search database for books where:
+   - Each word from the search terms is found in either the book's title or author (using ilike)
+4. Calculate relevance score based on the number of matching words between search terms and book metadata
+5. Sort results by relevance score in descending order
+6. Consider match successful only if relevance score is 2 or higher (at least 2 matching words)
+7. Attach file only to the highest scoring match that meets the threshold
+
+### 4. File Naming Convention
+Files in the bucket are stored with the following naming convention:
+- Format: `MessageID.Extension`
+- Example: `4379.zip`
+
+When downloaded by users, files are renamed to:
+- Format: `Author - Title.Extension`
+- Example: `Вилма Кадлечкова - Мицелий.zip`
+
+## Implementation Notes
+- Files must be uploaded directly to the root of the 'books' bucket in Supabase storage
+- No nested folders should be created
+- Only 'fb2' and 'zip' file formats are permitted
+- Book titles must never be modified during parsing or synchronization
+
+## Test Cases
+The following test cases demonstrate the algorithm behavior:
+
+1. **Book exists with high relevance**:
+   - Search: "Эвернесс" by "Йен Макдональд"
+   - Result: Found book "цикл Эвернесс" by "Йен Макдональд"
+   - Action: File will be attached to existing book
+
+2. **Book does not exist**:
+   - Search: "Мицелий" by "Вилма Кадлечкова"
+   - Result: No matching books found
+   - Action: File will be skipped
+
+3. **Insufficient search terms**:
+   - Search: "A" by "B" (words shorter than 3 characters)
+   - Result: Search skipped due to insufficient terms
+   - Action: File will be skipped
