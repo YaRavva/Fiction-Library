@@ -122,7 +122,7 @@ var TelegramSyncService = /** @class */ (function () {
                         channel = _b.sent();
                         channelId = typeof channel.id === 'object' && channel.id !== null ?
                             channel.id.toString() :
-                            channel.id;
+                            String(channel.id);
                         return [4 /*yield*/, this.telegramClient.getMessages(channelId, limit)];
                     case 3:
                         messages = _b.sent();
@@ -285,7 +285,7 @@ var TelegramSyncService = /** @class */ (function () {
                         console.log("Getting message ".concat(messageId, " from channel..."));
                         channelId = typeof channel.id === 'object' && channel.id !== null ?
                             channel.id.toString() :
-                            channel.id;
+                            String(channel.id);
                         return [4 /*yield*/, this.telegramClient.getMessages(channelId, 5)];
                     case 3:
                         messages = _a.sent();
@@ -519,7 +519,7 @@ var TelegramSyncService = /** @class */ (function () {
                         channel = _a.sent();
                         channelId = typeof channel.id === 'object' && channel.id !== null ?
                             channel.id.toString() :
-                            channel.id;
+                            String(channel.id);
                         // Получаем сообщения
                         console.log("\uD83D\uDCD6 \u041F\u043E\u043B\u0443\u0447\u0430\u0435\u043C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 ".concat(limit, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439..."));
                         return [4 /*yield*/, this.telegramClient.getMessages(channelId, limit)];
@@ -649,7 +649,7 @@ var TelegramSyncService = /** @class */ (function () {
                         console.log("\uD83D\uDCD6 \u041F\u043E\u043B\u0443\u0447\u0430\u0435\u043C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 ".concat(limit, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439..."));
                         channelId = typeof channel.id === 'object' && channel.id !== null ?
                             channel.id.toString() :
-                            channel.id;
+                            String(channel.id);
                         return [4 /*yield*/, Promise.race([
                                 this.telegramClient.getMessages(channelId, limit),
                                 new Promise(function (_, reject) { return setTimeout(function () { return reject(new Error('Timeout getting messages')); }, 30000); })
@@ -1237,7 +1237,7 @@ var TelegramSyncService = /** @class */ (function () {
                         channel = _b.sent();
                         channelId = typeof channel.id === 'object' && channel.id !== null ?
                             channel.id.toString() :
-                            channel.id;
+                            String(channel.id);
                         // Получаем сообщения с пагинацией
                         console.log("\uD83D\uDCE5 \u041F\u043E\u043B\u0443\u0447\u0430\u0435\u043C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F (\u043B\u0438\u043C\u0438\u0442: ".concat(limit, ", offsetId: ").concat(offsetId, ")..."));
                         return [4 /*yield*/, this.telegramClient.getMessages(channelId, limit, offsetId)];

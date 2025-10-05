@@ -103,6 +103,7 @@ export interface Book {
   genres: string[]
   series_order?: number
   telegram_file_id?: string
+  telegram_post_id?: string // Добавляем поле для связи с публикацией в Telegram
   downloads_count: number
   views_count: number
   created_at: string
@@ -203,6 +204,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
       if (book.file_size) updateData.file_size = book.file_size;
       if (book.file_format) updateData.file_format = book.file_format;
       if (book.telegram_file_id) updateData.telegram_file_id = book.telegram_file_id;
+      if (book.telegram_post_id) updateData.telegram_post_id = book.telegram_post_id; // Добавляем обработку telegram_post_id
       if (book.storage_path) updateData.storage_path = book.storage_path;
       
       // Обновляем только если есть новые данные

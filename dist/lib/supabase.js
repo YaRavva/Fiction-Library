@@ -156,7 +156,7 @@ function uploadFileToStorage(bucket_1, path_1, buffer_1) {
 // Insert or update a book record
 function upsertBookRecord(book) {
     return __awaiter(this, void 0, void 0, function () {
-        var admin, _a, existingBook, fetchError, updateData, _b, data, error, titleWords, authorWords, allSearchWords_1, searchPromises, results, allMatches, uniqueMatches, matchesWithScores, topMatches;
+        var admin, _a, existingBook, fetchError, updateData, typedAdmin, _b, data, error, titleWords, authorWords, allSearchWords_1, searchPromises, results, allMatches, uniqueMatches, matchesWithScores, topMatches;
         var _this = this;
         return __generator(this, function (_c) {
             switch (_c.label) {
@@ -190,7 +190,8 @@ function upsertBookRecord(book) {
                     if (book.storage_path)
                         updateData.storage_path = book.storage_path;
                     if (!(Object.keys(updateData).length > 0)) return [3 /*break*/, 3];
-                    return [4 /*yield*/, admin
+                    typedAdmin = admin;
+                    return [4 /*yield*/, typedAdmin
                             .from('books')
                             .update(updateData)
                             .eq('id', existingBook.id)
@@ -254,8 +255,9 @@ function upsertBookRecord(book) {
                         return index === self.findIndex(function (b) { return b.id === bookItem.id; });
                     });
                     matchesWithScores = uniqueMatches.map(function (bookItem) {
-                        var bookTitleWords = bookItem.title.toLowerCase().split(/\s+/);
-                        var bookAuthorWords = bookItem.author.toLowerCase().split(/\s+/);
+                        var typedBookItem = bookItem;
+                        var bookTitleWords = typedBookItem.title.toLowerCase().split(/\s+/);
+                        var bookAuthorWords = typedBookItem.author.toLowerCase().split(/\s+/);
                         var allBookWords = __spreadArray(__spreadArray([], bookTitleWords, true), bookAuthorWords, true);
                         // Считаем количество совпадений поисковых слов с словами в книге
                         var score = 0;
@@ -274,7 +276,7 @@ function upsertBookRecord(book) {
                                 }
                             }
                         }
-                        return __assign(__assign({}, bookItem), { score: score });
+                        return __assign(__assign({}, typedBookItem), { score: score });
                     });
                     // Сортируем по убыванию счета
                     matchesWithScores.sort(function (a, b) { return b.score - a.score; });

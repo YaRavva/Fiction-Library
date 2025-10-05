@@ -45,7 +45,7 @@ export class TelegramSyncService {
             // Convert BigInteger to string for compatibility
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
-                channel.id;
+                String(channel.id);
             const messages = await this.telegramClient.getMessages(channelId, limit) as unknown as Message[];
             console.log(`✅ Получено ${messages.length} сообщений\n`);
 
@@ -183,7 +183,7 @@ export class TelegramSyncService {
             // Convert BigInteger to string for compatibility
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
-                channel.id;
+                String(channel.id);
             const messages = await this.telegramClient.getMessages(channelId, 5) as unknown as Message[]; // Get more messages to increase chances
             console.log(`Found ${messages.length} messages`);
             
@@ -431,7 +431,7 @@ export class TelegramSyncService {
             // Convert BigInteger to string for compatibility
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
-                channel.id;
+                String(channel.id);
             
             // Получаем сообщения
             console.log(`📖 Получаем последние ${limit} сообщений...`);
@@ -549,7 +549,7 @@ export class TelegramSyncService {
             // Convert BigInteger to string for compatibility
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
-                channel.id;
+                String(channel.id);
             const messages = await Promise.race([
                 this.telegramClient.getMessages(channelId, limit) as unknown as Message[],
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout getting messages')), 30000))
@@ -963,6 +963,12 @@ export class TelegramSyncService {
                         needUpdate = true;
                     }
                     
+                    // Обновляем telegram_post_id для связи с публикацией в Telegram
+                    if (msgId && (!existingBook.telegram_post_id || existingBook.telegram_post_id === '')) {
+                        updateData.telegram_post_id = String(msgId);
+                        needUpdate = true;
+                    }
+                    
                     if (needUpdate) {
                         // @ts-ignore
                         const { error: updateError } = await serverSupabase.from('books').update(updateData).eq('id', existingBook.id);
@@ -1011,7 +1017,7 @@ export class TelegramSyncService {
                         genres: book.genres || [],
                         tags: book.tags || [],
                         rating: book.rating || null,
-                        telegram_file_id: String(msgId),
+                        telegram_post_id: String(msgId), // Используем telegram_post_id вместо telegram_file_id
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString()
                     };
@@ -1101,7 +1107,7 @@ export class TelegramSyncService {
             // Convert BigInteger to string for compatibility
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
-                channel.id;
+                String(channel.id);
 
             // Получаем сообщения с пагинацией
             console.log(`📥 Получаем сообщения (лимит: ${limit}, offsetId: ${offsetId})...`);

@@ -65,7 +65,7 @@ var MetadataParser = /** @class */ (function () {
     MetadataParser.extractDescription = function (text) {
         // Ищем текст между рейтингом и "Состав:" или концом сообщения
         // Сначала находим позицию после рейтинга
-        var ratingMatch = text.match(/Рейтинг:\s*\d+[.,]\d+[^\n]*\n/);
+        var ratingMatch = text.match(/Рейтинг:\s*[^\n]*\n/);
         if (!ratingMatch) {
             return '';
         }

@@ -103,7 +103,7 @@ export class DownloadWorker {
         // Convert BigInteger to string for compatibility
         const channelId = typeof channel.id === 'object' && channel.id !== null ? 
             (channel.id as { toString: () => string }).toString() : 
-            channel.id;
+            String(channel.id);
         
         // Получаем сообщения (получаем больше сообщений, чтобы увеличить шансы найти нужное)
         const messages = await client.getMessages(channelId, 20);

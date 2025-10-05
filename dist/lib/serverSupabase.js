@@ -20,10 +20,11 @@ exports.serverSupabase = new Proxy({}, {
             throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment');
         }
         // Создаем клиент при первом обращении
-        if (!target._client) {
-            target._client = (0, supabase_js_1.createClient)(supabaseUrl, serviceRoleKey);
+        var typedTarget = target;
+        if (!typedTarget._client) {
+            typedTarget._client = (0, supabase_js_1.createClient)(supabaseUrl, serviceRoleKey);
         }
         // Перенаправляем вызовы к реальному клиенту
-        return target._client[prop];
+        return typedTarget._client[prop];
     }
 });

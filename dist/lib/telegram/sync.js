@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -94,270 +105,170 @@ var TelegramSyncService = /** @class */ (function () {
     };
     TelegramSyncService.prototype.syncMetadata = function () {
         return __awaiter(this, arguments, void 0, function (limit) {
-            var channel, messages, metadataList, processedGroupIds, groupedMessagesMap, _i, messages_1, msg, anyMsg, groupId, _a, messages_2, msg, anyMsg, groupId, metadata, coverUrls, result, photoBuffer, photoKey, photoUrl, err_1, groupId, groupMessages, coverCount, _b, groupMessages_1, groupMsg, groupAnyMsg, photoBuffer, result, mimeType, result, photoKey, photoUrl, err_2, result, photoBuffer, photoKey, photoUrl, err_3, mimeType, result, photoBuffer, photoKey, photoUrl, err_4, i, meta, error_2;
-            var _c, _d, _e, _f;
+            var channel, channelId, messages, metadataList, _i, messages_1, msg, anyMsg, metadata, coverUrls, result, photoBuffer, photoKey, photoUrl, err_1, result, photoBuffer, photoKey, photoUrl, err_2, mimeType, result, photoBuffer, photoKey, photoUrl, err_3, error_2;
+            var _a;
             if (limit === void 0) { limit = 10; }
-            return __generator(this, function (_g) {
-                switch (_g.label) {
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
                         if (!this.telegramClient) {
                             throw new Error('Telegram client not initialized');
                         }
-                        _g.label = 1;
+                        _b.label = 1;
                     case 1:
-                        _g.trys.push([1, 54, , 55]);
+                        _b.trys.push([1, 30, , 31]);
                         return [4 /*yield*/, this.telegramClient.getMetadataChannel()];
                     case 2:
-                        channel = _g.sent();
-                        return [4 /*yield*/, this.telegramClient.getMessages(channel, limit)];
+                        channel = _b.sent();
+                        channelId = typeof channel.id === 'object' && channel.id !== null ?
+                            channel.id.toString() :
+                            String(channel.id);
+                        return [4 /*yield*/, this.telegramClient.getMessages(channelId, limit)];
                     case 3:
-                        messages = _g.sent();
+                        messages = _b.sent();
+                        console.log("\u2705 \u041F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ".concat(messages.length, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439\n"));
                         metadataList = [];
-                        processedGroupIds = new Set();
-                        groupedMessagesMap = new Map();
-                        // First pass: collect all grouped messages
-                        for (_i = 0, messages_1 = messages; _i < messages_1.length; _i++) {
-                            msg = messages_1[_i];
-                            anyMsg = msg;
-                            if (anyMsg.groupedId) {
-                                groupId = String(anyMsg.groupedId);
-                                if (!groupedMessagesMap.has(groupId)) {
-                                    groupedMessagesMap.set(groupId, []);
-                                }
-                                groupedMessagesMap.get(groupId).push(msg);
-                            }
-                        }
-                        _a = 0, messages_2 = messages;
-                        _g.label = 4;
+                        _i = 0, messages_1 = messages;
+                        _b.label = 4;
                     case 4:
-                        if (!(_a < messages_2.length)) return [3 /*break*/, 53];
-                        msg = messages_2[_a];
+                        if (!(_i < messages_1.length)) return [3 /*break*/, 29];
+                        msg = messages_1[_i];
                         anyMsg = msg;
-                        // Пропускаем сообщения без текста (но не пропускаем если это часть необработанной группы)
+                        console.log("\uD83D\uDCDD \u041E\u0431\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u0435\u043C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, "..."));
+                        // Пропускаем сообщения без текста
                         if (!msg.text) {
-                            // Если это часть альбома, проверим, обработана ли группа
-                            if (anyMsg.groupedId) {
-                                groupId = String(anyMsg.groupedId);
-                                if (!processedGroupIds.has(groupId)) {
-                                    // Группа еще не обработана, но у этого сообщения нет текста
-                                    // Мы обработаем группу позже с сообщением, у которого есть текст
-                                    console.log("  \u2192 \u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, " \u0431\u0435\u0437 \u0442\u0435\u043A\u0441\u0442\u0430, \u0447\u0430\u0441\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u044B ").concat(groupId, ", \u0431\u0443\u0434\u0435\u0442 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043E \u043F\u043E\u0437\u0436\u0435"));
-                                }
-                            }
-                            return [3 /*break*/, 52];
+                            console.log("  \u2139\uFE0F \u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, " \u043D\u0435 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0442\u0435\u043A\u0441\u0442\u0430, \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u043C"));
+                            return [3 /*break*/, 28];
                         }
                         metadata = parser_1.MetadataParser.parseMessage(msg.text);
                         coverUrls = [];
-                        if (!anyMsg.media) return [3 /*break*/, 50];
+                        if (!anyMsg.media) return [3 /*break*/, 27];
                         console.log("\uD83D\uDCF8 \u041E\u0431\u043D\u0430\u0440\u0443\u0436\u0435\u043D\u043E \u043C\u0435\u0434\u0438\u0430 \u0432 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0438 ".concat(anyMsg.id, " (\u0442\u0438\u043F: ").concat(anyMsg.media.className, ")"));
-                        if (!(anyMsg.media.className === 'MessageMediaWebPage' && ((_c = anyMsg.media.webpage) === null || _c === void 0 ? void 0 : _c.photo))) return [3 /*break*/, 12];
+                        if (!(anyMsg.media.className === 'MessageMediaWebPage' && ((_a = anyMsg.media.webpage) === null || _a === void 0 ? void 0 : _a.photo))) return [3 /*break*/, 12];
                         console.log("  \u2192 \u0412\u0435\u0431-\u043F\u0440\u0435\u0432\u044C\u044E \u0441 \u0444\u043E\u0442\u043E");
-                        _g.label = 5;
+                        _b.label = 5;
                     case 5:
-                        _g.trys.push([5, 10, , 11]);
+                        _b.trys.push([5, 10, , 11]);
                         console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0444\u043E\u0442\u043E \u0438\u0437 \u0432\u0435\u0431-\u043F\u0440\u0435\u0432\u044C\u044E...");
-                        return [4 /*yield*/, this.telegramClient.downloadMedia(anyMsg.media.webpage.photo)];
+                        return [4 /*yield*/, Promise.race([
+                                this.telegramClient.downloadMedia(anyMsg.media.webpage.photo),
+                                new Promise(function (_, reject) {
+                                    return setTimeout(function () { return reject(new Error('Timeout: Downloading media took too long')); }, 30000);
+                                })
+                            ])];
                     case 6:
-                        result = _g.sent();
+                        result = _b.sent();
                         photoBuffer = result instanceof Buffer ? result : null;
                         if (!photoBuffer) return [3 /*break*/, 8];
                         photoKey = "".concat(anyMsg.id, "_").concat(Date.now(), ".jpg");
                         console.log("  \u2192 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0432 Storage: covers/".concat(photoKey));
                         return [4 /*yield*/, (0, supabase_1.uploadFileToStorage)('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg')];
                     case 7:
-                        _g.sent();
+                        _b.sent();
                         photoUrl = "".concat(process.env.NEXT_PUBLIC_SUPABASE_URL, "/storage/v1/object/public/covers/").concat(photoKey);
                         coverUrls.push(photoUrl);
                         console.log("  \u2705 \u041E\u0431\u043B\u043E\u0436\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ".concat(photoUrl));
                         return [3 /*break*/, 9];
                     case 8:
                         console.warn("  \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u043E\u0442\u043E (\u043F\u0443\u0441\u0442\u043E\u0439 \u0431\u0443\u0444\u0435\u0440)");
-                        _g.label = 9;
+                        _b.label = 9;
                     case 9: return [3 /*break*/, 11];
                     case 10:
-                        err_1 = _g.sent();
+                        err_1 = _b.sent();
                         console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043E\u0431\u043B\u043E\u0436\u043A\u0438 \u0438\u0437 \u0432\u0435\u0431-\u043F\u0440\u0435\u0432\u044C\u044E:", err_1);
                         return [3 /*break*/, 11];
-                    case 11: return [3 /*break*/, 49];
+                    case 11: return [3 /*break*/, 27];
                     case 12:
-                        if (!anyMsg.groupedId) return [3 /*break*/, 30];
-                        groupId = String(anyMsg.groupedId);
-                        if (!!processedGroupIds.has(groupId)) return [3 /*break*/, 28];
-                        processedGroupIds.add(groupId);
-                        console.log("  \u2192 \u0413\u0440\u0443\u043F\u043F\u0430 \u043C\u0435\u0434\u0438\u0430 (\u0430\u043B\u044C\u0431\u043E\u043C), groupedId: ".concat(groupId));
-                        groupMessages = groupedMessagesMap.get(groupId) || [];
-                        console.log("  \u2192 \u041D\u0430\u0439\u0434\u0435\u043D\u043E ".concat(groupMessages.length, " \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432 \u0432 \u0430\u043B\u044C\u0431\u043E\u043C\u0435"));
-                        coverCount = 0;
-                        _b = 0, groupMessages_1 = groupMessages;
-                        _g.label = 13;
-                    case 13:
-                        if (!(_b < groupMessages_1.length)) return [3 /*break*/, 27];
-                        groupMsg = groupMessages_1[_b];
-                        groupAnyMsg = groupMsg;
-                        _g.label = 14;
-                    case 14:
-                        _g.trys.push([14, 25, , 26]);
-                        photoBuffer = null;
-                        if (!((_d = groupAnyMsg.media) === null || _d === void 0 ? void 0 : _d.photo)) return [3 /*break*/, 16];
-                        console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0444\u043E\u0442\u043E ".concat(groupAnyMsg.id, " \u0438\u0437 \u0430\u043B\u044C\u0431\u043E\u043C\u0430 (MessageMediaPhoto)..."));
-                        return [4 /*yield*/, this.telegramClient.downloadMedia(groupMsg)];
-                    case 15:
-                        result = _g.sent();
-                        photoBuffer = result instanceof Buffer ? result : null;
-                        return [3 /*break*/, 21];
-                    case 16:
-                        if (!((_e = groupAnyMsg.media) === null || _e === void 0 ? void 0 : _e.document)) return [3 /*break*/, 20];
-                        mimeType = groupAnyMsg.media.document.mimeType;
-                        if (!(mimeType && mimeType.startsWith('image/'))) return [3 /*break*/, 18];
-                        console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 ".concat(groupAnyMsg.id, " \u0438\u0437 \u0430\u043B\u044C\u0431\u043E\u043C\u0430 (MessageMediaDocument: ").concat(mimeType, ")..."));
-                        return [4 /*yield*/, this.telegramClient.downloadMedia(groupMsg)];
-                    case 17:
-                        result = _g.sent();
-                        photoBuffer = result instanceof Buffer ? result : null;
-                        return [3 /*break*/, 19];
-                    case 18:
-                        console.log("  \u2192 \u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u043C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442 ".concat(groupAnyMsg.id, " (\u0442\u0438\u043F: ").concat(mimeType, ")"));
-                        _g.label = 19;
-                    case 19: return [3 /*break*/, 21];
-                    case 20:
-                        console.log("  \u2192 \u041F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u043C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(groupAnyMsg.id, " (\u043D\u0435\u0442 \u043C\u0435\u0434\u0438\u0430 \u0438\u043B\u0438 \u043D\u0435\u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043C\u044B\u0439 \u0442\u0438\u043F)"));
-                        console.log("    \u041C\u0435\u0434\u0438\u0430:", JSON.stringify(groupAnyMsg.media || 'none', null, 2));
-                        _g.label = 21;
-                    case 21:
-                        if (!photoBuffer) return [3 /*break*/, 23];
-                        photoKey = "".concat(groupAnyMsg.id, "_").concat(Date.now(), ".jpg");
-                        console.log("  \u2192 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0432 Storage: covers/".concat(photoKey));
-                        return [4 /*yield*/, (0, supabase_1.uploadFileToStorage)('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg')];
-                    case 22:
-                        _g.sent();
-                        photoUrl = "".concat(process.env.NEXT_PUBLIC_SUPABASE_URL, "/storage/v1/object/public/covers/").concat(photoKey);
-                        coverUrls.push(photoUrl);
-                        coverCount++;
-                        console.log("  \u2705 \u041E\u0431\u043B\u043E\u0436\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ".concat(photoUrl));
-                        return [3 /*break*/, 24];
-                    case 23:
-                        console.warn("  \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u043C\u0435\u0434\u0438\u0430 (\u043F\u0443\u0441\u0442\u043E\u0439 \u0431\u0443\u0444\u0435\u0440) \u0434\u043B\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F ".concat(groupAnyMsg.id));
-                        _g.label = 24;
-                    case 24: return [3 /*break*/, 26];
-                    case 25:
-                        err_2 = _g.sent();
-                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043C\u0435\u0434\u0438\u0430 \u0438\u0437 \u0430\u043B\u044C\u0431\u043E\u043C\u0430 (\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(groupAnyMsg === null || groupAnyMsg === void 0 ? void 0 : groupAnyMsg.id, "):"), err_2);
-                        return [3 /*break*/, 26];
-                    case 26:
-                        _b++;
-                        return [3 /*break*/, 13];
-                    case 27:
-                        console.log("  \u2192 \u0412\u0441\u0435\u0433\u043E \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u043E \u043E\u0431\u043B\u043E\u0436\u0435\u043A \u0438\u0437 \u0430\u043B\u044C\u0431\u043E\u043C\u0430: ".concat(coverCount));
-                        return [3 /*break*/, 29];
-                    case 28:
-                        console.log("  \u2192 \u0413\u0440\u0443\u043F\u043F\u0430 ".concat(groupId, " \u0443\u0436\u0435 \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u0430, \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u043C"));
-                        _g.label = 29;
-                    case 29: return [3 /*break*/, 49];
-                    case 30:
-                        if (!anyMsg.media.photo) return [3 /*break*/, 38];
+                        if (!anyMsg.media.photo) return [3 /*break*/, 20];
                         console.log("  \u2192 \u041E\u0434\u0438\u043D\u043E\u0447\u043D\u043E\u0435 \u0444\u043E\u0442\u043E");
-                        _g.label = 31;
-                    case 31:
-                        _g.trys.push([31, 36, , 37]);
+                        _b.label = 13;
+                    case 13:
+                        _b.trys.push([13, 18, , 19]);
                         console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0444\u043E\u0442\u043E...");
-                        return [4 /*yield*/, this.telegramClient.downloadMedia(msg)];
-                    case 32:
-                        result = _g.sent();
+                        return [4 /*yield*/, Promise.race([
+                                this.telegramClient.downloadMedia(msg),
+                                new Promise(function (_, reject) {
+                                    return setTimeout(function () { return reject(new Error('Timeout: Downloading media took too long')); }, 30000);
+                                })
+                            ])];
+                    case 14:
+                        result = _b.sent();
                         photoBuffer = result instanceof Buffer ? result : null;
-                        if (!photoBuffer) return [3 /*break*/, 34];
+                        if (!photoBuffer) return [3 /*break*/, 16];
                         photoKey = "".concat(anyMsg.id, "_").concat(Date.now(), ".jpg");
                         console.log("  \u2192 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0432 Storage: covers/".concat(photoKey));
                         return [4 /*yield*/, (0, supabase_1.uploadFileToStorage)('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg')];
-                    case 33:
-                        _g.sent();
+                    case 15:
+                        _b.sent();
                         photoUrl = "".concat(process.env.NEXT_PUBLIC_SUPABASE_URL, "/storage/v1/object/public/covers/").concat(photoKey);
                         coverUrls.push(photoUrl);
                         console.log("  \u2705 \u041E\u0431\u043B\u043E\u0436\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ".concat(photoUrl));
-                        return [3 /*break*/, 35];
-                    case 34:
+                        return [3 /*break*/, 17];
+                    case 16:
                         console.warn("  \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u043E\u0442\u043E (\u043F\u0443\u0441\u0442\u043E\u0439 \u0431\u0443\u0444\u0435\u0440)");
-                        _g.label = 35;
-                    case 35: return [3 /*break*/, 37];
-                    case 36:
-                        err_3 = _g.sent();
-                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043E\u0431\u043B\u043E\u0436\u043A\u0438:", err_3);
-                        return [3 /*break*/, 37];
-                    case 37: return [3 /*break*/, 49];
-                    case 38:
-                        if (!anyMsg.media.document) return [3 /*break*/, 48];
+                        _b.label = 17;
+                    case 17: return [3 /*break*/, 19];
+                    case 18:
+                        err_2 = _b.sent();
+                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043E\u0431\u043B\u043E\u0436\u043A\u0438:", err_2);
+                        return [3 /*break*/, 19];
+                    case 19: return [3 /*break*/, 27];
+                    case 20:
+                        if (!anyMsg.media.document) return [3 /*break*/, 27];
                         mimeType = anyMsg.media.document.mimeType;
-                        if (!(mimeType && mimeType.startsWith('image/'))) return [3 /*break*/, 46];
+                        if (!(mimeType && mimeType.startsWith('image/'))) return [3 /*break*/, 27];
                         console.log("  \u2192 \u041E\u0434\u0438\u043D\u043E\u0447\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 (\u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442: ".concat(mimeType, ")"));
-                        _g.label = 39;
-                    case 39:
-                        _g.trys.push([39, 44, , 45]);
+                        _b.label = 21;
+                    case 21:
+                        _b.trys.push([21, 26, , 27]);
                         console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435...");
-                        return [4 /*yield*/, this.telegramClient.downloadMedia(msg)];
-                    case 40:
-                        result = _g.sent();
+                        return [4 /*yield*/, Promise.race([
+                                this.telegramClient.downloadMedia(msg),
+                                new Promise(function (_, reject) {
+                                    return setTimeout(function () { return reject(new Error('Timeout: Downloading media took too long')); }, 30000);
+                                })
+                            ])];
+                    case 22:
+                        result = _b.sent();
                         photoBuffer = result instanceof Buffer ? result : null;
-                        if (!photoBuffer) return [3 /*break*/, 42];
+                        if (!photoBuffer) return [3 /*break*/, 24];
                         photoKey = "".concat(anyMsg.id, "_").concat(Date.now(), ".jpg");
                         console.log("  \u2192 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0432 Storage: covers/".concat(photoKey));
                         return [4 /*yield*/, (0, supabase_1.uploadFileToStorage)('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg')];
-                    case 41:
-                        _g.sent();
+                    case 23:
+                        _b.sent();
                         photoUrl = "".concat(process.env.NEXT_PUBLIC_SUPABASE_URL, "/storage/v1/object/public/covers/").concat(photoKey);
                         coverUrls.push(photoUrl);
                         console.log("  \u2705 \u041E\u0431\u043B\u043E\u0436\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ".concat(photoUrl));
-                        return [3 /*break*/, 43];
-                    case 42:
+                        return [3 /*break*/, 25];
+                    case 24:
                         console.warn("  \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 (\u043F\u0443\u0441\u0442\u043E\u0439 \u0431\u0443\u0444\u0435\u0440)");
-                        _g.label = 43;
-                    case 43: return [3 /*break*/, 45];
-                    case 44:
-                        err_4 = _g.sent();
-                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F:", err_4);
-                        return [3 /*break*/, 45];
-                    case 45: return [3 /*break*/, 47];
-                    case 46:
-                        console.log("  \u2192 \u041C\u0435\u0434\u0438\u0430 \u043D\u0435 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0444\u043E\u0442\u043E (\u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442: ".concat(mimeType, ")"));
-                        _g.label = 47;
-                    case 47: return [3 /*break*/, 49];
-                    case 48:
-                        console.log("  \u2192 \u041C\u0435\u0434\u0438\u0430 \u043D\u0435 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0444\u043E\u0442\u043E");
-                        _g.label = 49;
-                    case 49: return [3 /*break*/, 51];
-                    case 50:
-                        console.log("  \u2139\uFE0F \u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, " \u043D\u0435 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u043C\u0435\u0434\u0438\u0430"));
-                        _g.label = 51;
-                    case 51:
-                        // Добавляем URL обложек к метаданным
-                        metadata.coverUrls = coverUrls.length > 0 ? coverUrls : undefined;
-                        // Debug logging
-                        console.log("  \u2192 \u0418\u0442\u043E\u0433\u043E\u0432\u043E\u0435 \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043E\u0431\u043B\u043E\u0436\u0435\u043A \u0434\u043B\u044F \"".concat(metadata.title, "\": ").concat(coverUrls.length));
-                        if (coverUrls.length > 0) {
-                            console.log("  \u2192 \u041E\u0431\u043B\u043E\u0436\u043A\u0438:", coverUrls);
-                        }
-                        metadataList.push(metadata);
-                        _g.label = 52;
-                    case 52:
-                        _a++;
+                        _b.label = 25;
+                    case 25: return [3 /*break*/, 27];
+                    case 26:
+                        err_3 = _b.sent();
+                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043E\u0431\u043B\u043E\u0436\u043A\u0438:", err_3);
+                        return [3 /*break*/, 27];
+                    case 27:
+                        // Добавляем метаданные в список
+                        metadataList.push(__assign(__assign({}, metadata), { coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || [] }));
+                        _b.label = 28;
+                    case 28:
+                        _i++;
                         return [3 /*break*/, 4];
-                    case 53:
-                        console.log("\n\uD83D\uDCCA \u0412\u0441\u0435\u0433\u043E \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439: ".concat(metadataList.length));
-                        for (i = 0; i < metadataList.length; i++) {
-                            meta = metadataList[i];
-                            console.log("  ".concat(i + 1, ". \"").concat(meta.title, "\" - ").concat(((_f = meta.coverUrls) === null || _f === void 0 ? void 0 : _f.length) || 0, " \u043E\u0431\u043B\u043E\u0436\u0435\u043A"));
-                        }
-                        return [2 /*return*/, metadataList];
-                    case 54:
-                        error_2 = _g.sent();
-                        console.error('Error syncing metadata:', error_2);
+                    case 29: return [2 /*return*/, metadataList];
+                    case 30:
+                        error_2 = _b.sent();
+                        console.error('Error in syncMetadata:', error_2);
                         throw error_2;
-                    case 55: return [2 /*return*/];
+                    case 31: return [2 /*return*/];
                 }
             });
         });
     };
     TelegramSyncService.prototype.downloadBook = function (messageId) {
         return __awaiter(this, void 0, void 0, function () {
-            var channel, messages, message, _i, messages_3, msg, buffer, anyMsg, filenameCandidate, ext, storageKey, displayName, mime, bookRecord, err_5, error_3;
+            var channel, channelId, messages, message, _i, messages_2, msg, buffer, anyMsg, filenameCandidate, ext, storageKey, displayName, mime, bookRecord, err_4, error_3;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -372,15 +283,17 @@ var TelegramSyncService = /** @class */ (function () {
                         channel = _a.sent();
                         // Получаем конкретное сообщение
                         console.log("Getting message ".concat(messageId, " from channel..."));
-                        return [4 /*yield*/, this.telegramClient.getMessages(channel, 5)];
+                        channelId = typeof channel.id === 'object' && channel.id !== null ?
+                            channel.id.toString() :
+                            String(channel.id);
+                        return [4 /*yield*/, this.telegramClient.getMessages(channelId, 5)];
                     case 3:
                         messages = _a.sent();
                         console.log("Found ".concat(messages.length, " messages"));
                         message = messages[0];
                         if (messageId > 1) {
-                            for (_i = 0, messages_3 = messages; _i < messages_3.length; _i++) {
-                                msg = messages_3[_i];
-                                // @ts-ignore
+                            for (_i = 0, messages_2 = messages; _i < messages_2.length; _i++) {
+                                msg = messages_2[_i];
                                 if (msg.id === messageId) {
                                     message = msg;
                                     break;
@@ -390,8 +303,7 @@ var TelegramSyncService = /** @class */ (function () {
                         if (!message) {
                             throw new Error("Message ".concat(messageId, " not found"));
                         }
-                        // @ts-ignore
-                        console.log("Downloading file from message ".concat(message.id, "..."));
+                        console.log("Downloading file from message ".concat(messageId, "..."));
                         return [4 /*yield*/, Promise.race([
                                 this.telegramClient.downloadMedia(message),
                                 new Promise(function (_, reject) {
@@ -436,8 +348,8 @@ var TelegramSyncService = /** @class */ (function () {
                         _a.sent();
                         return [3 /*break*/, 9];
                     case 8:
-                        err_5 = _a.sent();
-                        console.warn('Failed to upsert book record:', err_5);
+                        err_4 = _a.sent();
+                        console.warn('Failed to upsert book record:', err_4);
                         return [3 /*break*/, 9];
                     case 9: return [2 /*return*/, Buffer.from(buffer)];
                     case 10:
@@ -588,7 +500,7 @@ var TelegramSyncService = /** @class */ (function () {
      */
     TelegramSyncService.prototype.downloadFilesFromArchiveChannel = function () {
         return __awaiter(this, arguments, void 0, function (limit, addToQueue) {
-            var channel, messages, results, _i, messages_4, msg, anyMsg, filename, attrFileName, fileId, fileRecord, dbError_1, downloadTask, queueError_1, msgError_1, error_4;
+            var channel, channelId, messages, results, _i, messages_3, msg, anyMsg, filename, attributes, attrFileName, fileId, fileRecord, supabase, dbError_1, downloadTask, supabase, queueError_1, msgError_1, error_4;
             if (limit === void 0) { limit = 10; }
             if (addToQueue === void 0) { addToQueue = true; }
             return __generator(this, function (_a) {
@@ -605,18 +517,21 @@ var TelegramSyncService = /** @class */ (function () {
                         return [4 /*yield*/, this.telegramClient.getFilesChannel()];
                     case 2:
                         channel = _a.sent();
+                        channelId = typeof channel.id === 'object' && channel.id !== null ?
+                            channel.id.toString() :
+                            String(channel.id);
                         // Получаем сообщения
                         console.log("\uD83D\uDCD6 \u041F\u043E\u043B\u0443\u0447\u0430\u0435\u043C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 ".concat(limit, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439..."));
-                        return [4 /*yield*/, this.telegramClient.getMessages(channel, limit)];
+                        return [4 /*yield*/, this.telegramClient.getMessages(channelId, limit)];
                     case 3:
                         messages = _a.sent();
                         console.log("\u2705 \u041F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ".concat(messages.length, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439\n"));
                         results = [];
-                        _i = 0, messages_4 = messages;
+                        _i = 0, messages_3 = messages;
                         _a.label = 4;
                     case 4:
-                        if (!(_i < messages_4.length)) return [3 /*break*/, 16];
-                        msg = messages_4[_i];
+                        if (!(_i < messages_3.length)) return [3 /*break*/, 16];
+                        msg = messages_3[_i];
                         anyMsg = msg;
                         console.log("\uD83D\uDCDD \u041E\u0431\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u0435\u043C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, "..."));
                         // Проверяем, есть ли в сообщении медиа (файл)
@@ -629,8 +544,10 @@ var TelegramSyncService = /** @class */ (function () {
                         _a.trys.push([5, 14, , 15]);
                         filename = "book_".concat(anyMsg.id, ".fb2");
                         if (anyMsg.document && anyMsg.document.attributes) {
-                            attrFileName = anyMsg.document.attributes.find(function (attr) {
-                                return attr.className === 'DocumentAttributeFilename';
+                            attributes = anyMsg.document.attributes;
+                            attrFileName = attributes.find(function (attr) {
+                                var attrObj = attr;
+                                return attrObj.className === 'DocumentAttributeFilename';
                             });
                             if (attrFileName && attrFileName.fileName) {
                                 filename = attrFileName.fileName;
@@ -648,10 +565,9 @@ var TelegramSyncService = /** @class */ (function () {
                         _a.label = 6;
                     case 6:
                         _a.trys.push([6, 8, , 9]);
-                        // Вставляем запись о сообщении
-                        return [4 /*yield*/, serverSupabase_1.serverSupabase.from('telegram_messages').upsert(fileRecord)];
+                        supabase = serverSupabase_1.serverSupabase;
+                        return [4 /*yield*/, supabase.from('telegram_messages').upsert(fileRecord)];
                     case 7:
-                        // Вставляем запись о сообщении
                         _a.sent();
                         return [3 /*break*/, 9];
                     case 8:
@@ -670,7 +586,8 @@ var TelegramSyncService = /** @class */ (function () {
                         _a.label = 10;
                     case 10:
                         _a.trys.push([10, 12, , 13]);
-                        return [4 /*yield*/, serverSupabase_1.serverSupabase.from('telegram_download_queue').upsert(downloadTask)];
+                        supabase = serverSupabase_1.serverSupabase;
+                        return [4 /*yield*/, supabase.from('telegram_download_queue').upsert(downloadTask)];
                     case 11:
                         _a.sent();
                         console.log("  \u2705 \u0424\u0430\u0439\u043B \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D \u0432 \u043E\u0447\u0435\u0440\u0435\u0434\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438: ".concat(fileId));
@@ -712,7 +629,7 @@ var TelegramSyncService = /** @class */ (function () {
      */
     TelegramSyncService.prototype.downloadAndProcessFilesDirectly = function () {
         return __awaiter(this, arguments, void 0, function (limit) {
-            var channel, messages, results, _i, messages_5, msg, anyMsg, result, msgError_2, error_5;
+            var channel, channelId, messages, results, _i, messages_4, msg, anyMsg, result, msgError_2, error_5;
             if (limit === void 0) { limit = 10; }
             return __generator(this, function (_a) {
                 switch (_a.label) {
@@ -728,18 +645,24 @@ var TelegramSyncService = /** @class */ (function () {
                         return [4 /*yield*/, this.telegramClient.getFilesChannel()];
                     case 2:
                         channel = _a.sent();
-                        // Получаем сообщения
+                        // Получаем сообщения с таймаутом
                         console.log("\uD83D\uDCD6 \u041F\u043E\u043B\u0443\u0447\u0430\u0435\u043C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 ".concat(limit, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439..."));
-                        return [4 /*yield*/, this.telegramClient.getMessages(channel, limit)];
+                        channelId = typeof channel.id === 'object' && channel.id !== null ?
+                            channel.id.toString() :
+                            String(channel.id);
+                        return [4 /*yield*/, Promise.race([
+                                this.telegramClient.getMessages(channelId, limit),
+                                new Promise(function (_, reject) { return setTimeout(function () { return reject(new Error('Timeout getting messages')); }, 30000); })
+                            ])];
                     case 3:
                         messages = _a.sent();
                         console.log("\u2705 \u041F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ".concat(messages.length, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439\n"));
                         results = [];
-                        _i = 0, messages_5 = messages;
+                        _i = 0, messages_4 = messages;
                         _a.label = 4;
                     case 4:
-                        if (!(_i < messages_5.length)) return [3 /*break*/, 9];
-                        msg = messages_5[_i];
+                        if (!(_i < messages_4.length)) return [3 /*break*/, 9];
+                        msg = messages_4[_i];
                         anyMsg = msg;
                         console.log("\uD83D\uDCDD \u041E\u0431\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u0435\u043C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, "..."));
                         // Проверяем, есть ли в сообщении медиа (файл)
@@ -809,7 +732,7 @@ var TelegramSyncService = /** @class */ (function () {
      */
     TelegramSyncService.prototype.downloadAndProcessSingleFileWithBookId = function (message, bookId) {
         return __awaiter(this, void 0, void 0, function () {
-            var anyMsg, buffer, filenameCandidate, ext, mime, fileFormat, attrFileName, mimeTypes, allowedFormats, _a, author, title, sanitizeFilename, storageKey, displayName, fileUrl, admin, _b, book, bookError, removeError_1, updateData, _c, updatedBook, updateError, removeError_2, error_6;
+            var anyMsg, buffer, filenameCandidate, ext, mime, fileFormat, attributes, attrFileName, mimeTypes, allowedFormats, _a, author, title, sanitizeFilename, storageKey, displayName, fileUrl, admin, supabase, _b, book, bookError, storageSupabase, removeError_1, updateData, supabase2, _c, updatedBook, updateError, storageSupabase, removeError_2, error_6;
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -834,8 +757,10 @@ var TelegramSyncService = /** @class */ (function () {
                         mime = 'application/octet-stream';
                         fileFormat = 'fb2';
                         if (anyMsg.document && anyMsg.document.attributes) {
-                            attrFileName = anyMsg.document.attributes.find(function (attr) {
-                                return attr.className === 'DocumentAttributeFilename';
+                            attributes = anyMsg.document.attributes;
+                            attrFileName = attributes.find(function (attr) {
+                                var attrObj = attr;
+                                return attrObj.className === 'DocumentAttributeFilename';
                             });
                             if (attrFileName && attrFileName.fileName) {
                                 filenameCandidate = attrFileName.fileName;
@@ -875,7 +800,8 @@ var TelegramSyncService = /** @class */ (function () {
                             console.log("  \u26A0\uFE0F  \u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430 \u043A Supabase Admin");
                             throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set. Cannot upsert book record.');
                         }
-                        return [4 /*yield*/, admin
+                        supabase = admin;
+                        return [4 /*yield*/, supabase
                                 .from('books')
                                 .select('title, author')
                                 .eq('id', bookId)
@@ -888,7 +814,8 @@ var TelegramSyncService = /** @class */ (function () {
                         _d.label = 5;
                     case 5:
                         _d.trys.push([5, 7, , 8]);
-                        return [4 /*yield*/, admin.storage.from('books').remove([storageKey])];
+                        storageSupabase = admin;
+                        return [4 /*yield*/, storageSupabase.storage.from('books').remove([storageKey])];
                     case 6:
                         _d.sent();
                         return [3 /*break*/, 8];
@@ -907,7 +834,8 @@ var TelegramSyncService = /** @class */ (function () {
                             storage_path: storageKey,
                             updated_at: new Date().toISOString()
                         };
-                        return [4 /*yield*/, admin
+                        supabase2 = admin;
+                        return [4 /*yield*/, supabase2
                                 .from('books')
                                 .update(updateData)
                                 .eq('id', bookId)
@@ -921,7 +849,8 @@ var TelegramSyncService = /** @class */ (function () {
                         _d.label = 11;
                     case 11:
                         _d.trys.push([11, 13, , 14]);
-                        return [4 /*yield*/, admin.storage.from('books').remove([storageKey])];
+                        storageSupabase = admin;
+                        return [4 /*yield*/, storageSupabase.storage.from('books').remove([storageKey])];
                     case 12:
                         _d.sent();
                         return [3 /*break*/, 14];
@@ -955,7 +884,7 @@ var TelegramSyncService = /** @class */ (function () {
      */
     TelegramSyncService.prototype.downloadAndProcessSingleFile = function (message) {
         return __awaiter(this, void 0, void 0, function () {
-            var anyMsg, buffer, filenameCandidate, ext, mime, fileFormat, attrFileName, mimeTypes, allowedFormats, _a, author, title, sanitizeFilename, storageKey, displayName, fileUrl, bookRecord, result, admin, err_6, error_7;
+            var anyMsg, buffer, filenameCandidate, ext, mime, fileFormat, attributes, attrFileName, mimeTypes, allowedFormats, _a, author, title, sanitizeFilename, storageKey, displayName, fileUrl, bookRecord, result, admin, storageSupabase, err_5, error_7;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -980,8 +909,10 @@ var TelegramSyncService = /** @class */ (function () {
                         mime = 'application/octet-stream';
                         fileFormat = 'fb2';
                         if (anyMsg.document && anyMsg.document.attributes) {
-                            attrFileName = anyMsg.document.attributes.find(function (attr) {
-                                return attr.className === 'DocumentAttributeFilename';
+                            attributes = anyMsg.document.attributes;
+                            attrFileName = attributes.find(function (attr) {
+                                var attrObj = attr;
+                                return attrObj.className === 'DocumentAttributeFilename';
                             });
                             if (attrFileName && attrFileName.fileName) {
                                 filenameCandidate = attrFileName.fileName;
@@ -1039,7 +970,8 @@ var TelegramSyncService = /** @class */ (function () {
                         console.log("  \u26A0\uFE0F  \u041A\u043D\u0438\u0433\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430, \u0443\u0434\u0430\u043B\u044F\u0435\u043C \u0444\u0430\u0439\u043B \u0438\u0437 Storage: ".concat(storageKey));
                         admin = (0, supabase_1.getSupabaseAdmin)();
                         if (!admin) return [3 /*break*/, 8];
-                        return [4 /*yield*/, admin.storage.from('books').remove([storageKey])];
+                        storageSupabase = admin;
+                        return [4 /*yield*/, storageSupabase.storage.from('books').remove([storageKey])];
                     case 7:
                         _b.sent();
                         _b.label = 8;
@@ -1048,9 +980,9 @@ var TelegramSyncService = /** @class */ (function () {
                         throw new Error('Book not found for file attachment');
                     case 9: return [3 /*break*/, 11];
                     case 10:
-                        err_6 = _b.sent();
-                        console.warn("  \u26A0\uFE0F  \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0438/\u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0438 \u0437\u0430\u043F\u0438\u0441\u0438 \u043A\u043D\u0438\u0433\u0438:", err_6);
-                        throw err_6;
+                        err_5 = _b.sent();
+                        console.warn("  \u26A0\uFE0F  \u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0438/\u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0438 \u0437\u0430\u043F\u0438\u0441\u0438 \u043A\u043D\u0438\u0433\u0438:", err_5);
+                        throw err_5;
                     case 11:
                         console.log("  \u2705 \u0424\u0430\u0439\u043B \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D: ".concat(filenameCandidate));
                         return [2 /*return*/, {
@@ -1071,7 +1003,7 @@ var TelegramSyncService = /** @class */ (function () {
     };
     TelegramSyncService.prototype.shutdown = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var err_7;
+            var err_6;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -1089,10 +1021,374 @@ var TelegramSyncService = /** @class */ (function () {
                         _a.sent();
                         return [3 /*break*/, 4];
                     case 3:
-                        err_7 = _a.sent();
-                        console.warn('Error during shutdown:', err_7);
+                        err_6 = _a.sent();
+                        console.warn('Error during shutdown:', err_6);
                         return [3 /*break*/, 4];
                     case 4: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Импортирует метаданные из Telegram в БД с учётом последних обработанных публикаций
+     * @param metadata Массив метаданных книг для импорта
+     */
+    TelegramSyncService.prototype.importMetadataWithDeduplication = function (metadata) {
+        return __awaiter(this, void 0, void 0, function () {
+            var processed, added, updated, skipped, errors, details, _i, metadata_1, book, msgId, _a, foundBooks, findError, existingBook, needUpdate, updateData, updateError, upsertError1, newBook, _b, inserted, insertError, upsertError2, error_8;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        if (!this.telegramClient) {
+                            throw new Error('Telegram client not initialized');
+                        }
+                        processed = 0, added = 0, updated = 0, skipped = 0, errors = 0;
+                        details = [];
+                        _c.label = 1;
+                    case 1:
+                        _c.trys.push([1, 14, , 15]);
+                        _i = 0, metadata_1 = metadata;
+                        _c.label = 2;
+                    case 2:
+                        if (!(_i < metadata_1.length)) return [3 /*break*/, 13];
+                        book = metadata_1[_i];
+                        msgId = book.messageId;
+                        return [4 /*yield*/, serverSupabase_1.serverSupabase
+                                .from('books')
+                                .select('*')
+                                .eq('title', book.title)
+                                .eq('author', book.author)];
+                    case 3:
+                        _a = _c.sent(), foundBooks = _a.data, findError = _a.error;
+                        if (findError) {
+                            errors++;
+                            details.push({ msgId: msgId, status: 'error', error: findError.message });
+                            return [3 /*break*/, 12];
+                        }
+                        if (!(foundBooks && foundBooks.length > 0)) return [3 /*break*/, 8];
+                        existingBook = foundBooks[0];
+                        needUpdate = false;
+                        updateData = {};
+                        // Обновляем только если новые данные лучше существующих
+                        if (!existingBook.description && book.description) {
+                            updateData.description = book.description;
+                            needUpdate = true;
+                        }
+                        if (book.genres && book.genres.length > 0 && (!existingBook.genres || existingBook.genres.length === 0)) {
+                            updateData.genres = book.genres;
+                            needUpdate = true;
+                        }
+                        if (book.tags && book.tags.length > 0 && (!existingBook.tags || existingBook.tags.length === 0)) {
+                            updateData.tags = book.tags;
+                            needUpdate = true;
+                        }
+                        // Обновляем обложку, если у новой книги есть обложки, а у существующей нет
+                        if (book.coverUrls && book.coverUrls.length > 0 && (!existingBook.cover_url || existingBook.cover_url === '')) {
+                            updateData.cover_url = book.coverUrls[0]; // Берем первую обложку
+                            needUpdate = true;
+                        }
+                        if (!needUpdate) return [3 /*break*/, 5];
+                        return [4 /*yield*/, serverSupabase_1.serverSupabase.from('books').update(updateData).eq('id', existingBook.id)];
+                    case 4:
+                        updateError = (_c.sent()).error;
+                        if (updateError) {
+                            errors++;
+                            details.push({ msgId: msgId, status: 'error', error: updateError.message });
+                            return [3 /*break*/, 12];
+                        }
+                        updated++;
+                        details.push({
+                            msgId: msgId,
+                            status: 'updated',
+                            bookId: existingBook.id,
+                            bookTitle: existingBook.title,
+                            bookAuthor: existingBook.author
+                        });
+                        return [3 /*break*/, 6];
+                    case 5:
+                        skipped++;
+                        details.push({
+                            msgId: msgId,
+                            status: 'skipped',
+                            reason: 'metadata complete',
+                            bookTitle: existingBook.title,
+                            bookAuthor: existingBook.author
+                        });
+                        _c.label = 6;
+                    case 6: return [4 /*yield*/, serverSupabase_1.serverSupabase.from('telegram_processed_messages').upsert({
+                            message_id: String(msgId),
+                            channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
+                            book_id: existingBook.id,
+                            processed_at: new Date().toISOString()
+                        })];
+                    case 7:
+                        upsertError1 = (_c.sent()).error;
+                        if (upsertError1) {
+                            errors++;
+                            details.push({ msgId: msgId, status: 'error', error: upsertError1.message });
+                        }
+                        return [3 /*break*/, 11];
+                    case 8:
+                        newBook = {
+                            title: book.title,
+                            author: book.author,
+                            description: book.description || '',
+                            genres: book.genres || [],
+                            tags: book.tags || [],
+                            rating: book.rating || null,
+                            telegram_file_id: String(msgId),
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        };
+                        // Добавляем обложку, если она есть
+                        if (book.coverUrls && book.coverUrls.length > 0) {
+                            // @ts-ignore
+                            newBook.cover_url = book.coverUrls[0]; // Берем первую обложку
+                        }
+                        return [4 /*yield*/, serverSupabase_1.serverSupabase.from('books').insert(newBook).select().single()];
+                    case 9:
+                        _b = _c.sent(), inserted = _b.data, insertError = _b.error;
+                        if (insertError) {
+                            errors++;
+                            details.push({ msgId: msgId, status: 'error', error: insertError.message });
+                            return [3 /*break*/, 12];
+                        }
+                        added++;
+                        // @ts-ignore
+                        details.push({
+                            msgId: msgId,
+                            status: 'added',
+                            bookId: inserted.id,
+                            bookTitle: inserted.title,
+                            bookAuthor: inserted.author
+                        });
+                        return [4 /*yield*/, serverSupabase_1.serverSupabase.from('telegram_processed_messages').upsert({
+                                message_id: String(msgId),
+                                channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
+                                // @ts-ignore
+                                book_id: inserted.id,
+                                processed_at: new Date().toISOString()
+                            })];
+                    case 10:
+                        upsertError2 = (_c.sent()).error;
+                        if (upsertError2) {
+                            errors++;
+                            details.push({ msgId: msgId, status: 'error', error: upsertError2.message });
+                        }
+                        _c.label = 11;
+                    case 11:
+                        processed++;
+                        _c.label = 12;
+                    case 12:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 13: return [2 /*return*/, { processed: processed, added: added, updated: updated, skipped: skipped, errors: errors, details: details }];
+                    case 14:
+                        error_8 = _c.sent();
+                        throw error_8;
+                    case 15: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Синхронизирует книги из Telegram канала с учетом уже обработанных сообщений
+     * @param limit Количество сообщений для обработки (по умолчанию 100)
+     */
+    TelegramSyncService.prototype.syncBooks = function () {
+        return __awaiter(this, arguments, void 0, function (limit) {
+            var result, lastProcessed, lastProcessedError, offsetId, channel, channelId, messages, metadataList, _i, messages_5, msg, anyMsg, metadata, coverUrls, result_1, photoBuffer, photoKey, photoUrl, err_7, result_2, photoBuffer, photoKey, photoUrl, err_8, mimeType, result_3, photoBuffer, photoKey, photoUrl, err_9, resultImport, error_9;
+            var _a;
+            if (limit === void 0) { limit = 100; }
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (!this.telegramClient) {
+                            throw new Error('Telegram client not initialized');
+                        }
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 32, , 33]);
+                        console.log("\uD83D\uDE80 \u041D\u0430\u0447\u0438\u043D\u0430\u0435\u043C \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E \u043A\u043D\u0438\u0433 (\u043B\u0438\u043C\u0438\u0442: ".concat(limit, ")"));
+                        // Получаем ID последнего обработанного сообщения
+                        console.log('🔍 Получаем ID последнего обработанного сообщения...');
+                        return [4 /*yield*/, serverSupabase_1.serverSupabase
+                                .from('telegram_processed_messages')
+                                .select('message_id')
+                                .order('processed_at', { ascending: false })
+                                .limit(1)
+                                .single()];
+                    case 2:
+                        result = _b.sent();
+                        lastProcessed = result.data, lastProcessedError = result.error;
+                        offsetId = undefined;
+                        if (lastProcessed && lastProcessed.message_id) {
+                            // Если есть последнее обработанное сообщение, начинаем с него
+                            offsetId = parseInt(lastProcessed.message_id, 10);
+                            console.log("  \uD83D\uDCCC \u041D\u0430\u0447\u0438\u043D\u0430\u0435\u043C \u0441 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F ID: ".concat(offsetId));
+                        }
+                        else {
+                            console.log('  🆕 Начинаем с самых новых сообщений');
+                        }
+                        // Получаем канал с метаданными
+                        console.log('📡 Получаем канал с метаданными...');
+                        return [4 /*yield*/, this.telegramClient.getMetadataChannel()];
+                    case 3:
+                        channel = _b.sent();
+                        channelId = typeof channel.id === 'object' && channel.id !== null ?
+                            channel.id.toString() :
+                            String(channel.id);
+                        // Получаем сообщения с пагинацией
+                        console.log("\uD83D\uDCE5 \u041F\u043E\u043B\u0443\u0447\u0430\u0435\u043C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F (\u043B\u0438\u043C\u0438\u0442: ".concat(limit, ", offsetId: ").concat(offsetId, ")..."));
+                        return [4 /*yield*/, this.telegramClient.getMessages(channelId, limit, offsetId)];
+                    case 4:
+                        messages = _b.sent();
+                        console.log("\u2705 \u041F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ".concat(messages.length, " \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439\n"));
+                        metadataList = [];
+                        _i = 0, messages_5 = messages;
+                        _b.label = 5;
+                    case 5:
+                        if (!(_i < messages_5.length)) return [3 /*break*/, 30];
+                        msg = messages_5[_i];
+                        anyMsg = msg;
+                        console.log("\uD83D\uDCDD \u041E\u0431\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u0435\u043C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, "..."));
+                        // Пропускаем сообщения без текста
+                        if (!msg.text) {
+                            console.log("  \u2139\uFE0F \u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 ".concat(anyMsg.id, " \u043D\u0435 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u0442\u0435\u043A\u0441\u0442\u0430, \u043F\u0440\u043E\u043F\u0443\u0441\u043A\u0430\u0435\u043C"));
+                            return [3 /*break*/, 29];
+                        }
+                        metadata = parser_1.MetadataParser.parseMessage(msg.text);
+                        // Добавляем ID сообщения в метаданные
+                        metadata.messageId = anyMsg.id;
+                        coverUrls = [];
+                        if (!anyMsg.media) return [3 /*break*/, 28];
+                        console.log("\uD83D\uDCF8 \u041E\u0431\u043D\u0430\u0440\u0443\u0436\u0435\u043D\u043E \u043C\u0435\u0434\u0438\u0430 \u0432 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0438 ".concat(anyMsg.id, " (\u0442\u0438\u043F: ").concat(anyMsg.media.className, ")"));
+                        if (!(anyMsg.media.className === 'MessageMediaWebPage' && ((_a = anyMsg.media.webpage) === null || _a === void 0 ? void 0 : _a.photo))) return [3 /*break*/, 13];
+                        console.log("  \u2192 \u0412\u0435\u0431-\u043F\u0440\u0435\u0432\u044C\u044E \u0441 \u0444\u043E\u0442\u043E");
+                        _b.label = 6;
+                    case 6:
+                        _b.trys.push([6, 11, , 12]);
+                        console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0444\u043E\u0442\u043E \u0438\u0437 \u0432\u0435\u0431-\u043F\u0440\u0435\u0432\u044C\u044E...");
+                        return [4 /*yield*/, Promise.race([
+                                this.telegramClient.downloadMedia(anyMsg.media.webpage.photo),
+                                new Promise(function (_, reject) {
+                                    return setTimeout(function () { return reject(new Error('Timeout: Downloading media took too long')); }, 30000);
+                                })
+                            ])];
+                    case 7:
+                        result_1 = _b.sent();
+                        photoBuffer = result_1 instanceof Buffer ? result_1 : null;
+                        if (!photoBuffer) return [3 /*break*/, 9];
+                        photoKey = "".concat(anyMsg.id, "_").concat(Date.now(), ".jpg");
+                        console.log("  \u2192 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0432 Storage: covers/".concat(photoKey));
+                        return [4 /*yield*/, (0, supabase_1.uploadFileToStorage)('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg')];
+                    case 8:
+                        _b.sent();
+                        photoUrl = "".concat(process.env.NEXT_PUBLIC_SUPABASE_URL, "/storage/v1/object/public/covers/").concat(photoKey);
+                        coverUrls.push(photoUrl);
+                        console.log("  \u2705 \u041E\u0431\u043B\u043E\u0436\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ".concat(photoUrl));
+                        return [3 /*break*/, 10];
+                    case 9:
+                        console.warn("  \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u043E\u0442\u043E (\u043F\u0443\u0441\u0442\u043E\u0439 \u0431\u0443\u0444\u0435\u0440)");
+                        _b.label = 10;
+                    case 10: return [3 /*break*/, 12];
+                    case 11:
+                        err_7 = _b.sent();
+                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043E\u0431\u043B\u043E\u0436\u043A\u0438 \u0438\u0437 \u0432\u0435\u0431-\u043F\u0440\u0435\u0432\u044C\u044E:", err_7);
+                        return [3 /*break*/, 12];
+                    case 12: return [3 /*break*/, 28];
+                    case 13:
+                        if (!anyMsg.media.photo) return [3 /*break*/, 21];
+                        console.log("  \u2192 \u041E\u0434\u0438\u043D\u043E\u0447\u043D\u043E\u0435 \u0444\u043E\u0442\u043E");
+                        _b.label = 14;
+                    case 14:
+                        _b.trys.push([14, 19, , 20]);
+                        console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0444\u043E\u0442\u043E...");
+                        return [4 /*yield*/, Promise.race([
+                                this.telegramClient.downloadMedia(msg),
+                                new Promise(function (_, reject) {
+                                    return setTimeout(function () { return reject(new Error('Timeout: Downloading media took too long')); }, 30000);
+                                })
+                            ])];
+                    case 15:
+                        result_2 = _b.sent();
+                        photoBuffer = result_2 instanceof Buffer ? result_2 : null;
+                        if (!photoBuffer) return [3 /*break*/, 17];
+                        photoKey = "".concat(anyMsg.id, "_").concat(Date.now(), ".jpg");
+                        console.log("  \u2192 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0432 Storage: covers/".concat(photoKey));
+                        return [4 /*yield*/, (0, supabase_1.uploadFileToStorage)('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg')];
+                    case 16:
+                        _b.sent();
+                        photoUrl = "".concat(process.env.NEXT_PUBLIC_SUPABASE_URL, "/storage/v1/object/public/covers/").concat(photoKey);
+                        coverUrls.push(photoUrl);
+                        console.log("  \u2705 \u041E\u0431\u043B\u043E\u0436\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ".concat(photoUrl));
+                        return [3 /*break*/, 18];
+                    case 17:
+                        console.warn("  \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u043E\u0442\u043E (\u043F\u0443\u0441\u0442\u043E\u0439 \u0431\u0443\u0444\u0435\u0440)");
+                        _b.label = 18;
+                    case 18: return [3 /*break*/, 20];
+                    case 19:
+                        err_8 = _b.sent();
+                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043E\u0431\u043B\u043E\u0436\u043A\u0438:", err_8);
+                        return [3 /*break*/, 20];
+                    case 20: return [3 /*break*/, 28];
+                    case 21:
+                        if (!anyMsg.media.document) return [3 /*break*/, 28];
+                        mimeType = anyMsg.media.document.mimeType;
+                        if (!(mimeType && mimeType.startsWith('image/'))) return [3 /*break*/, 28];
+                        console.log("  \u2192 \u041E\u0434\u0438\u043D\u043E\u0447\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 (\u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442: ".concat(mimeType, ")"));
+                        _b.label = 22;
+                    case 22:
+                        _b.trys.push([22, 27, , 28]);
+                        console.log("  \u2192 \u0421\u043A\u0430\u0447\u0438\u0432\u0430\u0435\u043C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435...");
+                        return [4 /*yield*/, Promise.race([
+                                this.telegramClient.downloadMedia(msg),
+                                new Promise(function (_, reject) {
+                                    return setTimeout(function () { return reject(new Error('Timeout: Downloading media took too long')); }, 30000);
+                                })
+                            ])];
+                    case 23:
+                        result_3 = _b.sent();
+                        photoBuffer = result_3 instanceof Buffer ? result_3 : null;
+                        if (!photoBuffer) return [3 /*break*/, 25];
+                        photoKey = "".concat(anyMsg.id, "_").concat(Date.now(), ".jpg");
+                        console.log("  \u2192 \u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0432 Storage: covers/".concat(photoKey));
+                        return [4 /*yield*/, (0, supabase_1.uploadFileToStorage)('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg')];
+                    case 24:
+                        _b.sent();
+                        photoUrl = "".concat(process.env.NEXT_PUBLIC_SUPABASE_URL, "/storage/v1/object/public/covers/").concat(photoKey);
+                        coverUrls.push(photoUrl);
+                        console.log("  \u2705 \u041E\u0431\u043B\u043E\u0436\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u0430: ".concat(photoUrl));
+                        return [3 /*break*/, 26];
+                    case 25:
+                        console.warn("  \u26A0\uFE0F \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043A\u0430\u0447\u0430\u0442\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 (\u043F\u0443\u0441\u0442\u043E\u0439 \u0431\u0443\u0444\u0435\u0440)");
+                        _b.label = 26;
+                    case 26: return [3 /*break*/, 28];
+                    case 27:
+                        err_9 = _b.sent();
+                        console.error("  \u274C \u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043E\u0431\u043B\u043E\u0436\u043A\u0438:", err_9);
+                        return [3 /*break*/, 28];
+                    case 28:
+                        // Добавляем метаданные в список
+                        metadataList.push(__assign(__assign({}, metadata), { coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || [] }));
+                        _b.label = 29;
+                    case 29:
+                        _i++;
+                        return [3 /*break*/, 5];
+                    case 30:
+                        console.log("\uD83D\uDCCA \u0412\u0441\u0435\u0433\u043E \u043F\u043E\u0434\u0433\u043E\u0442\u043E\u0432\u043B\u0435\u043D\u043E \u043C\u0435\u0442\u0430\u0434\u0430\u043D\u043D\u044B\u0445: ".concat(metadataList.length));
+                        // Импортируем метаданные с дедупликацией
+                        console.log('💾 Импортируем метаданные с дедупликацией...');
+                        return [4 /*yield*/, this.importMetadataWithDeduplication(metadataList)];
+                    case 31:
+                        resultImport = _b.sent();
+                        console.log('✅ Импорт метаданных завершен');
+                        return [2 /*return*/, resultImport];
+                    case 32:
+                        error_9 = _b.sent();
+                        console.error('Error in syncBooks:', error_9);
+                        throw error_9;
+                    case 33: return [2 /*return*/];
                 }
             });
         });

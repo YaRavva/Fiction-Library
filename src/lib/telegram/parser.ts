@@ -88,7 +88,7 @@ export class MetadataParser {
     private static extractDescription(text: string): string {
         // Ищем текст между рейтингом и "Состав:" или концом сообщения
         // Сначала находим позицию после рейтинга
-        const ratingMatch = text.match(/Рейтинг:\s*\d+[.,]\d+[^\n]*\n/);
+        const ratingMatch = text.match(/Рейтинг:\s*[^\n]*\n/);
         if (!ratingMatch) {
             return '';
         }

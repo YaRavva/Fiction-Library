@@ -80,7 +80,7 @@ export async function syncMissingCovers(limit: number = 50) {
         // Convert BigInteger to string for compatibility
         const channelId = typeof channel.id === 'object' && channel.id !== null ? 
           (channel.id as { toString: () => string }).toString() : 
-          channel.id;
+          String(channel.id);
           
         const messages: any[] = await (syncService as any).telegramClient.getMessages(channelId, 1, parseInt(typedBook.telegram_file_id));
         if (!messages || messages.length === 0) {
