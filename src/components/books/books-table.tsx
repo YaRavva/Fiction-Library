@@ -33,7 +33,7 @@ export function BooksTable({ books, onBookClick, onDownloadClick, onReadClick, o
       ...columns[2], // Рейтинг column
       size: 20, // минимально узкий
       minSize: 20,
-      cell: ({ row }: { row: { getValue: (key: string) => any } }) => {
+      cell: ({ row }: { row: { getValue: (key: string) => unknown } }) => {
         const rating = row.getValue('rating') as number | undefined
         return (
           <div className="flex items-center justify-center gap-1">

@@ -36,6 +36,11 @@ async function testSync() {
     const limit = 5; // Тестируем на 5 сообщениях
     const metadata = await syncService.syncMetadata(limit);
     
+    // Сохраняем информацию об обработанных сообщениях
+    console.log('💾 Сохраняем информацию об обработанных сообщениях...');
+    const result = await syncService.importMetadataWithDeduplication(metadata);
+    console.log(`✅ Обработано сообщений: ${result.processed}, добавлено: ${result.added}, обновлено: ${result.updated}`);
+    
     console.log(`✅ Получено ${metadata.length} записей\n`);
 
     // Выводим информацию о каждой книге

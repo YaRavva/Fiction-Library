@@ -100,23 +100,34 @@ export async function GET(request: NextRequest) {
     let booksInDatabase = 0;
     try {
       console.log('Attempting to count books in database...');
-      const { count, error: booksCountError } = await supabaseAdmin
-        .from('books')
-        .select('*', { count: 'exact', head: true });
+      
+      // Add timeout wrapper for database operations
+      const databaseOperation = async () => {
+        const { count, error: booksCountError } = await supabaseAdmin
+          .from('books')
+          .select('*', { count: 'exact', head: true });
 
-      if (booksCountError) {
-        console.error(`Error counting books in database: ${booksCountError.message}`);
-        booksInDatabase = 0;
-      } else {
-        booksInDatabase = count || 0;
-        console.log(`Books counted in database: ${booksInDatabase}`);
-      }
-    } catch (dbError: any) {
-      console.error('Error counting books in database:', dbError);
+        if (booksCountError) {
+          console.error(`Error counting books in database: ${booksCountError.message}`);
+          return 0;
+        }
+        
+        return count || 0;
+      };
+      
+      // Wrap in Promise.race with timeout
+      const dbTimeoutPromise = new Promise<number>((_, reject) => 
+        setTimeout(() => reject(new Error('Database operation timeout after 10 seconds')), 10000)
+      );
+      
+      booksInDatabase = await Promise.race([databaseOperation(), dbTimeoutPromise]);
+      console.log(`Books counted in database: ${booksInDatabase}`);
+    } catch (error: unknown) {
+      console.error('Error counting books in database:', error);
       console.error('Database error details:', {
-        message: dbError.message,
-        stack: dbError.stack,
-        name: dbError.name
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name
       });
       booksInDatabase = 0;
     }
@@ -125,24 +136,35 @@ export async function GET(request: NextRequest) {
     let booksWithoutFiles = 0;
     try {
       console.log('Attempting to count books without files...');
-      const { count, error: booksWithoutFilesError } = await supabaseAdmin
-        .from('books')
-        .select('*', { count: 'exact', head: true })
-        .is('file_url', null);
+      
+      // Add timeout wrapper for database operations
+      const noFilesOperation = async () => {
+        const { count, error: booksWithoutFilesError } = await supabaseAdmin
+          .from('books')
+          .select('*', { count: 'exact', head: true })
+          .is('file_url', null);
 
-      if (booksWithoutFilesError) {
-        console.error(`Error counting books without files: ${booksWithoutFilesError.message}`);
-        booksWithoutFiles = 0;
-      } else {
-        booksWithoutFiles = count || 0;
-        console.log(`Books without files counted: ${booksWithoutFiles}`);
-      }
-    } catch (dbError: any) {
-      console.error('Error counting books without files:', dbError);
+        if (booksWithoutFilesError) {
+          console.error(`Error counting books without files: ${booksWithoutFilesError.message}`);
+          return 0;
+        }
+        
+        return count || 0;
+      };
+      
+      // Wrap in Promise.race with timeout
+      const noFilesTimeoutPromise = new Promise<number>((_, reject) => 
+        setTimeout(() => reject(new Error('Database operation timeout after 10 seconds')), 10000)
+      );
+      
+      booksWithoutFiles = await Promise.race([noFilesOperation(), noFilesTimeoutPromise]);
+      console.log(`Books without files counted: ${booksWithoutFiles}`);
+    } catch (error: unknown) {
+      console.error('Error counting books without files:', error);
       console.error('Database error details:', {
-        message: dbError.message,
-        stack: dbError.stack,
-        name: dbError.name
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name
       });
       booksWithoutFiles = 0;
     }
@@ -151,25 +173,44 @@ export async function GET(request: NextRequest) {
     let booksInTelegram = 0;
     try {
       console.log('Attempting to initialize Telegram client...');
-      const telegramClient = await TelegramService.getInstance();
-      console.log('Telegram client initialized successfully');
       
-      console.log('Attempting to get metadata channel...');
-      const channel = await telegramClient.getMetadataChannel();
-      console.log('Metadata channel obtained successfully');
+      // Add timeout wrapper for Telegram operations
+      const telegramOperation = async () => {
+        const telegramClient = await TelegramService.getInstance();
+        console.log('Telegram client initialized successfully');
+        
+        console.log('Attempting to get metadata channel...');
+        const channel = await telegramClient.getMetadataChannel();
+        console.log('Metadata channel obtained successfully');
+        
+        console.log('Attempting to get messages from channel...');
+        const messages = await telegramClient.getMessages((channel as { id: number | string }).id, 1000);
+        console.log(`Messages retrieved successfully, count: ${Array.isArray(messages) ? messages.length : 0}`);
+        
+        // Log more details about the messages
+        if (Array.isArray(messages)) {
+          console.log(`First few message IDs: ${messages.slice(0, 5).map((m: unknown) => (m as { id?: unknown }).id || 'undefined').join(', ')}`);
+          // Count only messages with text content
+          const textMessages = messages.filter((m: unknown) => (m as { text?: unknown }).text);
+          console.log(`Messages with text content: ${textMessages.length}`);
+          return textMessages.length;
+        }
+        return 0;
+      };
       
-      // Получаем первые 1000 сообщений для оценки (можно увеличить при необходимости)
-      console.log('Attempting to get messages from channel...');
-      const messages = await telegramClient.getMessages(channel, 1000);
-      console.log(`Messages retrieved successfully, count: ${Array.isArray(messages) ? messages.length : 0}`);
+      // Wrap in Promise.race with timeout
+      const timeoutPromise = new Promise<number>((_, reject) => 
+        setTimeout(() => reject(new Error('Telegram operation timeout after 25 seconds')), 25000)
+      );
       
-      booksInTelegram = Array.isArray(messages) ? messages.length : 0;
-    } catch (error: any) {
+      booksInTelegram = await Promise.race([telegramOperation(), timeoutPromise]);
+      console.log(`Final booksInTelegram count: ${booksInTelegram}`);
+    } catch (error: unknown) {
       console.error('Error counting books in Telegram:', error);
       console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name
       });
       // Не прекращаем выполнение, просто устанавливаем 0
       booksInTelegram = 0;
@@ -290,20 +331,31 @@ export async function POST(request: NextRequest) {
 
     // Запускаем синхронизацию отсутствующих файлов
     const syncService = await TelegramSyncService.getInstance();
-    const results = await syncService.downloadFilesFromArchiveChannel(limit, true);
+    
+    // Add timeout wrapper for the download operation
+    const downloadOperation = async () => {
+      return await syncService.downloadFilesFromArchiveChannel(limit, true);
+    };
+    
+    // Wrap in Promise.race with timeout (5 minutes for file downloads)
+    const downloadTimeoutPromise = new Promise<unknown[]>((_, reject) => 
+      setTimeout(() => reject(new Error('File download operation timeout after 5 minutes')), 300000)
+    );
+    
+    const results = await Promise.race([downloadOperation(), downloadTimeoutPromise]);
 
     return NextResponse.json({
-      message: `Successfully processed ${results.length} files`,
+      message: `Successfully processed ${(results as unknown[]).length} files`,
       files: results,
       progress: 100,
-      logs: [`Начало загрузки...`, `Обработано файлов: ${results.length}`, `Загрузка завершена`]
+      logs: [`Начало загрузки...`, `Обработано файлов: ${(results as unknown[]).length}`, `Загрузка завершена`]
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error starting download of missing books:', error);
     console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      name: (error as Error).name
     });
     return NextResponse.json(
       { 

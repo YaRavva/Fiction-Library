@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Форматируем данные для фронтенда
-    const formattedSettings: any = {};
+    const formattedSettings: {[key: string]: unknown} = {};
     let lastRun: string | null = null;
     let nextRun: string | null = null;
 
@@ -150,7 +150,7 @@ export async function PUT(request: NextRequest) {
         const { enabled, intervalMinutes } = body[process];
         
         // Обновляем настройки таймера
-        const updateData: any = {
+        const updateData: {[key: string]: unknown} = {
           updated_at: new Date().toISOString(),
         };
 
@@ -164,7 +164,8 @@ export async function PUT(request: NextRequest) {
 
         // Если включаем таймер, вычисляем следующее время запуска
         if (enabled === true) {
-          const nextRun = new Date(Date.now() + (updateData.interval_minutes || 60) * 60 * 1000).toISOString();
+          const intervalMinutes = updateData.interval_minutes as number || 60;
+          const nextRun = new Date(Date.now() + intervalMinutes * 60 * 1000).toISOString();
           updateData.next_run = nextRun;
         }
 

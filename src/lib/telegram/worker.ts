@@ -1,4 +1,4 @@
-import { DownloadQueue } from './queue';
+import { DownloadQueue, DownloadTask } from './queue';
 import { downloadFile } from './sync';
 import { serverSupabase } from '@/lib/serverSupabase';
 import { TelegramService } from './client';
@@ -71,7 +71,7 @@ export class DownloadWorker {
   /**
    * Обрабатывает одну задачу загрузки
    */
-  private async processTask(task: any) {
+  private async processTask(task: DownloadTask) {
     try {
       if (!task.file_id) {
         return {
@@ -100,15 +100,19 @@ export class DownloadWorker {
         const client = await TelegramService.getInstance();
         const channel = await client.getFilesChannel();
         
+        // Convert BigInteger to string for compatibility
+        const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+            (channel.id as { toString: () => string }).toString() : 
+            channel.id;
+        
         // Получаем сообщения (получаем больше сообщений, чтобы увеличить шансы найти нужное)
-        const messages = await client.getMessages(channel, 20);
+        const messages = await client.getMessages(channelId, 20);
         
         // Ищем сообщение с указанным ID
         let targetMessage = null;
         if (Array.isArray(messages)) {
           for (const msg of messages) {
-            // @ts-ignore
-            if (msg && msg.id === Number(task.message_id)) {
+            if (msg && (msg as { id?: number }).id === Number(task.message_id)) {
               targetMessage = msg;
               break;
             }
@@ -116,18 +120,20 @@ export class DownloadWorker {
         }
         
         if (targetMessage) {
-          const anyMsg: any = targetMessage as any;
+          const anyMsg = targetMessage as {[key: string]: unknown};
           
           // Определяем имя файла из атрибутов документа
-          if (anyMsg.document && anyMsg.document.attributes) {
-            const attrFileName = anyMsg.document.attributes.find((attr: any) => 
-              attr.className === 'DocumentAttributeFilename'
-            );
+          if (anyMsg.document && (anyMsg.document as {[key: string]: unknown}).attributes) {
+            const attributes = (anyMsg.document as {[key: string]: unknown}).attributes as unknown[];
+            const attrFileName = attributes.find((attr: unknown) => {
+              const attrObj = attr as {[key: string]: unknown};
+              return attrObj.className === 'DocumentAttributeFilename';
+            }) as {[key: string]: unknown} | undefined;
             if (attrFileName && attrFileName.fileName) {
-              originalFileName = attrFileName.fileName;
-              fileName = attrFileName.fileName;
+              originalFileName = attrFileName.fileName as string;
+              fileName = attrFileName.fileName as string;
               // Определяем формат файла по расширению
-              const ext = fileName.split('.').pop()?.toLowerCase();
+              const ext = (fileName as string).split('.').pop()?.toLowerCase();
               if (ext) {
                 fileFormat = ext;
                 // Устанавливаем соответствующий MIME-тип
@@ -147,7 +153,7 @@ export class DownloadWorker {
 
       // Определяем путь для хранения файла
       // Используем оригинальное имя файла из Telegram, если оно есть
-      let storageFileName = originalFileName || `${task.message_id}.${fileFormat}`;
+      const storageFileName = originalFileName || `${task.message_id}.${fileFormat}`;
       const storagePath = `books/${storageFileName}`;
 
       // Загружаем в Supabase Storage (используем server client с service role key)
@@ -169,8 +175,10 @@ export class DownloadWorker {
       const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${storagePath}`;
 
       // Обновляем запись в telegram_download_queue с путем к файлу
-      const { error: updateQueueError } = await (serverSupabase
-        .from('telegram_download_queue') as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabase: any = serverSupabase;
+      const { error: updateQueueError } = await supabase
+        .from('telegram_download_queue')
         .update({
           storage_path: storagePath,
           status: 'done',
@@ -183,16 +191,18 @@ export class DownloadWorker {
       }
 
       // Проверяем, существует ли уже запись книги с таким telegram_file_id
-      let existingBook: any = null;
+      let existingBook: { [key: string]: unknown } | null = null;
       try {
-        const { data, error: fetchError } = await (serverSupabase
-          .from('books') as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const supabase: any = serverSupabase;
+        const { data, error: fetchError } = await supabase
+          .from('books')
           .select('*')
           .eq('telegram_file_id', task.file_id)
           .single();
         
         if (!fetchError && data) {
-          existingBook = data;
+          existingBook = data as { [key: string]: unknown };
         }
       } catch (fetchError) {
         console.warn('Error fetching existing book record:', fetchError);
@@ -201,14 +211,16 @@ export class DownloadWorker {
       // Если есть book_id в задаче, пытаемся получить запись книги по нему
       if (task.book_id && !existingBook) {
         try {
-          const { data, error: fetchError } = await (serverSupabase
-            .from('books') as any)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const supabase: any = serverSupabase;
+          const { data, error: fetchError } = await supabase
+            .from('books')
             .select('*')
             .eq('id', task.book_id)
             .single();
           
           if (!fetchError && data) {
-            existingBook = data;
+            existingBook = data as { [key: string]: unknown };
           }
         } catch (fetchError) {
           console.warn('Error fetching book record by book_id:', fetchError);
@@ -217,7 +229,7 @@ export class DownloadWorker {
 
       // Создаем или обновляем запись книги в таблице books
       try {
-        const bookRecord: any = {
+        const bookRecord: { [key: string]: unknown } = {
           file_url: fileUrl,
           file_size: fileBuffer.length,
           file_format: fileFormat,
@@ -232,8 +244,10 @@ export class DownloadWorker {
           bookRecord.title = existingBook.title || fileName.replace(/\.[^/.]+$/, "");
           bookRecord.author = existingBook.author || 'Unknown';
           
-          const { error: updateBookError } = await (serverSupabase
-            .from('books') as any)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const supabase: any = serverSupabase;
+          const { error: updateBookError } = await supabase
+            .from('books')
             .update(bookRecord)
             .eq('id', existingBook.id);
 
@@ -248,9 +262,11 @@ export class DownloadWorker {
           bookRecord.author = 'Unknown';
           bookRecord.created_at = new Date().toISOString();
           
-          const { error: insertBookError } = await (serverSupabase
-            .from('books') as any)
-            .insert(bookRecord);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const supabase: any = serverSupabase;
+          const { error: insertBookError } = await supabase
+            .from('books')
+            .insert([bookRecord]);
 
           if (insertBookError) {
             console.warn('Failed to insert book record:', insertBookError);
@@ -266,8 +282,10 @@ export class DownloadWorker {
       if (task.book_id) {
         // Проверяем, обновляли ли мы уже эту запись
         if (!existingBook || existingBook.id !== task.book_id) {
-          const { error: updateBookError } = await (serverSupabase
-            .from('books') as any)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const supabase: any = serverSupabase;
+          const { error: updateBookError } = await supabase
+            .from('books')
             .update({
               storage_path: storagePath,
               file_url: fileUrl,

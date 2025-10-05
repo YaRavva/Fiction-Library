@@ -2,6 +2,7 @@ import { TelegramService } from './client';
 import { MetadataParser, BookMetadata } from './parser';
 import { uploadFileToStorage, upsertBookRecord, getSupabaseAdmin } from '../supabase';
 import { serverSupabase } from '../serverSupabase';
+import { Message } from 'node-telegram-bot-api';
 import path from 'path';
 
 /**
@@ -41,59 +42,47 @@ export class TelegramSyncService {
             const channel = await this.telegramClient.getMetadataChannel();
 
             // Получаем сообщения
-            const messages = await this.telegramClient.getMessages(channel, limit);
+            // Convert BigInteger to string for compatibility
+            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+                (channel.id as { toString: () => string }).toString() : 
+                channel.id;
+            const messages = await this.telegramClient.getMessages(channelId, limit) as unknown as Message[];
+            console.log(`✅ Получено ${messages.length} сообщений\n`);
 
             // Парсим метаданные из каждого сообщения
             const metadataList: BookMetadata[] = [];
-            const processedGroupIds = new Set<string>();
-            const groupedMessagesMap = new Map<string, any[]>();
-
-            // First pass: collect all grouped messages
+            
+            // Обрабатываем каждое сообщение
             for (const msg of messages) {
-                const anyMsg: any = msg as any;
-                if (anyMsg.groupedId) {
-                    const groupId = String(anyMsg.groupedId);
-                    if (!groupedMessagesMap.has(groupId)) {
-                        groupedMessagesMap.set(groupId, []);
-                    }
-                    groupedMessagesMap.get(groupId)!.push(msg);
-                }
-            }
+                const anyMsg = msg as unknown as { [key: string]: unknown };
+                console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
 
-            // Second pass: process messages
-            for (const msg of messages) {
-                const anyMsg: any = msg as any;
-
-                // Пропускаем сообщения без текста (но не пропускаем если это часть необработанной группы)
-                if (!msg.text) {
-                    // Если это часть альбома, проверим, обработана ли группа
-                    if (anyMsg.groupedId) {
-                        const groupId = String(anyMsg.groupedId);
-                        if (!processedGroupIds.has(groupId)) {
-                            // Группа еще не обработана, но у этого сообщения нет текста
-                            // Мы обработаем группу позже с сообщением, у которого есть текст
-                            console.log(`  → Сообщение ${anyMsg.id} без текста, часть группы ${groupId}, будет обработано позже`);
-                        }
-                    }
+                // Пропускаем сообщения без текста
+                if (!(msg as { text?: string }).text) {
+                    console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит текста, пропускаем`);
                     continue;
                 }
 
                 // Парсим текст сообщения
-                const metadata = MetadataParser.parseMessage(msg.text);
+                const metadata = MetadataParser.parseMessage((msg as { text: string }).text);
 
                 // Извлекаем URL обложек из медиа-файлов сообщения
                 const coverUrls: string[] = [];
 
                 // Проверяем наличие медиа в сообщении
                 if (anyMsg.media) {
-                    console.log(`📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${anyMsg.media.className})`);
+                    console.log(`📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`);
 
                     // Если это веб-превью (MessageMediaWebPage) - основной случай для обложек
-                    if (anyMsg.media.className === 'MessageMediaWebPage' && anyMsg.media.webpage?.photo) {
+                    if ((anyMsg.media as { className: string }).className === 'MessageMediaWebPage' && (anyMsg.media as { webpage?: { photo?: unknown } }).webpage?.photo) {
                         console.log(`  → Веб-превью с фото`);
                         try {
                             console.log(`  → Скачиваем фото из веб-превью...`);
-                            const result = await this.telegramClient.downloadMedia(anyMsg.media.webpage.photo);
+                            const result = await Promise.race([
+                                this.telegramClient.downloadMedia((anyMsg.media as { webpage: { photo: unknown } }).webpage.photo),
+                                new Promise<never>((_, reject) => 
+                                    setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000))
+                            ]);
                             const photoBuffer = result instanceof Buffer ? result : null;
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
@@ -109,74 +98,17 @@ export class TelegramSyncService {
                             console.error(`  ❌ Ошибка загрузки обложки из веб-превью:`, err);
                         }
                     }
-                    // Если это группа медиа (альбом) - собираем все фото из группы
-                    else if (anyMsg.groupedId) {
-                        const groupId = String(anyMsg.groupedId);
-
-                        // Обрабатываем группу только один раз
-                        if (!processedGroupIds.has(groupId)) {
-                            processedGroupIds.add(groupId);
-                            console.log(`  → Группа медиа (альбом), groupedId: ${groupId}`);
-
-                            // Получаем все сообщения из этой группы
-                            const groupMessages = groupedMessagesMap.get(groupId) || [];
-                            console.log(`  → Найдено ${groupMessages.length} элементов в альбоме`);
-
-                            // Скачиваем все медиа из группы
-                            let coverCount = 0;
-                            for (const groupMsg of groupMessages) {
-                                const groupAnyMsg: any = groupMsg;
-                                try {
-                                    // Проверяем разные типы медиа
-                                    let photoBuffer: Buffer | null = null;
-                                    
-                                    // MessageMediaPhoto
-                                    if (groupAnyMsg.media?.photo) {
-                                        console.log(`  → Скачиваем фото ${groupAnyMsg.id} из альбома (MessageMediaPhoto)...`);
-                                        const result = await this.telegramClient.downloadMedia(groupMsg);
-                                        photoBuffer = result instanceof Buffer ? result : null;
-                                    }
-                                    // MessageMediaDocument с изображением
-                                    else if (groupAnyMsg.media?.document) {
-                                        const mimeType = groupAnyMsg.media.document.mimeType;
-                                        if (mimeType && mimeType.startsWith('image/')) {
-                                            console.log(`  → Скачиваем изображение ${groupAnyMsg.id} из альбома (MessageMediaDocument: ${mimeType})...`);
-                                            const result = await this.telegramClient.downloadMedia(groupMsg);
-                                            photoBuffer = result instanceof Buffer ? result : null;
-                                        } else {
-                                            console.log(`  → Пропускаем документ ${groupAnyMsg.id} (тип: ${mimeType})`);
-                                        }
-                                    } else {
-                                        console.log(`  → Пропускаем сообщение ${groupAnyMsg.id} (нет медиа или неподдерживаемый тип)`);
-                                        console.log(`    Медиа:`, JSON.stringify(groupAnyMsg.media || 'none', null, 2));
-                                    }
-
-                                    if (photoBuffer) {
-                                        const photoKey = `${groupAnyMsg.id}_${Date.now()}.jpg`;
-                                        console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                        await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
-                                        const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
-                                        coverUrls.push(photoUrl);
-                                        coverCount++;
-                                        console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-                                    } else {
-                                        console.warn(`  ⚠️ Не удалось скачать медиа (пустой буфер) для сообщения ${groupAnyMsg.id}`);
-                                    }
-                                } catch (err) {
-                                    console.error(`  ❌ Ошибка загрузки медиа из альбома (сообщение ${groupAnyMsg?.id}):`, err);
-                                }
-                            }
-                            console.log(`  → Всего загружено обложек из альбома: ${coverCount}`);
-                        } else {
-                            console.log(`  → Группа ${groupId} уже обработана, пропускаем`);
-                        }
-                    }
                     // Если это одно фото (MessageMediaPhoto)
-                    else if (anyMsg.media.photo) {
+                    else if ((anyMsg.media as { photo?: unknown }).photo) {
                         console.log(`  → Одиночное фото`);
                         try {
                             console.log(`  → Скачиваем фото...`);
-                            const result = await this.telegramClient.downloadMedia(msg);
+                            const result = await Promise.race([
+                                this.telegramClient.downloadMedia(msg),
+                                new Promise<never>((_, reject) => 
+                                    setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000)
+                                )
+                            ]);
                             const photoBuffer = result instanceof Buffer ? result : null;
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
@@ -193,13 +125,18 @@ export class TelegramSyncService {
                         }
                     }
                     // Если это документ с изображением
-                    else if (anyMsg.media.document) {
-                        const mimeType = anyMsg.media.document.mimeType;
+                    else if ((anyMsg.media as { document?: unknown }).document) {
+                        const mimeType = (anyMsg.media as { document: { mimeType?: string } }).document.mimeType;
                         if (mimeType && mimeType.startsWith('image/')) {
                             console.log(`  → Одиночное изображение (документ: ${mimeType})`);
                             try {
                                 console.log(`  → Скачиваем изображение...`);
-                                const result = await this.telegramClient.downloadMedia(msg);
+                                const result = await Promise.race([
+                                    this.telegramClient.downloadMedia(msg),
+                                    new Promise<never>((_, reject) => 
+                                        setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000))
+                                ]);
+
                                 const photoBuffer = result instanceof Buffer ? result : null;
                                 if (photoBuffer) {
                                     const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
@@ -212,39 +149,22 @@ export class TelegramSyncService {
                                     console.warn(`  ⚠️ Не удалось скачать изображение (пустой буфер)`);
                                 }
                             } catch (err) {
-                                console.error(`  ❌ Ошибка загрузки изображения:`, err);
+                                console.error(`  ❌ Ошибка загрузки обложки:`, err);
                             }
-                        } else {
-                            console.log(`  → Медиа не содержит фото (документ: ${mimeType})`);
                         }
-                    } else {
-                        console.log(`  → Медиа не содержит фото`);
                     }
-                } else {
-                    console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа`);
                 }
 
-                // Добавляем URL обложек к метаданным
-                metadata.coverUrls = coverUrls.length > 0 ? coverUrls : undefined;
-                
-                // Debug logging
-                console.log(`  → Итоговое количество обложек для "${metadata.title}": ${coverUrls.length}`);
-                if (coverUrls.length > 0) {
-                    console.log(`  → Обложки:`, coverUrls);
-                }
-
-                metadataList.push(metadata);
-            }
-
-            console.log(`\n📊 Всего обработано записей: ${metadataList.length}`);
-            for (let i = 0; i < metadataList.length; i++) {
-                const meta = metadataList[i];
-                console.log(`  ${i + 1}. "${meta.title}" - ${meta.coverUrls?.length || 0} обложек`);
+                // Добавляем метаданные в список
+                metadataList.push({
+                    ...metadata,
+                    coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || []
+                });
             }
 
             return metadataList;
         } catch (error) {
-            console.error('Error syncing metadata:', error);
+            console.error('Error in syncMetadata:', error);
             throw error;
         }
     }
@@ -260,15 +180,18 @@ export class TelegramSyncService {
             
             // Получаем конкретное сообщение
             console.log(`Getting message ${messageId} from channel...`);
-            const messages = await this.telegramClient.getMessages(channel, 5); // Get more messages to increase chances
+            // Convert BigInteger to string for compatibility
+            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+                (channel.id as { toString: () => string }).toString() : 
+                channel.id;
+            const messages = await this.telegramClient.getMessages(channelId, 5) as unknown as Message[]; // Get more messages to increase chances
             console.log(`Found ${messages.length} messages`);
             
             // Find the message with the specified ID or use the first available message
             let message = messages[0]; // Default to first message
             if (messageId > 1) {
                 for (const msg of messages) {
-                    // @ts-ignore
-                    if (msg.id === messageId) {
+                    if ((msg as { id?: unknown }).id === messageId) {
                         message = msg;
                         break;
                     }
@@ -279,8 +202,7 @@ export class TelegramSyncService {
                 throw new Error(`Message ${messageId} not found`);
             }
 
-            // @ts-ignore
-            console.log(`Downloading file from message ${message.id}...`);
+            console.log(`Downloading file from message ${messageId}...`);
 
             // Скачиваем файл
             const buffer = await Promise.race([
@@ -295,35 +217,35 @@ export class TelegramSyncService {
             }
 
             // Определяем имя файла, mime и автора с учётом разных структур message
-            const anyMsg: any = message as any;
-            const filenameCandidate = anyMsg.fileName
-                || (anyMsg.document && anyMsg.document.fileName)
-                || (anyMsg.media && anyMsg.media.document && anyMsg.media.document.fileName)
+            const anyMsg = message as unknown as { [key: string]: unknown };
+            const filenameCandidate = (anyMsg.fileName as string)
+                || (anyMsg.document && (anyMsg.document as { fileName?: string }).fileName)
+                || (anyMsg.media && (anyMsg.media as { document?: { fileName?: string } }).document && (anyMsg.media as { document: { fileName?: string } }).document.fileName)
                 || `book_${anyMsg.id}.fb2`;
 
-            const ext = path.extname(filenameCandidate) || '.fb2';
+            const ext = path.extname(filenameCandidate as string) || '.fb2';
             
             // Используем messageId для ключа хранения (чтобы избежать проблем с недопустимыми символами)
             // но сохраняем оригинальное имя файла
             const storageKey = `${anyMsg.id}${ext}`; // Ключ для хранения в Storage
             const displayName = filenameCandidate; // Оригинальное имя файла для отображения
 
-            const mime = anyMsg.mimeType
-                || (anyMsg.document && anyMsg.document.mimeType)
-                || (anyMsg.media && anyMsg.media.document && anyMsg.media.document.mimeType)
+            const mime = (anyMsg.mimeType as string)
+                || (anyMsg.document && (anyMsg.document as { mimeType?: string }).mimeType)
+                || (anyMsg.media && (anyMsg.media as { document?: { mimeType?: string } }).document && (anyMsg.media as { document: { mimeType?: string } }).document.mimeType)
                 || 'application/octet-stream';
 
             // Загружаем в Supabase Storage (bucket 'books')
             console.log(`Uploading file to Supabase Storage...`);
-            await uploadFileToStorage('books', storageKey, Buffer.from(buffer), mime);
+            await uploadFileToStorage('books', storageKey as string, Buffer.from(buffer), mime as string);
 
             // Вставляем/обновляем запись книги (минимальные поля)
-            const bookRecord: any = {
-                title: filenameCandidate || `book-${anyMsg.id}`,
-                author: anyMsg.author || (anyMsg.from && anyMsg.from.username) || 'Unknown',
-                file_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(storageKey)}`,
+            const bookRecord: { [key: string]: unknown } = {
+                title: (filenameCandidate as string) || `book-${anyMsg.id}`,
+                author: (anyMsg.author as string) || (anyMsg.from && (anyMsg.from as { username?: string }).username) || 'Unknown',
+                file_url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(storageKey as string)}`,
                 file_size: buffer.length,
-                file_format: ext.replace('.', ''),
+                file_format: (ext as string).replace('.', ''),
                 telegram_file_id: String(anyMsg.id),
             };
 
@@ -496,7 +418,7 @@ export class TelegramSyncService {
      * @param limit Количество сообщений для обработки
      * @param addToQueue Флаг, определяющий, добавлять ли файлы в очередь загрузки
      */
-    public async downloadFilesFromArchiveChannel(limit: number = 10, addToQueue: boolean = true): Promise<any[]> {
+    public async downloadFilesFromArchiveChannel(limit: number = 10, addToQueue: boolean = true): Promise<{[key: string]: unknown}[]> {
         if (!this.telegramClient) {
             throw new Error('Telegram client not initialized');
         }
@@ -506,20 +428,25 @@ export class TelegramSyncService {
             console.log('📚 Получаем доступ к каналу "Архив для фантастики"...');
             const channel = await this.telegramClient.getFilesChannel();
             
+            // Convert BigInteger to string for compatibility
+            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+                (channel.id as { toString: () => string }).toString() : 
+                channel.id;
+            
             // Получаем сообщения
             console.log(`📖 Получаем последние ${limit} сообщений...`);
-            const messages = await this.telegramClient.getMessages(channel, limit);
+            const messages = await this.telegramClient.getMessages(channelId, limit) as unknown as Message[];
             console.log(`✅ Получено ${messages.length} сообщений\n`);
 
-            const results: any[] = [];
+            const results: {[key: string]: unknown}[] = [];
             
             // Обрабатываем каждое сообщение
             for (const msg of messages) {
-                const anyMsg: any = msg as any;
+                const anyMsg = msg as unknown as {[key: string]: unknown};
                 console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
                 
                 // Проверяем, есть ли в сообщении медиа (файл)
-                if (!anyMsg.media) {
+                if (!(anyMsg.media as unknown)) {
                     console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа, пропускаем`);
                     continue;
                 }
@@ -527,13 +454,15 @@ export class TelegramSyncService {
                 try {
                     // Определяем имя файла
                     let filename = `book_${anyMsg.id}.fb2`;
-                    if (anyMsg.document && anyMsg.document.attributes) {
+                    if (anyMsg.document && (anyMsg.document as {[key: string]: unknown}).attributes) {
                         // Ищем атрибут с именем файла
-                        const attrFileName = anyMsg.document.attributes.find((attr: any) => 
-                          attr.className === 'DocumentAttributeFilename'
-                        );
+                        const attributes = (anyMsg.document as {[key: string]: unknown}).attributes as unknown[];
+                        const attrFileName = attributes.find((attr: unknown) => {
+                            const attrObj = attr as {[key: string]: unknown};
+                            return attrObj.className === 'DocumentAttributeFilename';
+                        }) as {[key: string]: unknown} | undefined;
                         if (attrFileName && attrFileName.fileName) {
-                          filename = attrFileName.fileName;
+                          filename = attrFileName.fileName as string;
                         }
                     }
                     
@@ -548,13 +477,15 @@ export class TelegramSyncService {
                         const fileRecord = {
                           telegram_message_id: String(anyMsg.id),
                           channel: 'Архив для фантастики',
-                          raw_text: anyMsg.message || '',
+                          raw_text: (anyMsg.message as string) || '',
                           processed_at: new Date().toISOString()
                         };
                         
                         try {
                           // Вставляем запись о сообщении
-                          await (serverSupabase.from('telegram_messages') as any).upsert(fileRecord);
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const supabase: any = serverSupabase;
+                          await supabase.from('telegram_messages').upsert(fileRecord);
                         } catch (dbError) {
                           console.warn(`  ⚠️ Ошибка при сохранении записи о сообщении:`, dbError);
                         }
@@ -562,7 +493,7 @@ export class TelegramSyncService {
                         // Добавляем задачу в очередь загрузки
                         const downloadTask = {
                           message_id: String(anyMsg.id),
-                          channel_id: String(anyMsg.peerId || channel.id),
+                          channel_id: String((anyMsg.peerId as string) || channel.id),
                           file_id: fileId,
                           status: 'pending',
                           priority: 0,
@@ -570,7 +501,9 @@ export class TelegramSyncService {
                         };
                         
                         try {
-                          await (serverSupabase.from('telegram_download_queue') as any).upsert(downloadTask);
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const supabase: any = serverSupabase;
+                          await supabase.from('telegram_download_queue').upsert(downloadTask);
                           console.log(`  ✅ Файл добавлен в очередь загрузки: ${fileId}`);
                         } catch (queueError) {
                           console.error(`  ❌ Ошибка при добавлении в очередь:`, queueError);
@@ -580,7 +513,7 @@ export class TelegramSyncService {
                     results.push({
                       messageId: anyMsg.id,
                       filename,
-                      hasMedia: !!anyMsg.media,
+                      hasMedia: !!(anyMsg.media as unknown),
                       addedToQueue: addToQueue
                     });
                     
@@ -601,7 +534,7 @@ export class TelegramSyncService {
      * Скачивает и обрабатывает файлы из канала "Архив для фантастики" напрямую (без очереди)
      * @param limit Количество сообщений для обработки
      */
-    public async downloadAndProcessFilesDirectly(limit: number = 10): Promise<any[]> {
+    public async downloadAndProcessFilesDirectly(limit: number = 10): Promise<{[key: string]: unknown}[]> {
         if (!this.telegramClient) {
             throw new Error('Telegram client not initialized');
         }
@@ -611,20 +544,27 @@ export class TelegramSyncService {
             console.log('📚 Получаем доступ к каналу "Архив для фантастики"...');
             const channel = await this.telegramClient.getFilesChannel();
             
-            // Получаем сообщения
+            // Получаем сообщения с таймаутом
             console.log(`📖 Получаем последние ${limit} сообщений...`);
-            const messages = await this.telegramClient.getMessages(channel, limit);
+            // Convert BigInteger to string for compatibility
+            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+                (channel.id as { toString: () => string }).toString() : 
+                channel.id;
+            const messages = await Promise.race([
+                this.telegramClient.getMessages(channelId, limit) as unknown as Message[],
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout getting messages')), 30000))
+            ]) as unknown as Message[];
             console.log(`✅ Получено ${messages.length} сообщений\n`);
 
-            const results: any[] = [];
+            const results: {[key: string]: unknown}[] = [];
             
             // Обрабатываем каждое сообщение
             for (const msg of messages) {
-                const anyMsg: any = msg as any;
+                const anyMsg = msg as unknown as {[key: string]: unknown};
                 console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
                 
                 // Проверяем, есть ли в сообщении медиа (файл)
-                if (!anyMsg.media) {
+                if (!(anyMsg.media as unknown)) {
                     console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа, пропускаем`);
                     continue;
                 }
@@ -657,7 +597,7 @@ export class TelegramSyncService {
      * @param message Сообщение Telegram с файлом
      * @param bookId ID книги, к которой нужно привязать файл (опционально)
      */
-    public async processFile(message: any, bookId?: string): Promise<any> {
+    public async processFile(message: {[key: string]: unknown}, bookId?: string): Promise<{[key: string]: unknown}> {
         if (bookId) {
             // Если указан ID книги, используем его для привязки
             return await this.downloadAndProcessSingleFileWithBookId(message, bookId);
@@ -672,8 +612,8 @@ export class TelegramSyncService {
      * @param message Сообщение Telegram с файлом
      * @param bookId ID книги, к которой нужно привязать файл
      */
-    private async downloadAndProcessSingleFileWithBookId(message: any, bookId: string): Promise<any> {
-        const anyMsg: any = message as any;
+    private async downloadAndProcessSingleFileWithBookId(message: {[key: string]: unknown}, bookId: string): Promise<{[key: string]: unknown}> {
+        const anyMsg = message as unknown as {[key: string]: unknown};
         console.log(`  📥 Скачиваем файл из сообщения ${anyMsg.id}...`);
         
         try {
@@ -681,8 +621,7 @@ export class TelegramSyncService {
             const buffer = await Promise.race([
                 this.telegramClient!.downloadMedia(message),
                 new Promise<never>((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000)
-                )
+                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000))
             ]);
 
             if (!buffer) {
@@ -695,12 +634,14 @@ export class TelegramSyncService {
             let mime = 'application/octet-stream';
             let fileFormat = 'fb2';
 
-            if (anyMsg.document && anyMsg.document.attributes) {
-                const attrFileName = anyMsg.document.attributes.find((attr: any) => 
-                    attr.className === 'DocumentAttributeFilename'
-                );
+            if (anyMsg.document && (anyMsg.document as {[key: string]: unknown}).attributes) {
+                const attributes = (anyMsg.document as {[key: string]: unknown}).attributes as unknown[];
+                const attrFileName = attributes.find((attr: unknown) => {
+                    const attrObj = attr as {[key: string]: unknown};
+                    return attrObj.className === 'DocumentAttributeFilename';
+                }) as {[key: string]: unknown} | undefined;
                 if (attrFileName && attrFileName.fileName) {
-                    filenameCandidate = attrFileName.fileName;
+                    filenameCandidate = attrFileName.fileName as string;
                     ext = path.extname(filenameCandidate) || '.fb2';
                 }
             }
@@ -752,7 +693,9 @@ export class TelegramSyncService {
                 throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set. Cannot upsert book record.');
             }
             
-            const { data: book, error: bookError } = await (admin as any)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const supabase: any = admin;
+            const { data: book, error: bookError } = await supabase
                 .from('books')
                 .select('title, author')
                 .eq('id', bookId)
@@ -762,17 +705,19 @@ export class TelegramSyncService {
                 // Если книга не найдена, удаляем загруженный файл из Storage
                 console.log(`  ⚠️  Книга не найдена, удаляем файл из Storage: ${storageKey}`);
                 try {
-                    await admin.storage.from('books').remove([storageKey]);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const storageSupabase: any = admin;
+                    await storageSupabase.storage.from('books').remove([storageKey]);
                 } catch (removeError) {
                     console.log(`  ⚠️  Ошибка при удалении файла: ${removeError}`);
                 }
                 throw new Error(`Book with ID ${bookId} not found for file attachment`);
             }
             
-            console.log(`  📚 Привязываем файл к книге: "${book.title}" автора ${book.author}`);
+            console.log(`  📚 Привязываем файл к книге: "${(book as {title: string}).title}" автора ${(book as {author: string}).author}`);
 
             // Обновляем запись книги с информацией о файле
-            const updateData: any = {
+            const updateData: {[key: string]: unknown} = {
                 file_url: fileUrl,
                 file_size: buffer.length,
                 file_format: fileFormat,
@@ -781,7 +726,9 @@ export class TelegramSyncService {
                 updated_at: new Date().toISOString()
             };
 
-            const { data: updatedBook, error: updateError } = await (admin as any)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const supabase2: any = admin;
+            const { data: updatedBook, error: updateError } = await supabase2
                 .from('books')
                 .update(updateData)
                 .eq('id', bookId)
@@ -792,14 +739,16 @@ export class TelegramSyncService {
                 // Если не удалось обновить книгу, удаляем загруженный файл из Storage
                 console.log(`  ⚠️  Ошибка обновления книги, удаляем файл из Storage: ${storageKey}`);
                 try {
-                    await admin.storage.from('books').remove([storageKey]);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const storageSupabase: any = admin;
+                    await storageSupabase.storage.from('books').remove([storageKey]);
                 } catch (removeError) {
                     console.log(`  ⚠️  Ошибка при удалении файла: ${removeError}`);
                 }
                 throw updateError;
             }
 
-            console.log(`  ✅ Файл успешно привязан к книге: "${book.title}"`);
+            console.log(`  ✅ Файл успешно привязан к книге: "${(book as {title: string}).title}"`);
             
             return {
                 messageId: anyMsg.id,
@@ -807,7 +756,7 @@ export class TelegramSyncService {
                 fileSize: buffer.length,
                 fileUrl,
                 success: true,
-                bookId: updatedBook.id
+                bookId: (updatedBook as {id: string}).id
             };
             
         } catch (error) {
@@ -820,8 +769,8 @@ export class TelegramSyncService {
      * Скачивает и обрабатывает один файл напрямую
      * @param message Сообщение Telegram с файлом
      */
-    private async downloadAndProcessSingleFile(message: any): Promise<any> {
-        const anyMsg: any = message as any;
+    private async downloadAndProcessSingleFile(message: {[key: string]: unknown}): Promise<{[key: string]: unknown}> {
+        const anyMsg = message as unknown as {[key: string]: unknown};
         console.log(`  📥 Скачиваем файл из сообщения ${anyMsg.id}...`);
         
         try {
@@ -829,8 +778,7 @@ export class TelegramSyncService {
             const buffer = await Promise.race([
                 this.telegramClient!.downloadMedia(message),
                 new Promise<never>((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000)
-                )
+                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000))
             ]);
 
             if (!buffer) {
@@ -843,12 +791,14 @@ export class TelegramSyncService {
             let mime = 'application/octet-stream';
             let fileFormat = 'fb2';
 
-            if (anyMsg.document && anyMsg.document.attributes) {
-                const attrFileName = anyMsg.document.attributes.find((attr: any) => 
-                    attr.className === 'DocumentAttributeFilename'
-                );
+            if (anyMsg.document && (anyMsg.document as {[key: string]: unknown}).attributes) {
+                const attributes = (anyMsg.document as {[key: string]: unknown}).attributes as unknown[];
+                const attrFileName = attributes.find((attr: unknown) => {
+                    const attrObj = attr as {[key: string]: unknown};
+                    return attrObj.className === 'DocumentAttributeFilename';
+                }) as {[key: string]: unknown} | undefined;
                 if (attrFileName && attrFileName.fileName) {
-                    filenameCandidate = attrFileName.fileName;
+                    filenameCandidate = attrFileName.fileName as string;
                     ext = path.extname(filenameCandidate) || '.fb2';
                 }
             }
@@ -893,7 +843,7 @@ export class TelegramSyncService {
             const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(storageKey)}`;
 
             // Создаем или обновляем запись книги
-            const bookRecord: any = {
+            const bookRecord: {[key: string]: unknown} = {
                 title: title,
                 author: author,
                 file_url: fileUrl,
@@ -913,7 +863,9 @@ export class TelegramSyncService {
                     console.log(`  ⚠️  Книга не найдена, удаляем файл из Storage: ${storageKey}`);
                     const admin = getSupabaseAdmin();
                     if (admin) {
-                        await admin.storage.from('books').remove([storageKey]);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const storageSupabase: any = admin;
+                        await storageSupabase.storage.from('books').remove([storageKey]);
                     }
                     console.log(`  ❌ Файл не добавлен к книге: ${filenameCandidate}`);
                     throw new Error('Book not found for file attachment');
@@ -940,11 +892,11 @@ export class TelegramSyncService {
     }
 
     public async shutdown(): Promise<void> {
-        if (this.telegramClient && typeof (this.telegramClient as any).disconnect === 'function') {
+        if (this.telegramClient && typeof (this.telegramClient as unknown as {[key: string]: unknown}).disconnect === 'function') {
             try {
                 // Добавляем таймаут для принудительного завершения
                 await Promise.race([
-                    (this.telegramClient as any).disconnect(),
+                    ((this.telegramClient as unknown as {[key: string]: unknown}).disconnect as () => Promise<void>)(),
                     new Promise(resolve => setTimeout(resolve, 3000)) // 3 секунды таймаут
                 ]);
             } catch (err) {
@@ -952,4 +904,113 @@ export class TelegramSyncService {
             }
         }
     }
+
+    /**
+     * Импортирует метаданные из Telegram в БД с учётом последних обработанных публикаций
+     * @param metadata Массив метаданных книг для импорта
+     */
+    public async importMetadataWithDeduplication(metadata: BookMetadata[]): Promise<{ processed: number; added: number; updated: number; skipped: number; errors: number; details: unknown[] }> {
+    if (!this.telegramClient) {
+        throw new Error('Telegram client not initialized');
+    }
+    let processed = 0, added = 0, updated = 0, skipped = 0, errors = 0;
+    const details: unknown[] = [];
+    try {
+        // Обрабатываем каждую запись метаданных
+        for (const book of metadata) {
+            const msgId = book.messageId;
+            
+            // Проверяем наличие книги в БД по названию и автору
+            const { data: foundBooks, error: findError } = await serverSupabase
+                .from('books')
+                .select('*')
+                .eq('title', book.title)
+                .eq('author', book.author);
+                
+            if (findError) {
+                errors++;
+                details.push({ msgId, status: 'error', error: findError.message });
+                continue;
+            }
+            
+            // Проверка на дублирование
+            if (foundBooks && foundBooks.length > 0) {
+                // Книга уже существует, обновляем метаданные если нужно
+                const existingBook = foundBooks[0];
+                let needUpdate = false;
+                const updateData: { [key: string]: unknown } = {};
+                
+                // Обновляем только если новые данные лучше существующих
+                if (!existingBook.description && book.description) {
+                    updateData.description = book.description;
+                    needUpdate = true;
+                }
+                
+                if (book.genres && book.genres.length > 0 && (!existingBook.genres || existingBook.genres.length === 0)) {
+                    updateData.genres = book.genres;
+                    needUpdate = true;
+                }
+                
+                if (book.tags && book.tags.length > 0 && (!existingBook.tags || existingBook.tags.length === 0)) {
+                    updateData.tags = book.tags;
+                    needUpdate = true;
+                }
+                
+                if (needUpdate) {
+                    await serverSupabase.from('books').update(updateData).eq('id', existingBook.id);
+                    updated++;
+                    details.push({ msgId, status: 'updated', bookId: existingBook.id });
+                } else {
+                    skipped++;
+                    details.push({ msgId, status: 'skipped', reason: 'metadata complete' });
+                }
+                
+                // Запись в telegram_processed_messages
+                await serverSupabase.from('telegram_processed_messages').upsert({ 
+                    message_id: String(msgId),
+                    channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
+                    book_id: existingBook.id,
+                    processed_at: new Date().toISOString()
+                });
+            } else {
+                // Книга не найдена — добавляем новую
+                const newBook = {
+                    title: book.title,
+                    author: book.author,
+                    series: book.series || null,
+                    series_number: book.seriesNumber || null,
+                    description: book.description || '',
+                    genres: book.genres || [],
+                    tags: book.tags || [],
+                    rating: book.rating || null,
+                    telegram_file_id: String(msgId),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                const { data: inserted, error: insertError } = await serverSupabase.from('books').insert(newBook).select().single();
+                if (insertError) {
+                    errors++;
+                    details.push({ msgId, status: 'error', error: insertError.message });
+                    continue;
+                }
+                
+                added++;
+                details.push({ msgId, status: 'added', bookId: inserted.id });
+                
+                // Запись в telegram_processed_messages
+                await serverSupabase.from('telegram_processed_messages').upsert({ 
+                    message_id: String(msgId),
+                    channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
+                    book_id: inserted.id,
+                    processed_at: new Date().toISOString()
+                });
+            }
+            processed++;
+        }
+        return { processed, added, updated, skipped, errors, details };
+    } catch (error) {
+        throw error;
+    }
+}
 }

@@ -186,7 +186,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
   
   // Сначала проверяем существующую запись по автору и названию (точное совпадение)
   if (book.title && book.author) {
-    const { data: existingBook, error: fetchError } = await (admin as any)
+    const { data: existingBook, error: fetchError } = await admin
       .from('books')
       .select('id')
       .eq('title', book.title)
@@ -194,7 +194,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
       .single();
     
     if (!fetchError && existingBook) {
-      console.log(`✅ Найдена существующая книга (точное совпадение): ${existingBook.id}`);
+      console.log(`✅ Найдена существующая книга (точное совпадение): ${(existingBook as { id: string }).id}`);
       // Обновляем существующую запись, добавляя информацию о файле
       const updateData: Partial<Book> = {};
       
@@ -207,10 +207,23 @@ export async function upsertBookRecord(book: Partial<Book>) {
       
       // Обновляем только если есть новые данные
       if (Object.keys(updateData).length > 0) {
-        const { data, error } = await (admin as any)
+        // Type assertion to fix typing issues with Supabase client
+        const typedAdmin = admin as unknown as {
+          from: (table: string) => {
+            update: (data: Record<string, unknown>) => {
+              eq: (column: string, value: unknown) => {
+                select: () => {
+                  single: () => Promise<{ data: unknown; error: unknown }>;
+                };
+              };
+            };
+          };
+        };
+        
+        const { data, error } = await typedAdmin
           .from('books')
           .update(updateData)
-          .eq('id', existingBook.id)
+          .eq('id', (existingBook as { id: string }).id)
           .select()
           .single();
         
@@ -242,13 +255,13 @@ export async function upsertBookRecord(book: Partial<Book>) {
     if (allSearchWords.length > 0) {
       // Ищем книги, где в названии или авторе встречаются слова из поискового запроса
       const searchPromises = allSearchWords.map(async (word) => {
-        const { data: titleMatches } = await (admin as any)
+        const { data: titleMatches } = await admin
           .from('books')
           .select('id, title, author')
           .ilike('title', `%${word}%`)
           .limit(5);
         
-        const { data: authorMatches } = await (admin as any)
+        const { data: authorMatches } = await admin
           .from('books')
           .select('id, title, author')
           .ilike('author', `%${word}%`)
@@ -258,7 +271,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
         
         // Удаляем дубликаты по ID
         const uniqueMatches = allMatches.filter((bookItem, index, self) => 
-          index === self.findIndex(b => b.id === bookItem.id)
+          index === self.findIndex(b => (b as { id: string }).id === (bookItem as { id: string }).id)
         );
         
         return uniqueMatches;
@@ -272,13 +285,14 @@ export async function upsertBookRecord(book: Partial<Book>) {
       
       // Удаляем дубликаты по ID
       const uniqueMatches = allMatches.filter((bookItem, index, self) => 
-        index === self.findIndex(b => b.id === bookItem.id)
+        index === self.findIndex(b => (b as { id: string }).id === (bookItem as { id: string }).id)
       );
       
       // Сортируем по релевантности (по количеству совпадений)
       const matchesWithScores = uniqueMatches.map(bookItem => {
-        const bookTitleWords = bookItem.title.toLowerCase().split(/\s+/);
-        const bookAuthorWords = bookItem.author.toLowerCase().split(/\s+/);
+        const typedBookItem = bookItem as { id: string; title: string; author: string };
+        const bookTitleWords = typedBookItem.title.toLowerCase().split(/\s+/);
+        const bookAuthorWords = typedBookItem.author.toLowerCase().split(/\s+/);
         const allBookWords = [...bookTitleWords, ...bookAuthorWords];
         
         // Считаем количество совпадений поисковых слов с словами в книге
@@ -297,7 +311,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
           }
         }
         
-        return { ...bookItem, score };
+        return { ...typedBookItem, score };
       });
       
       // Сортируем по убыванию счета

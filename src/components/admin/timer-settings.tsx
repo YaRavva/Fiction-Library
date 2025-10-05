@@ -137,9 +137,9 @@ export function TimerSettings() {
       }
       
       setToastMessage("Настройки таймера успешно сохранены")
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving timer settings:', error)
-      setToastMessage(`Не удалось сохранить настройки: ${error.message || error}`)
+      setToastMessage(`Не удалось сохранить настройки: ${(error as Error).message || error}`)
     } finally {
       setSaving(false)
     }

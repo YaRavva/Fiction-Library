@@ -18,6 +18,7 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "dist/**"  // Add this line to ignore dist directory
     ],
   },
 ];

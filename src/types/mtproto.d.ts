@@ -9,9 +9,9 @@ declare module '@mtproto/core' {
 
     export default class MTProto {
         constructor(options: MTProtoOptions);
-        call(method: string, params?: any, options?: any): Promise<any>;
+        call(method: string, params?: Record<string, unknown>, options?: Record<string, unknown>): Promise<unknown>;
         updates: {
-            on(event: string, callback: (message: any) => void): void;
+            on(event: string, callback: (message: unknown) => void): void;
         };
     }
 }

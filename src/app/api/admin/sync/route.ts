@@ -18,10 +18,44 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
  * Checks for duplicates based on multiple criteria
  */
 async function checkForDuplicates(
+  title: string,
+  author: string,
+  publicationYear?: number
+): Promise<{ exists: boolean; book?: { id: string; title: string; author: string; publication_year?: number; file_url?: string; created_at: string; updated_at: string } }> {
+  try {
+    let query = supabaseAdmin
+      .from('books')
+      .select('id, title, author, publication_year, file_url, created_at, updated_at')
+      .eq('title', title)
+      .eq('author', author);
+    
+    // If publication year is provided, use it for more precise matching
+    if (publicationYear) {
+      query = query.eq('publication_year', publicationYear);
+    }
+    
+    const { data, error } = await query.limit(1).single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "single row expected" which is expected when no rows found
+      console.error('Error checking for duplicates:', error);
+      return { exists: false };
+    }
+    
+    return { 
+      exists: !!data, 
+      book: data || undefined 
+    };
+  } catch (error) {
+    console.error('Error in duplicate check:', error);
+    return { exists: false };
+  }
+}
+
+async function findBookInDatabase(
   title: string, 
   author: string, 
   publicationYear?: number
-): Promise<{ exists: boolean; book?: any }> {
+): Promise<{ exists: boolean; book?: { id: string; publication_year?: number; file_url?: string } }> {
   try {
     let query = supabaseAdmin
       .from('books')
@@ -190,7 +224,7 @@ export async function POST(request: NextRequest) {
           const { data: existingBooks, error: existingBooksError } = await query;
           
           // В случае ошибки запроса, возвращаемся к простой проверке
-          let existingBook = null;
+          let existingBook: { id: string; file_url?: string; publication_year?: number } | null = null;
           if (existingBooksError) {
             console.warn('Enhanced duplicate check failed, falling back to simple check:', existingBooksError.message);
             const { data: simpleCheck } = await supabaseAdmin
@@ -199,7 +233,7 @@ export async function POST(request: NextRequest) {
               .eq('title', book.title)
               .eq('author', book.author)
               .single();
-            existingBook = simpleCheck;
+            existingBook = simpleCheck || null;
           } else if (existingBooks && existingBooks.length > 0) {
             // Если найдены книги, берем первую
             existingBook = existingBooks[0];
@@ -211,7 +245,7 @@ export async function POST(request: NextRequest) {
             // Если у существующей книги нет файла, но у текущей есть (обложка)
             if (!existingBook.file_url && book.coverUrls && book.coverUrls.length > 0) {
               // Обновляем существующую книгу с обложкой
-              const updateData: any = {
+              const updateData: Record<string, unknown> = {
                 updated_at: new Date().toISOString(),
               };
               
@@ -250,7 +284,7 @@ export async function POST(request: NextRequest) {
             // Если ни у одной книги нет файла, обновляем метаданные
             else {
               // Обновляем существующую книгу с новыми метаданными
-              const updateData: any = {
+              const updateData: Record<string, unknown> = {
                 series_id: seriesId,
                 description: book.description,
                 rating: book.rating,
@@ -284,7 +318,7 @@ export async function POST(request: NextRequest) {
             }
           } else {
             // Создаем новую книгу
-            const insertData: any = {
+            const insertData: Record<string, unknown> = {
               series_id: seriesId,
               title: book.title,
               author: book.author,

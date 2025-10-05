@@ -3,7 +3,7 @@
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, Database, BookOpen, Users, AlertCircle, CheckCircle, Clock, Library, LogOut, Settings, Shield, User } from 'lucide-react'
+import { RefreshCw, Database, BookOpen, Users, AlertCircle, CheckCircle, Clock, Library, LogOut, Settings, Shield, User, BarChart, TrendingUp, File, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,10 +37,25 @@ interface SyncStats {
   totalSeries: number
 }
 
+interface SyncProgress {
+  totalBooks: number
+  processedBooks: number
+  unprocessedBooks: number
+  processedMessages: number
+  completionPercentage: number
+  recentUnprocessed: {
+    id: string
+    title: string
+    author: string
+    created_at: string
+  }[]
+}
+
 interface SyncResult {
   success: number
   failed: number
   errors: string[]
+  actions?: string[]
 }
 
 interface UserProfile {
@@ -50,18 +65,31 @@ interface UserProfile {
   role: string
 }
 
+// Add User interface
+interface User {
+  id: string
+  email?: string
+  // Add other properties as needed
+}
+
 export default function AdminPage() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
-  const [syncLimit, setSyncLimit] = useState(10)
+  const [syncBooks, setSyncBooks] = useState(false)
+  const [downloadFiles, setDownloadFiles] = useState(false)
+  const [checkingProgress, setCheckingProgress] = useState(false)
+  const [syncLimit, setSyncLimit] = useState(100) // Изменено на 100 по умолчанию
   const [syncHistory, setSyncHistory] = useState<SyncStatus[]>([])
   const [stats, setStats] = useState<SyncStats>({ totalBooks: 0, totalSeries: 0 })
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null)
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
+  const [lastSyncBooksResult, setLastSyncBooksResult] = useState<SyncResult | null>(null)
+  const [lastDownloadFilesResult, setLastDownloadFilesResult] = useState<SyncResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null) // Fix: Replace any with User | null
 
   const loadSyncStatus = useCallback(async () => {
     try {
@@ -71,12 +99,19 @@ export default function AdminPage() {
         return
       }
 
+      // Add timeout to the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
       const response = await fetch('/api/admin/sync', {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         const data = await response.json()
@@ -85,11 +120,45 @@ export default function AdminPage() {
       } else if (response.status === 403) {
         setError('У вас нет прав доступа к админ панели')
       }
-    } catch (error) {
-      console.error('Error loading sync status:', error)
-      setError('Ошибка загрузки статуса синхронизации')
+    } catch (error: unknown) { // Fix: Replace any with unknown
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Error loading sync status:', error)
+        setError('Ошибка загрузки статуса синхронизации')
+      }
     }
   }, [supabase, router])
+
+  const loadSyncProgress = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        return
+      }
+
+      // Add timeout to the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+      const response = await fetch('/api/admin/sync-progress', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      if (response.ok) {
+        const data = await response.json()
+        setSyncProgress(data.stats || null)
+      }
+    } catch (error: unknown) { // Fix: Replace any with unknown
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Error loading sync progress:', error)
+      }
+    }
+  }, [supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -132,6 +201,7 @@ export default function AdminPage() {
 
         setUserProfile(profile)
         await loadSyncStatus()
+        await loadSyncProgress()
       } catch (error) {
         console.error('Error checking auth:', error)
         router.push('/auth/login')
@@ -141,7 +211,7 @@ export default function AdminPage() {
     }
 
     checkAuth()
-  }, [supabase, router, loadSyncStatus])
+  }, [supabase, router, loadSyncStatus, loadSyncProgress])
 
   const handleSync = async () => {
     setSyncing(true)
@@ -172,6 +242,7 @@ export default function AdminPage() {
       if (response.ok) {
         setLastSyncResult(data.results)
         await loadSyncStatus()
+        await loadSyncProgress()
       } else {
         setError(data.error || 'Ошибка синхронизации')
       }
@@ -180,6 +251,117 @@ export default function AdminPage() {
       setError('Ошибка при выполнении синхронизации')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleSyncBooks = async () => {
+    setSyncBooks(true)
+    setError(null)
+    setLastSyncBooksResult(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
+
+      // Add timeout to the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      const response = await fetch('/api/admin/sync-books', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          limit: 100 // Отправляем параметр limit
+        }),
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setLastSyncBooksResult(data.results)
+        await loadSyncStatus()
+        await loadSyncProgress()
+      } else {
+        setError(data.error || 'Ошибка синхронизации книг')
+      }
+    } catch (error: unknown) { // Fix: Replace any with unknown
+      if (error instanceof Error && error.name === 'AbortError') {
+        setError('Таймаут запроса: операция заняла слишком много времени')
+      } else {
+        console.error('Sync books error:', error)
+        setError('Ошибка при выполнении синхронизации книг')
+      }
+    } finally {
+      setSyncBooks(false)
+    }
+  }
+
+  const handleDownloadFiles = async () => {
+    setDownloadFiles(true)
+    setError(null)
+    setLastDownloadFilesResult(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
+
+      // Add timeout to the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
+      const response = await fetch('/api/admin/download-files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}), // Отправляем пустое тело для консистентности
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setLastDownloadFilesResult(data.results)
+        await loadSyncStatus()
+      } else {
+        setError(data.error || 'Ошибка загрузки файлов')
+      }
+    } catch (error: unknown) { // Fix: Replace any with unknown
+      if (error instanceof Error && error.name === 'AbortError') {
+        setError('Таймаут запроса: операция заняла слишком много времени')
+      } else {
+        console.error('Download files error:', error)
+        setError('Ошибка при выполнении загрузки файлов')
+      }
+    } finally {
+      setDownloadFiles(false)
+    }
+  }
+
+  const handleCheckProgress = async () => {
+    setCheckingProgress(true)
+    try {
+      await loadSyncProgress()
+    } catch (error) {
+      console.error('Check progress error:', error)
+      setError('Ошибка при проверке прогресса')
+    } finally {
+      setCheckingProgress(false)
     }
   }
 
@@ -299,108 +481,43 @@ export default function AdminPage() {
           <TelegramStatsSection />
         </div>
 
-        {/* Stats Cards - удалены по требованию */}
-        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Всего книг</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalBooks}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Всего серий</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalSeries}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Последняя синхронизация</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm">
-                {syncHistory.length > 0
-                  ? new Date(syncHistory[0].last_sync_at).toLocaleString('ru-RU')
-                  : 'Никогда'}
-              </div>
-            </CardContent>
-          </Card>
-        </div> */}
-
-        {/* Sync Control */}
+        {/* Unified Sync Books and Download Files */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Синхронизация данных</CardTitle>
+            <CardTitle>Синхронизация</CardTitle>
             <CardDescription>
-              Загрузить метаданные книг из Telegram канала
+              Синхронизировать книги и загрузить файлы
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-end gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
-                  <Label htmlFor="syncLimit">Количество сообщений</Label>
-                  <Input
-                    id="syncLimit"
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={syncLimit}
-                    onChange={(e) => setSyncLimit(parseInt(e.target.value) || 10)}
-                    disabled={syncing}
-                  />
+                  <Button
+                    onClick={handleSyncBooks}
+                    disabled={syncBooks}
+                    className="w-full flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${syncBooks ? 'animate-spin' : ''}`} />
+                    {syncBooks ? 'Синхронизация книг...' : 'Синхронизировать книги'}
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleSync}
-                  disabled={syncing}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Синхронизация...' : 'Запустить синхронизацию'}
-                </Button>
+                <div className="flex-1">
+                  <Button
+                    onClick={handleDownloadFiles}
+                    disabled={downloadFiles}
+                    className="w-full flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${downloadFiles ? 'animate-spin' : ''}`} />
+                    {downloadFiles ? 'Загрузка файлов...' : 'Загрузить файлы'}
+                  </Button>
+                </div>
               </div>
-
-              {lastSyncResult && (
-                <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <h3 className="font-semibold mb-2">Результаты последней синхронизации:</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-green-600 dark:text-green-400">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Успешно: {lastSyncResult.success}
-                    </div>
-                    {lastSyncResult.failed > 0 && (
-                      <div className="flex items-center text-destructive">
-                        <AlertCircle className="h-4 w-4 mr-2" />
-                        Ошибок: {lastSyncResult.failed}
-                      </div>
-                    )}
-                    {lastSyncResult.errors.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-sm font-medium mb-1">Детали ошибок:</p>
-                        <ul className="text-sm text-muted-foreground space-y-1">
-                          {lastSyncResult.errors.map((error, index) => (
-                            <li key={index} className="truncate">• {error}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Результаты последней операции */}
+        {/* Результаты последней операции с расширенной информацией */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Результаты последней операции</CardTitle>
@@ -408,7 +525,47 @@ export default function AdminPage() {
           <CardContent>
             <div className="border rounded-md p-2 bg-muted">
               <textarea
-                value={lastSyncResult ? 
+                value={
+                  lastDownloadFilesResult ? 
+                  `Загрузка файлов:\n` +
+                  `Успешно: ${lastDownloadFilesResult.success}\n` +
+                  `Ошибок: ${lastDownloadFilesResult.failed}` +
+                  (lastDownloadFilesResult.errors.length > 0 ? 
+                    `\n\nДетали ошибок:\n` + 
+                    lastDownloadFilesResult.errors.join('\n') : 
+                    '') +
+                  (lastDownloadFilesResult.actions && lastDownloadFilesResult.actions.length > 0 ?
+                    `\n\nВыполненные действия:\n` +
+                    lastDownloadFilesResult.actions.map((action, index) => `${index + 1}. ${action}`).join('\n') :
+                    '') +
+                  (syncProgress ? 
+                    `\n\nСтатистика:\n` +
+                    `Всего книг: ${syncProgress.totalBooks}\n` +
+                    `Обработано: ${syncProgress.processedBooks}\n` +
+                    `Осталось: ${syncProgress.unprocessedBooks}\n` +
+                    `Процент завершения: ${syncProgress.completionPercentage}%` : 
+                    '') : 
+                  lastSyncBooksResult ? 
+                  `Синхронизация книг:\n` +
+                  `Успешно: ${lastSyncBooksResult.success}\n` +
+                  `Ошибок: ${lastSyncBooksResult.failed}` +
+                  (lastSyncBooksResult.errors.length > 0 ? 
+                    `\n\nДетали ошибок:\n` + 
+                    lastSyncBooksResult.errors.join('\n') : 
+                    '') +
+                  (lastSyncBooksResult.actions && lastSyncBooksResult.actions.length > 0 ?
+                    `\n\nВыполненные действия:\n` +
+                    lastSyncBooksResult.actions.map((action, index) => `${index + 1}. ${action}`).join('\n') :
+                    '') +
+                  (syncProgress ? 
+                    `\n\nСтатистика:\n` +
+                    `Всего книг: ${syncProgress.totalBooks}\n` +
+                    `Обработано: ${syncProgress.processedBooks}\n` +
+                    `Осталось: ${syncProgress.unprocessedBooks}\n` +
+                    `Процент завершения: ${syncProgress.completionPercentage}%` : 
+                    '') : 
+                  lastSyncResult ? 
+                  `Обычная синхронизация:\n` +
                   `Успешно: ${lastSyncResult.success}\n` +
                   `Ошибок: ${lastSyncResult.failed}` +
                   (lastSyncResult.errors.length > 0 ? 
