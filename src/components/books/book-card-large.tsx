@@ -97,7 +97,11 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
             <div className="text-sm">
               <span className="font-semibold">Рейтинг:</span> {book.rating.toFixed(2)}{' '}
               {ratingTag && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs cursor-pointer hover:bg-secondary/80"
+                  onClick={() => onTagClick && onTagClick(ratingTag.substring(1))} // Remove # prefix
+                >
                   {ratingTag}
                 </Badge>
               )}

@@ -244,16 +244,73 @@ export default function LibraryPage() {
   // Новая функция для поиска по тегам
   const searchBooksByTag = async (tag: string, page = 1) => {
     try {
+      // Проверяем, является ли тег специальным тегом "#вышеX"
+      if (tag.startsWith('выше') && tag.length > 4) {
+        const ratingThreshold = parseInt(tag.substring(4));
+        if (!isNaN(ratingThreshold)) {
+          // Сначала получаем общее количество книг с рейтингом выше порога
+          const { count, error: countError } = await supabase
+            .from('books')
+            .select('*', { count: 'exact', head: true })
+            .gte('rating', ratingThreshold);
+
+          if (countError) {
+            console.error('Error counting books by rating:', countError);
+          } else {
+            setTotalBooks(count || 0);
+          }
+
+          // Затем получаем книги для текущей страницы
+          // Если booksPerPage равно 0 ("Все"), то загружаем все книги
+          if (booksPerPage === 0) {
+            const { data, error } = await supabase
+              .from('books')
+              .select(`
+                *,
+                series:series_id(id, title, author, series_composition, cover_urls)
+              `)
+              .gte('rating', ratingThreshold)
+              .order('rating', { ascending: false });
+
+            if (error) {
+              console.error('Error searching books by rating:', error);
+            } else {
+              setBooks(data || []);
+            }
+          } else {
+            const from = (page - 1) * booksPerPage;
+            const to = from + booksPerPage - 1;
+
+            const { data, error } = await supabase
+              .from('books')
+              .select(`
+                *,
+                series:series_id(id, title, author, series_composition, cover_urls)
+              `)
+              .gte('rating', ratingThreshold)
+              .order('rating', { ascending: false })
+              .range(from, to);
+
+            if (error) {
+              console.error('Error searching books by rating:', error);
+            } else {
+              setBooks(data || []);
+            }
+          }
+          return;
+        }
+      }
+
       // Сначала получаем общее количество книг по тегу или жанру
       const { count, error: countError } = await supabase
         .from('books')
         .select('*', { count: 'exact', head: true })
-        .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
+        .or(`tags.cs.{${tag}},genres.cs.{${tag}}`);
 
       if (countError) {
-        console.error('Error counting books by tag:', countError)
+        console.error('Error counting books by tag:', countError);
       } else {
-        setTotalBooks(count || 0)
+        setTotalBooks(count || 0);
       }
 
       // Затем получаем книги для текущей страницы
@@ -266,16 +323,16 @@ export default function LibraryPage() {
             series:series_id(id, title, author, series_composition, cover_urls)
           `)
           .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('Error searching books by tag:', error)
+          console.error('Error searching books by tag:', error);
         } else {
-          setBooks(data || [])
+          setBooks(data || []);
         }
       } else {
-        const from = (page - 1) * booksPerPage
-        const to = from + booksPerPage - 1
+        const from = (page - 1) * booksPerPage;
+        const to = from + booksPerPage - 1;
 
         const { data, error } = await supabase
           .from('books')
@@ -285,17 +342,27 @@ export default function LibraryPage() {
           `)
           .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
           .order('created_at', { ascending: false })
-          .range(from, to)
+          .range(from, to);
 
         if (error) {
-          console.error('Error searching books by tag:', error)
+          console.error('Error searching books by tag:', error);
         } else {
-          setBooks(data || [])
+          setBooks(data || []);
         }
       }
     } catch (error) {
-      console.error('Error searching books by tag:', error)
+      console.error('Error searching books by tag:', error);
     }
+  }
+
+  // Создаем новую функцию для обработки клика по тегу
+  const handleTagClick = (tag: string) => {
+    // Помещаем тег в поле поиска
+    setSearchQuery(`#${tag}`);
+    // Выполняем поиск по тегу
+    searchBooksByTag(tag, 1);
+    // Сбрасываем на первую страницу
+    setCurrentPage(1);
   }
 
   const handleSearch = (e: React.FormEvent) => {
@@ -402,11 +469,38 @@ export default function LibraryPage() {
             </a>
           </div>
 
-          <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-            <div className="w-full flex-1 md:w-auto md:flex-none">
-              {/* Search будет ниже */}
+          <div className="flex flex-1 items-center justify-center">
+            <div className="w-full flex-1 px-4">
+              {/* Search moved to navbar - enlarged and centered */}
+              <form onSubmit={handleSearch} className="relative max-w-3xl mx-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск книг по названию, автору, жанру или описанию..."
+                  className="pl-10 pr-10 w-full py-2"
+                />
+                {searchQuery && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full p-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSearchQuery('')
+                      setCurrentPage(1)
+                      loadBooks(1)
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </form>
             </div>
+          </div>
 
+          <div className="ml-4 flex items-center">
             <nav className="flex items-center gap-2">
               {userProfile?.role === 'admin' && (
                 <Button
@@ -468,38 +562,9 @@ export default function LibraryPage() {
 
       {/* Main Content */}
       <div className="container py-6">
-        {/* Top Controls Row - Search, Stats, View Mode */}
+        {/* Top Controls Row - Stats, View Mode (Search moved to navbar) */}
         <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          {/* Search */}
-          <div className="w-full max-w-md">
-            <form onSubmit={handleSearch} className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск книг по названию, автору или описанию..."
-                className="pl-10 pr-10 w-full"
-              />
-              {searchQuery && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full p-1 text-muted-foreground hover:text-foreground"
-                  onClick={() => {
-                    setSearchQuery('')
-                    setCurrentPage(1)
-                    loadBooks(1)
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </form>
-          </div>
-
-          {/* Stats and View Mode Toggle */}
+          {/* Stats and Show Per Page - Left aligned */}
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-grow">
               <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -562,6 +627,10 @@ export default function LibraryPage() {
                 </div>
               </div>
             </div>
+          </div>
+          
+          {/* View Mode Toggle - Right aligned */}
+          <div className="md:ml-auto">
             <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
         </div>
@@ -670,7 +739,7 @@ export default function LibraryPage() {
                       key={book.id} 
                       book={book} 
                       onDownload={handleDownload}
-                      onTagClick={searchBooksByTag}
+                      onTagClick={handleTagClick}
                     />
                   ))}
                 </div>
@@ -683,7 +752,7 @@ export default function LibraryPage() {
                       key={book.id} 
                       book={book} 
                       onClick={() => handleBookClick(book)} 
-                      onTagClick={searchBooksByTag}
+                      onTagClick={handleTagClick}
                     />
                   ))}
                 </div>
@@ -695,7 +764,7 @@ export default function LibraryPage() {
                   onBookClick={handleBookClick}
                   onDownloadClick={handleDownloadClick}
                   onReadClick={handleBookClick}
-                  onTagClick={searchBooksByTag}
+                  onTagClick={handleTagClick}
                 />
               )}
             </>
