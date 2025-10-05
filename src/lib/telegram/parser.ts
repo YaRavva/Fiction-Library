@@ -26,13 +26,11 @@ export class MetadataParser {
     }
 
     private static extractSeries(text: string): string | undefined {
-        const match = text.match(/Название:\s*([^\n]+)/);
-        if (match) {
-            const title = match[1].trim();
-            // Если есть слово "цикл", это серия
-            if (title.toLowerCase().includes('цикл')) {
-                return title;
-            }
+        // Проверяем, есть ли в тексте слово "Состав:"
+        if (text.includes('Состав:')) {
+            // Если есть, извлекаем название из поля "Название:"
+            const match = text.match(/Название:\s*([^\n]+)/);
+            return match ? match[1].trim() : undefined;
         }
         return undefined;
     }
