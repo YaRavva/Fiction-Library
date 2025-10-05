@@ -267,6 +267,9 @@ export default function AdminPage() {
         return
       }
 
+      // Отладочный вывод
+      console.log(`🔍 Запуск синхронизации с лимитом: ${syncLimit}`);
+
       // Увеличиваем таймаут до 5 минут
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 минут timeout
@@ -278,7 +281,7 @@ export default function AdminPage() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          limit: 10 // Используем лимит 10
+          limit: syncLimit // Используем значение из поля ввода
         }),
         signal: controller.signal
       })
@@ -286,6 +289,9 @@ export default function AdminPage() {
       clearTimeout(timeoutId)
 
       const data = await response.json()
+      
+      // Отладочный вывод результата
+      console.log('📊 Результат синхронизации:', data);
 
       if (response.ok) {
         setLastSyncBooksResult({
@@ -508,6 +514,25 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {/* Поля ввода для синхронизации */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sync-limit">Лимит публикаций</Label>
+                  <Input
+                    id="sync-limit"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={syncLimit}
+                    onChange={(e) => setSyncLimit(Math.max(1, Math.min(1000, Number(e.target.value) || 100)))}
+                    className="w-full"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Количество публикаций для синхронизации (1-1000)
+                  </p>
+                </div>
+              </div>
+              
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                   <Button

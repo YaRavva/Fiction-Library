@@ -916,6 +916,8 @@ export class TelegramSyncService {
         let processed = 0, added = 0, updated = 0, skipped = 0, errors = 0;
         const details: unknown[] = [];
         try {
+            console.log(`📥 Импорт ${metadata.length} записей метаданных с дедупликацией`);
+            
             // Обрабатываем каждую запись метаданных
             for (const book of metadata) {
                 const msgId = book.messageId;
@@ -970,6 +972,7 @@ export class TelegramSyncService {
                     }
                     
                     if (needUpdate) {
+                        console.log(`  🔄 Обновляем книгу "${existingBook.title}" автора ${existingBook.author}`);
                         // @ts-ignore
                         const { error: updateError } = await serverSupabase.from('books').update(updateData).eq('id', existingBook.id);
                         if (updateError) {
@@ -987,10 +990,25 @@ export class TelegramSyncService {
                         });
                     } else {
                         skipped++;
+                        // Определяем конкретную причину пропуска
+                        let skipReason = 'metadata complete';
+                        if (existingBook.description && !book.description) {
+                            skipReason = 'existing book has better description';
+                        } else if (existingBook.genres && existingBook.genres.length > 0 && (!book.genres || book.genres.length === 0)) {
+                            skipReason = 'existing book has genres';
+                        } else if (existingBook.tags && existingBook.tags.length > 0 && (!book.tags || book.tags.length === 0)) {
+                            skipReason = 'existing book has tags';
+                        } else if (existingBook.cover_url && existingBook.cover_url !== '' && (!book.coverUrls || book.coverUrls.length === 0)) {
+                            skipReason = 'existing book has cover';
+                        } else if (existingBook.telegram_post_id && existingBook.telegram_post_id !== '' && !msgId) {
+                            skipReason = 'existing book has telegram post id';
+                        }
+                        
+                        console.log(`  → Пропускаем книгу "${existingBook.title}" автора ${existingBook.author} (${skipReason})`);
                         details.push({ 
                             msgId, 
                             status: 'skipped', 
-                            reason: 'metadata complete',
+                            reason: skipReason,
                             bookTitle: existingBook.title,
                             bookAuthor: existingBook.author
                         });
@@ -1010,6 +1028,21 @@ export class TelegramSyncService {
                     }
                 } else {
                     // Книга не найдена — добавляем новую
+                    // Проверяем, есть ли у книги хотя бы название и автор
+                    if (!book.title || !book.author) {
+                        skipped++;
+                        console.log(`  → Пропускаем сообщение ${msgId} (отсутствует название или автор)`);
+                        details.push({ 
+                            msgId, 
+                            status: 'skipped', 
+                            reason: 'missing title or author',
+                            bookTitle: book.title || 'unknown',
+                            bookAuthor: book.author || 'unknown'
+                        });
+                        continue;
+                    }
+                    
+                    console.log(`  ➕ Добавляем новую книгу: "${book.title}" автора ${book.author}`);
                     const newBook = {
                         title: book.title,
                         author: book.author,
@@ -1062,17 +1095,19 @@ export class TelegramSyncService {
                 }
                 processed++;
             }
+            console.log(`📊 Импорт завершен: ${processed} обработано, ${added} добавлено, ${updated} обновлено, ${skipped} пропущено, ${errors} ошибок`);
             return { processed, added, updated, skipped, errors, details };
         } catch (error) {
+            console.error('❌ Ошибка в importMetadataWithDeduplication:', error);
             throw error;
         }
     }
 
     /**
      * Синхронизирует книги из Telegram канала с учетом уже обработанных сообщений
-     * @param limit Количество сообщений для обработки (по умолчанию 100)
+     * @param limit Количество сообщений для обработки (по умолчанию 10)
      */
-    public async syncBooks(limit: number = 100): Promise<{ processed: number; added: number; updated: number; skipped: number; errors: number; details: unknown[] }> {
+    public async syncBooks(limit: number = 10): Promise<{ processed: number; added: number; updated: number; skipped: number; errors: number; details: unknown[] }> {
         if (!this.telegramClient) {
             throw new Error('Telegram client not initialized');
         }
@@ -1116,6 +1151,7 @@ export class TelegramSyncService {
 
             // Парсим метаданные из каждого сообщения
             const metadataList: BookMetadata[] = [];
+            const details: unknown[] = []; // Объявляем details здесь для использования в цикле
             
             // Обрабатываем каждое сообщение
             for (const msg of messages) {
@@ -1125,6 +1161,12 @@ export class TelegramSyncService {
                 // Пропускаем сообщения без текста
                 if (!(msg as { text?: string }).text) {
                     console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит текста, пропускаем`);
+                    // Добавляем запись в details о пропущенном сообщении
+                    details.push({ 
+                        msgId: anyMsg.id, 
+                        status: 'skipped', 
+                        reason: 'no text content'
+                    });
                     continue;
                 }
 
@@ -1234,9 +1276,19 @@ export class TelegramSyncService {
             // Импортируем метаданные с дедупликацией
             console.log('💾 Импортируем метаданные с дедупликацией...');
             const resultImport = await this.importMetadataWithDeduplication(metadataList);
+            
+            // Объединяем details из обоих этапов
+            const combinedDetails = [...details, ...resultImport.details];
             console.log('✅ Импорт метаданных завершен');
             
-            return resultImport;
+            return {
+                processed: resultImport.processed,
+                added: resultImport.added,
+                updated: resultImport.updated,
+                skipped: resultImport.skipped,
+                errors: resultImport.errors,
+                details: combinedDetails
+            };
         } catch (error) {
             console.error('Error in syncBooks:', error);
             throw error;

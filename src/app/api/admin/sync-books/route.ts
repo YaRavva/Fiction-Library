@@ -3,23 +3,79 @@ import { syncBooks } from '../../../../scripts/sync-books';
 
 export const dynamic = 'force-dynamic';
 
+// Храним состояние синхронизации в памяти (в реальном приложении лучше использовать БД или Redis)
+let syncStatus = {
+  isRunning: false,
+  startTime: null as number | null,
+  progress: 0,
+  message: 'Готов к синхронизации',
+  lastResult: null as any
+};
+
 export async function POST(request: Request) {
   try {
     console.log('📥 Получен запрос на синхронизацию книг');
+    
+    // Проверяем, не запущена ли уже синхронизация
+    if (syncStatus.isRunning) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Синхронизация уже запущена',
+          status: 'already_running'
+        }, 
+        { status: 409 }
+      );
+    }
     
     // Получаем параметры из тела запроса
     const { limit = 10 } = await request.json();
     
     console.log(`🚀 Запуск синхронизации книг (лимит: ${limit})`);
     
-    // Выполняем синхронизацию синхронно и ждем результат
-    const result = await syncBooks(limit);
+    // Обновляем статус
+    syncStatus.isRunning = true;
+    syncStatus.startTime = Date.now();
+    syncStatus.progress = 0;
+    syncStatus.message = `Запущена синхронизация ${limit} книг`;
     
-    console.log('✅ Синхронизация книг завершена:', result);
-    
-    return NextResponse.json(result);
+    // Запускаем синхронизацию и ждем результата
+    try {
+      const result = await syncBooks(limit);
+      syncStatus.lastResult = result;
+      
+      // Обновляем статус по завершении
+      syncStatus.isRunning = false;
+      syncStatus.message = `Синхронизация завершена: ${result.message}`;
+      syncStatus.progress = 100;
+      console.log('✅ Синхронизация книг завершена:', result);
+      
+      // Возвращаем результат
+      return NextResponse.json({
+        success: true,
+        message: 'Синхронизация завершена',
+        status: 'completed',
+        results: result.results,
+        actions: result.actions,
+        limit
+      });
+    } catch (error) {
+      // Обновляем статус при ошибке
+      syncStatus.isRunning = false;
+      syncStatus.message = `Ошибка синхронизации: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`;
+      console.error('❌ Ошибка синхронизации книг:', error);
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: error instanceof Error ? error.message : 'Неизвестная ошибка синхронизации' 
+        }, 
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error('❌ Ошибка синхронизации книг:', error);
+    syncStatus.isRunning = false;
+    console.error('❌ Ошибка запуска синхронизации книг:', error);
     return NextResponse.json(
       { 
         success: false, 
@@ -32,20 +88,19 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    console.log('📥 Получен GET запрос на синхронизацию книг');
+    console.log('📥 Получен GET запрос статуса синхронизации книг');
     
-    // Выполняем синхронизацию с лимитом по умолчанию
-    const result = await syncBooks(10);
-    
-    console.log('✅ Синхронизация книг завершена');
-    
-    return NextResponse.json(result);
+    // Возвращаем текущий статус синхронизации
+    return NextResponse.json({
+      success: true,
+      status: syncStatus
+    });
   } catch (error) {
-    console.error('❌ Ошибка синхронизации книг:', error);
+    console.error('❌ Ошибка получения статуса синхронизации книг:', error);
     return NextResponse.json(
       { 
         success: false, 
-        message: error instanceof Error ? error.message : 'Неизвестная ошибка синхронизации' 
+        message: error instanceof Error ? error.message : 'Неизвестная ошибка' 
       }, 
       { status: 500 }
     );
