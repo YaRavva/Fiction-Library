@@ -40,8 +40,8 @@ export class MetadataParser {
     private static extractGenres(text: string): string[] {
         const genres: string[] = [];
 
-        // Ищем строку "Жанр:" и извлекаем хештеги из неё
-        const genreMatch = text.match(/Жанр:\s*([^\n]+)/);
+        // Ищем строку "Жанр:" и извлекаем хештеги из неё, учитывая переносы строк
+        const genreMatch = text.match(/Жанр:\s*([^\n]+(?:\n[^\n]+)*)/);
         if (genreMatch) {
             const genreLine = genreMatch[1];
             const hashtagRegex = /#([а-яА-Яa-zA-Z0-9]+)/g;
@@ -117,8 +117,8 @@ export class MetadataParser {
         
         if (seriesMatch) {
             const booksText = seriesMatch[1];
-            // Регулярное выражение для извлечения книг в формате "N. Название (Год)"
-            const bookRegex = /\d+\.\s+([^\(\n]+?)\s*\((\d{4})\)/g;
+            // Регулярное выражение для извлечения книг в формате "N. Название (Год)" или просто "Название (Год)"
+            const bookRegex = /(?:\d+\.\s*)?([^\(\n]+?)\s*\((\d{4})\)/g;
             let bookMatch;
 
             while ((bookMatch = bookRegex.exec(booksText)) !== null) {

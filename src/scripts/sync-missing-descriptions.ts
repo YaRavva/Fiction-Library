@@ -1,200 +1,137 @@
-import { config } from 'dotenv';
-import { resolve } from 'path';
-import { TelegramSyncService } from '../lib/telegram/sync';
-import { getSupabaseAdmin } from '../lib/supabase';
+import { serverSupabase } from '../lib/serverSupabase';
+import { TelegramService } from '../lib/telegram/client';
 import { MetadataParser } from '../lib/telegram/parser';
+import dotenv from 'dotenv';
 
-// Загружаем переменные окружения из .env файла
-const envPath = resolve(__dirname, '../../.env');
-config({ path: envPath });
+// Загружаем переменные окружения
+dotenv.config();
 
-/**
- * Синхронизирует описания для книг, у которых они отсутствуют
- * @param limit Количество книг для обработки
- * @returns Результат синхронизации
- */
-export async function syncMissingDescriptions(limit: number = 50) {
+async function syncMissingDescriptions() {
   try {
-    console.log(`🚀 Запуск синхронизации описаний для книг без описаний (лимит: ${limit})`);
+    console.log('🔍 Поиск книг без описаний...');
     
-    // Получаем книги с пустыми описаниями, у которых есть telegram_file_id
-    console.log('🔍 Получаем книги с пустыми описаниями и telegram_file_id...');
-    const supabase = getSupabaseAdmin();
-    if (!supabase) {
-      throw new Error('Не удалось создать клиент Supabase');
-    }
-    
-    // @ts-ignore
-    const { data: booksWithoutDescriptions, error: fetchError } = await supabase
+    // Получаем книги без описаний
+    const { data: books, error } = await (serverSupabase as any)
       .from('books')
       .select('*')
-      .eq('description', '')
-      .not('telegram_file_id', 'is', null)
-      .limit(limit);
+      .or('description.is.null,description.eq.')
+      .limit(50);
     
-    if (fetchError) {
-      throw new Error(`Ошибка получения книг без описаний: ${fetchError.message}`);
+    if (error) {
+      console.error('❌ Ошибка при получении книг:', error);
+      return;
     }
     
-    // Если не нашли книги с telegram_file_id, ищем все книги с пустыми описаниями
-    if (!booksWithoutDescriptions || booksWithoutDescriptions.length === 0) {
-      console.log('🔍 Не найдено книг с telegram_file_id, ищем все книги с пустыми описаниями...');
-      // @ts-ignore
-      const { data: allBooksWithoutDescriptions, error: allFetchError } = await supabase
-        .from('books')
-        .select('*')
-        .eq('description', '')
-        .limit(limit);
-      
-      if (allFetchError) {
-        throw new Error(`Ошибка получения всех книг без описаний: ${allFetchError.message}`);
-      }
-      
-      // Если и среди всех книг ничего не найдено, завершаем работу
-      if (!allBooksWithoutDescriptions || allBooksWithoutDescriptions.length === 0) {
-        console.log('✅ Нет книг с пустыми описаниями');
-        return {
-          success: true,
-          message: 'Нет книг с пустыми описаниями',
-          processed: 0,
-          updated: 0,
-          skipped: 0,
-          errors: 0
-        };
-      }
-      
-      // Используем все книги с пустыми описаниями
-      // @ts-ignore
-      booksWithoutDescriptions = allBooksWithoutDescriptions;
+    if (!books || books.length === 0) {
+      console.log('✅ Все книги имеют описания');
+      return;
     }
     
-    console.log(`📊 Найдено ${booksWithoutDescriptions.length} книг с пустыми описаниями`);
+    console.log(`📚 Найдено ${books.length} книг без описаний`);
     
-    // Получаем экземпляр сервиса синхронизации
-    const syncService = await TelegramSyncService.getInstance();
+    // Получаем экземпляр Telegram клиента
+    const telegramClient = await TelegramService.getInstance();
     
-    let processed = 0;
-    let updated = 0;
-    let skipped = 0;
-    let errors = 0;
+    // Получаем канал с метаданными
+    console.log('📥 Получаем канал с метаданными...');
+    const channel = await telegramClient.getMetadataChannel();
     
-    // Обрабатываем каждую книгу
-    for (const book of booksWithoutDescriptions) {
+    // Convert BigInteger to string for compatibility
+    const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+        (channel.id as { toString: () => string }).toString() : 
+        String(channel.id);
+    
+    console.log(`📡 Канал ID: ${channelId}`);
+    
+    // Для каждой книги пытаемся найти описание в Telegram
+    for (const book of books) {
+      console.log(`\n--- Обработка книги: ${book.title} (${book.author}) ---`);
+      
+      // Проверяем, есть ли у книги Telegram post ID
+      if (!book.telegram_post_id) {
+        console.log('  ℹ️  У книги отсутствует Telegram post ID, пропускаем');
+        continue;
+      }
+      
+      const messageId = parseInt(book.telegram_post_id, 10);
+      if (isNaN(messageId)) {
+        console.log(`  ℹ️  Неверный формат Telegram post ID: ${book.telegram_post_id}, пропускаем`);
+        continue;
+      }
+      
+      console.log(`  📥 Получаем сообщение с ID: ${messageId}...`);
+      
       try {
-        const typedBook = book as any;
-        console.log(`📝 Обрабатываем книгу: ${typedBook.author} - ${typedBook.title}`);
+        // Получаем сообщение из Telegram
+        const messages = await telegramClient.getMessages(channelId, 1, messageId) as any;
         
-        // Проверяем, есть ли у книги telegram_file_id
-        if (!typedBook.telegram_file_id) {
-          console.log(`  ℹ️ У книги нет telegram_file_id, пропускаем`);
-          skipped++;
-          continue;
-        }
-        
-        // Получаем сообщение из Telegram по ID
-        console.log(`  📥 Получаем сообщение ${typedBook.telegram_file_id} из Telegram...`);
-        const channel = await (syncService as any).telegramClient.getMetadataChannel();
-        if (!channel) {
-          throw new Error('Не удалось получить канал');
-        }
-        
-        // Convert BigInteger to string for compatibility
-        const channelId = typeof channel.id === 'object' && channel.id !== null ? 
-          (channel.id as { toString: () => string }).toString() : 
-          String(channel.id);
-          
-        const messages: any[] = await (syncService as any).telegramClient.getMessages(channelId, 1, parseInt(typedBook.telegram_file_id));
         if (!messages || messages.length === 0) {
-          console.log(`  ℹ️ Сообщение не найдено, пропускаем`);
-          skipped++;
+          console.log(`  ❌ Сообщение с ID ${messageId} не найдено`);
           continue;
         }
         
-        const msg = messages[0];
-        const anyMsg = msg as unknown as { [key: string]: unknown };
+        const message = messages[0];
+        console.log(`  ✅ Сообщение найдено (ID: ${message.id})`);
         
-        // Проверяем наличие текста в сообщении
-        if (!anyMsg.message) {
-          console.log(`  ℹ️ Сообщение не содержит текста, пропускаем`);
-          skipped++;
+        // Проверяем, есть ли текст в сообщении
+        if (!message.text) {
+          console.log(`  ℹ️  Сообщение не содержит текста`);
           continue;
         }
         
-        // Парсим текст сообщения для извлечения описания
-        console.log(`  📄 Парсим текст сообщения для извлечения описания...`);
-        const metadata = MetadataParser.parseMessage(anyMsg.message as string);
+        // Парсим текст сообщения
+        const metadata = MetadataParser.parseMessage(message.text);
+        
+        // Проверяем, совпадают ли автор и название
+        const authorMatch = metadata.author && 
+          (metadata.author.toLowerCase().includes(book.author.toLowerCase()) || 
+           book.author.toLowerCase().includes(metadata.author.toLowerCase()));
+        const titleMatch = metadata.title && 
+          (metadata.title.toLowerCase().includes(book.title.toLowerCase()) || 
+           book.title.toLowerCase().includes(metadata.title.toLowerCase()));
+        
+        if (!authorMatch || !titleMatch) {
+          console.log(`  ⚠️  Несовпадение метаданных:`);
+          console.log(`    Книга: ${book.author} - ${book.title}`);
+          console.log(`    Сообщение: ${metadata.author} - ${metadata.title}`);
+          continue;
+        }
         
         // Проверяем, есть ли описание в метаданных
-        if (!metadata.description || metadata.description.trim() === '') {
-          console.log(`  ℹ️ Описание не найдено в сообщении, пропускаем`);
-          skipped++;
+        if (!metadata.description) {
+          console.log(`  ℹ️  В сообщении отсутствует описание`);
           continue;
         }
         
-        // Обновляем книгу с новым описанием
-        console.log(`  🔄 Обновляем книгу с описанием...`);
+        // Обновляем описание книги в базе данных
+        console.log(`  📝 Обновляем описание книги...`);
         const updateData: any = { description: metadata.description };
-        // @ts-ignore
-        const { error: updateError } = await (supabase as any)
+        const { data: updatedBook, error: updateError } = await (serverSupabase as any)
           .from('books')
           .update(updateData)
-          .eq('id', typedBook.id);
+          .eq('id', book.id)
+          .select()
+          .single();
         
         if (updateError) {
-          console.error(`  ❌ Ошибка обновления книги:`, updateError);
-          errors++;
-        } else {
-          console.log(`  ✅ Книга обновлена с описанием`);
-          updated++;
+          console.error(`  ❌ Ошибка при обновлении описания:`, updateError);
+          continue;
         }
         
-        processed++;
+        console.log(`  ✅ Описание успешно обновлено`);
       } catch (error) {
-        const typedBook = book as any;
-        console.error(`❌ Ошибка обработки книги ${typedBook.author} - ${typedBook.title}:`, error);
-        errors++;
+        console.error(`  ❌ Ошибка при обработке сообщения:`, error);
       }
     }
-    
-    console.log(`✅ Синхронизация описаний завершена: ${processed} обработано, ${updated} обновлено, ${skipped} пропущено, ${errors} ошибок`);
-    
-    return {
-      success: true,
-      message: `Обработано ${processed} книг, обновлено ${updated} книг`,
-      processed,
-      updated,
-      skipped,
-      errors
-    };
   } catch (error) {
-    console.error('❌ Ошибка синхронизации описаний:', error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Неизвестная ошибка синхронизации описаний',
-      processed: 0,
-      updated: 0,
-      skipped: 0,
-      errors: 1
-    };
+    console.error('❌ Ошибка:', error);
+  } finally {
+    // Отключаемся от Telegram
+    const telegramClient = await TelegramService.getInstance();
+    if (telegramClient) {
+      await telegramClient.disconnect();
+    }
   }
 }
 
-// Если скрипт запущен напрямую, выполняем синхронизацию
-if (require.main === module) {
-  syncMissingDescriptions(50)
-    .then(result => {
-      console.log('Результат синхронизации описаний:', result);
-      // Принудительно завершаем скрипт через 1 секунду
-      setTimeout(() => {
-        console.log('🔒 Скрипт принудительно завершен');
-        process.exit(0);
-      }, 1000);
-    })
-    .catch(error => {
-      console.error('❌ Ошибка при выполнении скрипта:', error);
-      // Принудительно завершаем скрипт и в случае ошибки
-      setTimeout(() => {
-        process.exit(1);
-      }, 1000);
-    });
-}
+syncMissingDescriptions();

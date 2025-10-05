@@ -971,6 +971,52 @@ export class TelegramSyncService {
                         needUpdate = true;
                     }
                     
+                    // Если у книги есть состав (books.length > 0), но она не привязана к серии, создаем серию
+                    if (book.books && book.books.length > 0 && (!existingBook.series_id || existingBook.series_id === '')) {
+                        console.log(`  📚 У книги есть состав, но она не привязана к серии. Создаем серию...`);
+                        
+                        // Создаем серию
+                        const seriesData: any = {
+                            title: book.title,
+                            author: book.author,
+                            description: book.description || existingBook.description || '',
+                            genres: book.genres && book.genres.length > 0 ? book.genres : existingBook.genres || [],
+                            tags: book.tags && book.tags.length > 0 ? book.tags : existingBook.tags || [],
+                            rating: book.rating || existingBook.rating || null,
+                            telegram_post_id: String(msgId),
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        };
+                        
+                        // Добавляем обложку, если она есть
+                        if (book.coverUrls && book.coverUrls.length > 0) {
+                            seriesData.cover_url = book.coverUrls[0]; // Берем первую обложку
+                        } else if (existingBook.cover_url) {
+                            seriesData.cover_url = existingBook.cover_url;
+                        }
+                        
+                        // Добавляем состав серии, если он есть
+                        if (book.books && book.books.length > 0) {
+                            // Преобразуем книги в формат series_composition
+                            const seriesComposition = book.books.map(b => ({
+                                title: b.title,
+                                year: b.year
+                            }));
+                            seriesData.series_composition = seriesComposition;
+                        }
+                        
+                        // @ts-ignore
+                        const { data: insertedSeries, error: seriesError } = await serverSupabase.from('series').insert(seriesData).select().single();
+                        if (seriesError) {
+                            console.warn(`  ⚠️  Ошибка при создании серии:`, seriesError);
+                        } else {
+                            const newSeriesId = (insertedSeries as any).id;
+                            updateData.series_id = newSeriesId;
+                            needUpdate = true;
+                            console.log(`  ✅ Серия создана и привязана к книге: ${newSeriesId}`);
+                        }
+                    }
+                    
                     if (needUpdate) {
                         console.log(`  🔄 Обновляем книгу "${existingBook.title}" автора ${existingBook.author}`);
                         // @ts-ignore
@@ -1042,6 +1088,49 @@ export class TelegramSyncService {
                         continue;
                     }
                     
+                    // Проверяем, есть ли у книги состав (книги в серии)
+                    let seriesId = null;
+                    if (book.books && book.books.length > 0) {
+                        console.log(`  📚 У книги есть состав, создаем серию...`);
+                        
+                        // Создаем серию
+                        const seriesData: any = {
+                            title: book.title,
+                            author: book.author,
+                            description: book.description || '',
+                            genres: book.genres || [],
+                            tags: book.tags || [],
+                            rating: book.rating || null,
+                            telegram_post_id: String(msgId),
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        };
+                        
+                        // Добавляем обложку, если она есть
+                        if (book.coverUrls && book.coverUrls.length > 0) {
+                            seriesData.cover_url = book.coverUrls[0]; // Берем первую обложку
+                        }
+                        
+                        // Добавляем состав серии, если он есть
+                        if (book.books && book.books.length > 0) {
+                            // Преобразуем книги в формат series_composition
+                            const seriesComposition = book.books.map(b => ({
+                                title: b.title,
+                                year: b.year
+                            }));
+                            seriesData.series_composition = seriesComposition;
+                        }
+                        
+                        // @ts-ignore
+                        const { data: insertedSeries, error: seriesError } = await serverSupabase.from('series').insert(seriesData).select().single();
+                        if (seriesError) {
+                            console.warn(`  ⚠️  Ошибка при создании серии:`, seriesError);
+                        } else {
+                            seriesId = (insertedSeries as any).id;
+                            console.log(`  ✅ Серия создана: ${seriesId}`);
+                        }
+                    }
+                    
                     console.log(`  ➕ Добавляем новую книгу: "${book.title}" автора ${book.author}`);
                     const newBook = {
                         title: book.title,
@@ -1059,6 +1148,12 @@ export class TelegramSyncService {
                     if (book.coverUrls && book.coverUrls.length > 0) {
                         // @ts-ignore
                         newBook.cover_url = book.coverUrls[0]; // Берем первую обложку
+                    }
+                    
+                    // Привязываем книгу к серии, если она была создана
+                    if (seriesId) {
+                        // @ts-ignore
+                        newBook.series_id = seriesId;
                     }
                     
                     // @ts-ignore

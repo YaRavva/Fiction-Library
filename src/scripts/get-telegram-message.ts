@@ -1,13 +1,12 @@
 import { TelegramService } from '../lib/telegram/client';
-import { MetadataParser } from '../lib/telegram/parser';
 import dotenv from 'dotenv';
 
 // Загружаем переменные окружения
 dotenv.config();
 
-async function debugMessage(messageId: number) {
+async function getTelegramMessage(messageId: number) {
   try {
-    console.log(`🔍 Отладка сообщения с ID: ${messageId}`);
+    console.log(`🔍 Получение сообщения из Telegram с ID: ${messageId}`);
     
     // Получаем экземпляр Telegram клиента
     const telegramClient = await TelegramService.getInstance();
@@ -23,7 +22,7 @@ async function debugMessage(messageId: number) {
     
     console.log(`📡 Канал ID: ${channelId}`);
     
-    // Получаем конкретное сообщение
+    // Получаем конкретное сообщение по ID
     console.log(`📥 Получаем сообщение с ID: ${messageId}...`);
     const messages = await telegramClient.getMessages(channelId, 1, messageId) as any;
     
@@ -33,33 +32,21 @@ async function debugMessage(messageId: number) {
     }
     
     const message = messages[0];
-    console.log(`✅ Сообщение найдено (ID: ${message.id})`);
+    console.log('📨 Сообщение найдено:');
+    console.log(`  ID: ${message.id}`);
+    console.log(`  Текст: ${message.text ? message.text.substring(0, 200) + '...' : 'отсутствует'}`);
     
-    // Проверяем, есть ли текст в сообщении
-    if (!message.text) {
-      console.log('❌ Сообщение не содержит текста');
-      return;
-    }
-    
-    console.log('\n--- Текст сообщения ---');
-    console.log(message.text);
-    
-    // Парсим текст сообщения
-    console.log('\n--- Результаты парсинга ---');
-    const metadata = MetadataParser.parseMessage(message.text);
-    
-    console.log(`Автор: "${metadata.author}"`);
-    console.log(`Название: "${metadata.title}"`);
-    console.log(`Рейтинг: ${metadata.rating}`);
-    console.log(`Жанры: [${metadata.genres.map(g => `"${g}"`).join(', ')}]`);
-    console.log(`Теги: [${metadata.tags.map(t => `"${t}"`).join(', ')}]`);
-    console.log(`Описание: "${metadata.description.substring(0, 200)}${metadata.description.length > 200 ? '...' : ''}"`);
-    console.log(`Книги в серии: ${metadata.books.length}`);
-    
-    if (metadata.books.length > 0) {
-      console.log('Состав серии:');
-      for (const book of metadata.books) {
-        console.log(`  - ${book.title} (${book.year})`);
+    if (message.text) {
+      // Попробуем извлечь описание из текста
+      const descriptionMatch = message.text.match(/Рейтинг:[\s\S]*?\n([\s\S]*?)(?:\n\s*\n|Состав:|$)/i);
+      if (descriptionMatch) {
+        const description = descriptionMatch[1].trim();
+        console.log(`\n📖 Описание из сообщения:`);
+        console.log(description);
+      } else {
+        console.log('\n❌ Не удалось извлечь описание из сообщения');
+        console.log('Текст сообщения:');
+        console.log(message.text);
       }
     }
   } catch (error) {
@@ -77,7 +64,6 @@ async function debugMessage(messageId: number) {
 const messageIdStr = process.argv[2];
 if (!messageIdStr) {
   console.error('❌ Пожалуйста, укажите ID сообщения');
-  console.log('Использование: npx tsx src/scripts/debug-message.ts <messageId>');
   process.exit(1);
 }
 
@@ -87,4 +73,4 @@ if (isNaN(messageId)) {
   process.exit(1);
 }
 
-debugMessage(messageId);
+getTelegramMessage(messageId);
