@@ -206,7 +206,7 @@ export default function LibraryPage() {
           .from('books')
           .select(`
             *,
-            series:series_id(title, author)
+            series:series_id(id, title, author, series_composition, cover_urls)
           `)
           .or(`title.ilike.%${query}%,author.ilike.%${query}%,description.ilike.%${query}%`)
           .order('created_at', { ascending: false })
@@ -224,7 +224,7 @@ export default function LibraryPage() {
           .from('books')
           .select(`
             *,
-            series:series_id(title, author)
+            series:series_id(id, title, author, series_composition, cover_urls)
           `)
           .or(`title.ilike.%${query}%,author.ilike.%${query}%,description.ilike.%${query}%`)
           .order('created_at', { ascending: false })
@@ -263,7 +263,7 @@ export default function LibraryPage() {
           .from('books')
           .select(`
             *,
-            series:series_id(title, author)
+            series:series_id(id, title, author, series_composition, cover_urls)
           `)
           .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
           .order('created_at', { ascending: false })
@@ -272,8 +272,6 @@ export default function LibraryPage() {
           console.error('Error searching books by tag:', error)
         } else {
           setBooks(data || [])
-          setSearchQuery(`#${tag}`)
-          setCurrentPage(1)
         }
       } else {
         const from = (page - 1) * booksPerPage
@@ -283,7 +281,7 @@ export default function LibraryPage() {
           .from('books')
           .select(`
             *,
-            series:series_id(title, author)
+            series:series_id(id, title, author, series_composition, cover_urls)
           `)
           .or(`tags.cs.{${tag}},genres.cs.{${tag}}`)
           .order('created_at', { ascending: false })
@@ -293,8 +291,6 @@ export default function LibraryPage() {
           console.error('Error searching books by tag:', error)
         } else {
           setBooks(data || [])
-          setSearchQuery(`#${tag}`)
-          setCurrentPage(page)
         }
       }
     } catch (error) {
