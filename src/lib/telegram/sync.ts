@@ -774,11 +774,11 @@ export class TelegramSyncService {
         console.log(`  📥 Скачиваем файл из сообщения ${anyMsg.id}...`);
         
         try {
-            // Скачиваем файл
+            // Скачиваем файл с увеличенным таймаутом
             const buffer = await Promise.race([
                 this.telegramClient!.downloadMedia(message),
                 new Promise<never>((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 45000))
+                    setTimeout(() => reject(new Error('Timeout: Media download took too long')), 90000)) // Увеличил до 90 секунд
             ]);
 
             if (!buffer) {
@@ -856,8 +856,122 @@ export class TelegramSyncService {
 
             try {
                 const result = await upsertBookRecord(bookRecord);
-                if (result) {
+                // Проверяем, что результат - это объект книги (а не массив совпадений)
+                let bookResult = null;
+                
+                // Если результат - массив (поиск по релевантности), проверяем его
+                if (Array.isArray(result)) {
+                    if (result.length > 0) {
+                        // Берем первую книгу из результатов поиска
+                        bookResult = result[0];
+                        console.log(`  ℹ️  Найдена книга по релевантности: "${(bookResult as { title: string }).title}" автора ${(bookResult as { author: string }).author}`);
+                    } else {
+                        console.log(`  ⚠️  Книга не найдена по релевантности`);
+                    }
+                } 
+                // Если результат - объект (найдена точная книга), используем его
+                else if (result && typeof result === 'object') {
+                    bookResult = result;
+                    console.log(`  ✅ Найдена книга по точному совпадению: "${(bookResult as { title: string }).title}" автора ${(bookResult as { author: string }).author}`);
+                }
+                
+                if (bookResult) {
                     console.log(`  ✅ Запись книги создана/обновлена для файла: ${filenameCandidate}`);
+                    
+                    // Проверяем, существует ли запись в telegram_processed_messages для данного message_id
+                    // Записи должны создаваться только при синхронизации метаданных из публичного канала
+                    // Если записи нет, значит книга не была импортирована и файл не нужен
+                    try {
+                        // Type assertion to fix typing issues with Supabase client
+                        const typedSupabase = serverSupabase as unknown as {
+                            from: (table: string) => {
+                                update: (data: Record<string, unknown>) => {
+                                    eq: (column: string, value: unknown) => Promise<{ error: unknown }>;
+                                };
+                                select: (columns?: string) => {
+                                    eq: (column: string, value: unknown) => Promise<{ data: unknown[]; error: unknown }>;
+                                };
+                                insert: (data: Record<string, unknown>) => Promise<{ error: unknown }>;
+                                upsert: (data: Record<string, unknown>) => Promise<{ error: unknown }>;
+                                delete: () => {
+                                    eq: (column: string, value: unknown) => Promise<{ error: unknown }>;
+                                };
+                            };
+                        };
+                        
+                        // Проверяем, существует ли запись в telegram_processed_messages для данного message_id
+                        const { data: existingRecords, error: selectError } = await typedSupabase
+                            .from('telegram_processed_messages')
+                            .select('*')
+                            .eq('message_id', String(anyMsg.id));
+                            
+                        if (selectError) {
+                            console.warn(`  ⚠️  Ошибка при проверке существования записи в telegram_processed_messages:`, selectError);
+                        } else if (existingRecords && existingRecords.length > 0) {
+                            // Если запись существует, обновляем её с telegram_file_id
+                            // Это означает, что книга была импортирована из публичного канала
+                            
+                            // Проверяем, есть ли дубликаты
+                            if (existingRecords.length > 1) {
+                                console.log(`  ⚠️  Найдено ${existingRecords.length} дубликатов, удаление лишних...`);
+                                // Сортируем по дате обработки (новые первыми)
+                                existingRecords.sort((a: any, b: any) => 
+                                    new Date(b.processed_at).getTime() - new Date(a.processed_at).getTime());
+                                
+                                // Удаляем все кроме первой записи
+                                for (let i = 1; i < existingRecords.length; i++) {
+                                    const record = existingRecords[i] as { id: string };
+                                    const { error: deleteError } = await typedSupabase
+                                        .from('telegram_processed_messages')
+                                        .delete()
+                                        .eq('id', record.id);
+                                        
+                                    if (deleteError) {
+                                        console.warn(`  ⚠️  Ошибка при удалении дубликата:`, deleteError);
+                                    } else {
+                                        console.log(`  ✅ Дубликат удален: ${record.id}`);
+                                    }
+                                }
+                            }
+                            
+                            // Обновляем оставшуюся запись с telegram_file_id
+                            const { error: updateError } = await typedSupabase
+                                .from('telegram_processed_messages')
+                                .update({ 
+                                    telegram_file_id: String(anyMsg.id),
+                                    processed_at: new Date().toISOString()
+                                })
+                                .eq('message_id', String(anyMsg.id));
+                                
+                            if (updateError) {
+                                console.warn(`  ⚠️  Ошибка при обновлении telegram_processed_messages:`, updateError);
+                            } else {
+                                console.log(`  ✅ Запись в telegram_processed_messages обновлена с telegram_file_id: ${anyMsg.id}`);
+                            }
+                        } else {
+                            // Если записи не существует, это означает, что книга не была импортирована из публичного канала
+                            // Файл не нужен, удаляем его из Storage
+                            console.log(`  ⚠️  Книга не была импортирована из публичного канала, файл не нужен`);
+                            console.log(`  🗑️  Удаление файла из Storage: ${storageKey}`);
+                            const admin = getSupabaseAdmin();
+                            if (admin) {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                const storageSupabase: any = admin;
+                                await storageSupabase.storage.from('books').remove([storageKey]);
+                            }
+                            console.log(`  ❌ Файл не добавлен к книге: ${filenameCandidate} (книга не импортирована)`);
+                            // Возвращаем результат с указанием, что книга не импортирована
+                            return {
+                                messageId: anyMsg.id,
+                                filename: filenameCandidate,
+                                success: true,
+                                skipped: true,
+                                reason: 'book_not_imported'
+                            };
+                        }
+                    } catch (updateError) {
+                        console.warn(`  ⚠️  Ошибка при обработке telegram_processed_messages:`, updateError);
+                    }
                 } else {
                     // Если книга не найдена, удаляем загруженный файл из Storage
                     console.log(`  ⚠️  Книга не найдена, удаляем файл из Storage: ${storageKey}`);
@@ -868,10 +982,54 @@ export class TelegramSyncService {
                         await storageSupabase.storage.from('books').remove([storageKey]);
                     }
                     console.log(`  ❌ Файл не добавлен к книге: ${filenameCandidate}`);
-                    throw new Error('Book not found for file attachment');
+                    // Не выбрасываем ошибку, а возвращаем результат с указанием, что книга не найдена
+                    return {
+                        messageId: anyMsg.id,
+                        filename: filenameCandidate,
+                        success: true,
+                        skipped: true,
+                        reason: 'book_not_found'
+                    };
                 }
             } catch (err) {
                 console.warn(`  ⚠️  Ошибка при создании/обновлении записи книги:`, err);
+                // Удаляем загруженный файл из Storage в случае ошибки
+                console.log(`  ⚠️  Удаляем файл из Storage из-за ошибки: ${storageKey}`);
+                const admin = getSupabaseAdmin();
+                if (admin) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const storageSupabase: any = admin;
+                    try {
+                        await storageSupabase.storage.from('books').remove([storageKey]);
+                    } catch (removeError) {
+                        console.warn(`  ⚠️  Ошибка при удалении файла:`, removeError);
+                    }
+                    
+                    // Также удаляем запись в telegram_processed_messages, если она была создана
+                    try {
+                        // Type assertion to fix typing issues with Supabase client
+                        const typedSupabase = admin as unknown as {
+                            from: (table: string) => {
+                                delete: () => {
+                                    eq: (column: string, value: unknown) => Promise<{ error: unknown }>;
+                                };
+                            };
+                        };
+                        
+                        const { error: deleteError } = await typedSupabase
+                            .from('telegram_processed_messages')
+                            .delete()
+                            .eq('telegram_file_id', String(anyMsg.id));
+                            
+                        if (deleteError) {
+                            console.warn(`  ⚠️  Ошибка при удалении записи из telegram_processed_messages:`, deleteError);
+                        } else {
+                            console.log(`  ✅ Запись из telegram_processed_messages удалена из-за ошибки`);
+                        }
+                    } catch (deleteError) {
+                        console.warn(`  ⚠️  Ошибка при удалении записи из telegram_processed_messages:`, deleteError);
+                    }
+                }
                 throw err;
             }
 

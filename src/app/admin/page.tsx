@@ -88,6 +88,7 @@ export default function AdminPage() {
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const [lastSyncBooksResult, setLastSyncBooksResult] = useState<SyncResult | null>(null)
   const [lastDownloadFilesResult, setLastDownloadFilesResult] = useState<SyncResult | null>(null)
+  const [lastDownloadFilesReport, setLastDownloadFilesReport] = useState<string | null>(null) // Добавляем состояние для отчета
   const [error, setError] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [user, setUser] = useState<User | null>(null) // Fix: Replace any with User | null
@@ -327,6 +328,7 @@ export default function AdminPage() {
     setDownloadFiles(true)
     setError(null)
     setLastDownloadFilesResult(null)
+    setLastDownloadFilesReport(null) // Очищаем предыдущий отчет
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -339,13 +341,14 @@ export default function AdminPage() {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
+      // Используем новый endpoint и передаем лимит
       const response = await fetch('/api/admin/download-files', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({}), // Отправляем пустое тело для консистентности
+        body: JSON.stringify({ limit: syncLimit }), // Передаем лимит из поля ввода
         signal: controller.signal
       })
 
@@ -355,7 +358,15 @@ export default function AdminPage() {
 
       if (response.ok) {
         setLastDownloadFilesResult(data.results)
+        setLastDownloadFilesReport(data.report || null) // Сохраняем отчет
         await loadSyncStatus()
+        
+        // Обновляем статистику после загрузки файлов
+        // @ts-ignore
+        if (typeof window.refreshSyncStats === 'function') {
+          // @ts-ignore
+          window.refreshSyncStats()
+        }
       } else {
         setError(data.error || 'Ошибка загрузки файлов')
       }
@@ -568,6 +579,8 @@ export default function AdminPage() {
             <div className="border rounded-md p-2 bg-muted">
               <textarea
                 value={
+                  lastDownloadFilesReport ? 
+                  lastDownloadFilesReport : // Показываем отчет, если он есть
                   lastDownloadFilesResult ? 
                   `Загрузка файлов:\n` +
                   `Успешно: ${lastDownloadFilesResult.success}\n` +

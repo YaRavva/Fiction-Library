@@ -1,6 +1,7 @@
 import { Api, TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { NewMessage } from 'telegram/events';
+import bigInt from 'big-integer';
 
 export class TelegramService {
     private client: TelegramClient;
@@ -84,59 +85,20 @@ export class TelegramService {
     }
 
     public async getFilesChannel() {
-        const channelUrl = process.env.TELEGRAM_FILES_CHANNEL;
-        if (!channelUrl) {
-            throw new Error('TELEGRAM_FILES_CHANNEL must be set');
-        }
-
+        // Используем прямой доступ к каналу по ID вместо invite link
+        console.log('📚 Получаем доступ к каналу "Архив для фантастики" по ID...');
+        const channelId = 1515159552; // ID канала "Архив для фантастики"
+        
         try {
-            // Extract channel identifier from URL
-            let channelIdentifier = channelUrl;
-            if (channelUrl.startsWith('http')) {
-                const url = new URL(channelUrl);
-                if (url.pathname.startsWith('/+')) {
-                    // This is an invite link, we need to join the channel first
-                    const inviteHash = url.pathname.substring(2); // Remove the leading '/+'
-                    try {
-                        // Try to join the channel using the invite link
-                        const result = await this.client.invoke(new Api.messages.ImportChatInvite({
-                            hash: inviteHash
-                        }));
-                        // After joining, we should be able to get the entity using the chat ID
-                        // The result contains the chat information
-                        if (result && 'chats' in result && result.chats.length > 0) {
-                            // Use the actual chat ID instead of the invite hash
-                            // Convert BigInteger to string
-                            channelIdentifier = result.chats[0].id.toString();
-                        } else {
-                            // Fallback to using the invite hash directly
-                            channelIdentifier = inviteHash;
-                        }
-                    } catch (joinError: any) {
-                        // If user is already participant, we can try to access the channel directly
-                        if (joinError && joinError.errorMessage === 'USER_ALREADY_PARTICIPANT') {
-                            console.log('User is already participant, trying to access channel directly');
-                            channelIdentifier = inviteHash;
-                        } else {
-                            console.warn('Could not join channel via invite link, trying direct access:', joinError);
-                            channelIdentifier = inviteHash;
-                        }
-                    }
-                } else {
-                    // This is a regular channel link, extract the username
-                    channelIdentifier = url.pathname.substring(1); // Remove the leading '/'
-                }
-            }
-            
-            const entity = await this.client.getEntity(channelIdentifier);
+            const entity = await this.client.getEntity(new Api.PeerChannel({ channelId: bigInt(channelId) }));
             return entity;
         } catch (error) {
-            console.error('Error getting files channel:', error);
+            console.error('Error getting files channel by ID:', error);
             throw error;
         }
     }
 
-    public async getMessages(chatId: number | string, limit: number = 10, offsetId?: number): Promise<unknown> {
+    public async getMessages(chatId: any, limit: number = 10, offsetId?: number): Promise<unknown> {
         try {
             const options: { limit: number; offsetId?: number } = { limit };
             if (offsetId !== undefined) {
@@ -160,7 +122,7 @@ export class TelegramService {
         }
     }
 
-    // Added methods for sync.ts
+    // Addeded methods for sync.ts
     public async downloadMedia(message: unknown): Promise<Buffer> {
         try {
             if (!this.client) {
@@ -184,6 +146,21 @@ export class TelegramService {
             }
         } catch (error) {
             console.error('Error downloading media:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Получает сущность канала по ID напрямую
+     * @param channelId ID канала
+     * @returns Сущность канала
+     */
+    public async getChannelEntityById(channelId: number): Promise<unknown> {
+        try {
+            const entity = await this.client.getEntity(new Api.PeerChannel({ channelId: bigInt(channelId) }));
+            return entity;
+        } catch (error) {
+            console.error(`Error getting channel entity by ID ${channelId}:`, error);
             throw error;
         }
     }

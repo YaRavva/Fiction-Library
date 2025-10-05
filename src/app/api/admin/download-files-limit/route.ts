@@ -13,8 +13,8 @@ if (!supabaseUrl || !serviceRoleKey) {
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 /**
- * POST /api/admin/download-files
- * Запускает загрузку отсутствующих файлов книг
+ * POST /api/admin/download-files-limit
+ * Запускает загрузку файлов из Telegram с указанным лимитом
  */
 export async function POST(request: NextRequest) {
   try {
@@ -54,14 +54,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Получаем лимит из тела запроса или используем значение по умолчанию
-    let limit = 50; // Значение по умолчанию
-    try {
-      const body = await request.json();
-      limit = body.limit || limit;
-    } catch (e) {
-      // Если не удалось получить тело запроса, используем значение по умолчанию
-    }
+    // Получаем лимит из тела запроса
+    const body = await request.json();
+    const limit = body.limit || 10; // По умолчанию 10 файлов
+
+    console.log(`🚀 Запуск загрузки файлов с лимитом: ${limit}`);
 
     // Получаем экземпляр сервиса синхронизации
     const syncService = await TelegramSyncService.getInstance();
@@ -69,35 +66,56 @@ export async function POST(request: NextRequest) {
     // Скачиваем и обрабатываем файлы напрямую с указанным лимитом
     const results = await syncService.downloadAndProcessFilesDirectly(limit);
     
-    const successCount = results.filter((result: { success?: boolean }) => result.success !== false).length;
-    const failedCount = results.length - successCount;
+    const successCount = results.filter((result: { success?: boolean; skipped?: boolean }) => result.success !== false && !result.skipped).length;
+    const skippedCount = results.filter((result: { skipped?: boolean }) => result.skipped).length;
+    const failedCount = results.length - successCount - skippedCount;
+    
+    console.log(`✅ Загрузка завершена: ${successCount} успешно, ${skippedCount} пропущено, ${failedCount} с ошибками`);
     
     // Формируем отчет об операции
     let report = `Загрузка файлов завершена:\n`;
     report += `Обработано файлов: ${results.length}\n`;
     report += `Успешно: ${successCount}\n`;
+    report += `Пропущено: ${skippedCount}\n`;
     report += `С ошибками: ${failedCount}\n\n`;
     
     if (results.length > 0) {
       report += `Детали обработки:\n`;
       results.forEach((result: any, index: number) => {
-        const status = result.success ? '✅' : '❌';
+        let status = '✅';
+        if (result.skipped) {
+          status = 'ℹ️';
+        } else if (!result.success) {
+          status = '❌';
+        }
+        
         report += `${index + 1}. ${status} ${result.filename || 'Без имени'} (ID: ${result.messageId})\n`;
-        if (!result.success && result.error) {
+        if (result.skipped) {
+          const reason = result.reason || 'Неизвестная причина';
+          const reasonText = reason === 'book_not_found' ? 'Книга не найдена' : 
+                            reason === 'already_processed' ? 'Уже обработан' : 
+                            reason === 'book_not_imported' ? 'Книга не импортирована' : reason;
+          report += `   Причина: ${reasonText}\n`;
+        } else if (!result.success && result.error) {
           report += `   Ошибка: ${result.error}\n`;
         }
       });
     }
-
+    
+    // Не завершаем процесс принудительно, так как это может выключить сервер разработки
+    // Вместо этого просто возвращаем результат
+    
     return NextResponse.json({
       message: 'File download completed',
       results: {
         success: successCount,
+        skipped: skippedCount,
         failed: failedCount,
         errors: [],
         actions: [
           `Обработано файлов: ${results.length}`,
           `Успешно: ${successCount}`,
+          `Пропущено: ${skippedCount}`,
           `С ошибками: ${failedCount}`
         ]
       },
