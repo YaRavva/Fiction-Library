@@ -42,8 +42,33 @@ export class TelegramService {
             if (channelUrl.startsWith('http')) {
                 const url = new URL(channelUrl);
                 if (url.pathname.startsWith('/+')) {
-                    // This is an invite link, extract the hash part
-                    channelIdentifier = url.pathname.substring(2); // Remove the leading '/+'
+                    // This is an invite link, we need to join the channel first
+                    const inviteHash = url.pathname.substring(2); // Remove the leading '/+'
+                    try {
+                        // Try to join the channel using the invite link
+                        const result = await this.client.invoke(new Api.messages.ImportChatInvite({
+                            hash: inviteHash
+                        }));
+                        // After joining, we should be able to get the entity using the chat ID
+                        // The result contains the chat information
+                        if (result && 'chats' in result && result.chats.length > 0) {
+                            // Use the actual chat ID instead of the invite hash
+                            // Convert BigInteger to string
+                            channelIdentifier = result.chats[0].id.toString();
+                        } else {
+                            // Fallback to using the invite hash directly
+                            channelIdentifier = inviteHash;
+                        }
+                    } catch (joinError: any) {
+                        // If user is already participant, we can try to access the channel directly
+                        if (joinError && joinError.errorMessage === 'USER_ALREADY_PARTICIPANT') {
+                            console.log('User is already participant, trying to access channel directly');
+                            channelIdentifier = inviteHash;
+                        } else {
+                            console.warn('Could not join channel via invite link, trying direct access:', joinError);
+                            channelIdentifier = inviteHash;
+                        }
+                    }
                 } else {
                     // This is a regular channel link, extract the username
                     channelIdentifier = url.pathname.substring(1); // Remove the leading '/'
@@ -70,8 +95,33 @@ export class TelegramService {
             if (channelUrl.startsWith('http')) {
                 const url = new URL(channelUrl);
                 if (url.pathname.startsWith('/+')) {
-                    // This is an invite link, extract the hash part
-                    channelIdentifier = url.pathname.substring(2); // Remove the leading '/+'
+                    // This is an invite link, we need to join the channel first
+                    const inviteHash = url.pathname.substring(2); // Remove the leading '/+'
+                    try {
+                        // Try to join the channel using the invite link
+                        const result = await this.client.invoke(new Api.messages.ImportChatInvite({
+                            hash: inviteHash
+                        }));
+                        // After joining, we should be able to get the entity using the chat ID
+                        // The result contains the chat information
+                        if (result && 'chats' in result && result.chats.length > 0) {
+                            // Use the actual chat ID instead of the invite hash
+                            // Convert BigInteger to string
+                            channelIdentifier = result.chats[0].id.toString();
+                        } else {
+                            // Fallback to using the invite hash directly
+                            channelIdentifier = inviteHash;
+                        }
+                    } catch (joinError: any) {
+                        // If user is already participant, we can try to access the channel directly
+                        if (joinError && joinError.errorMessage === 'USER_ALREADY_PARTICIPANT') {
+                            console.log('User is already participant, trying to access channel directly');
+                            channelIdentifier = inviteHash;
+                        } else {
+                            console.warn('Could not join channel via invite link, trying direct access:', joinError);
+                            channelIdentifier = inviteHash;
+                        }
+                    }
                 } else {
                     // This is a regular channel link, extract the username
                     channelIdentifier = url.pathname.substring(1); // Remove the leading '/'
@@ -86,9 +136,13 @@ export class TelegramService {
         }
     }
 
-    public async getMessages(chatId: number | string, limit: number = 10): Promise<unknown> {
+    public async getMessages(chatId: number | string, limit: number = 10, offsetId?: number): Promise<unknown> {
         try {
-            const messages = await this.client.getMessages(chatId, { limit });
+            const options: { limit: number; offsetId?: number } = { limit };
+            if (offsetId !== undefined) {
+                options.offsetId = offsetId;
+            }
+            const messages = await this.client.getMessages(chatId, options);
             return messages;
         } catch (error) {
             console.error('Error getting messages:', error);

@@ -1,5 +1,3 @@
-
-
 export interface BookMetadata {
     author: string;
     title: string;
@@ -13,6 +11,7 @@ export interface BookMetadata {
         year: number;
     }[];
     coverUrls?: string[];   // URL обложек из сообщения
+    messageId?: number;     // ID сообщения в Telegram (для отслеживания обработанных сообщений)
 }
 
 export class MetadataParser {

@@ -1,90 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { syncBooks } from '@/scripts/sync-books';
+import { NextResponse } from 'next/server';
+import { syncBooks } from '../../../../scripts/sync-books';
 
-// Используем service role key для админских операций
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+export const dynamic = 'force-dynamic';
 
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
-/**
- * POST /api/admin/sync-books
- * Запускает синхронизацию книг из Telegram канала (по умолчанию 100 книг)
- */
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    // Проверяем авторизацию
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Получаем токен из заголовка
-    const token = authHeader.replace('Bearer ', '');
+    console.log('📥 Получен запрос на синхронизацию книг');
     
-    // Проверяем пользователя через Supabase
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Получаем параметры из тела запроса
+    const { limit = 10 } = await request.json();
     
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Проверяем, что пользователь - админ
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Forbidden: Admin access required' },
-        { status: 403 }
-      );
-    }
-
-    // Получаем параметры из body (по умолчанию 100 книг)
-    let limit = 100;
-    if (request.body) {
-      try {
-        const body = await request.json();
-        limit = body.limit || 100;
-      } catch (parseError) {
-        // Если не удалось распарсить JSON, используем значение по умолчанию
-        console.warn('Failed to parse request body, using default limit of 100');
-      }
-    }
-
-    // Запускаем синхронизацию книг
+    console.log(`🚀 Запуск синхронизации книг (лимит: ${limit})`);
+    
+    // Выполняем синхронизацию синхронно и ждем результат
     const result = await syncBooks(limit);
     
-    return NextResponse.json({
-      message: 'Book sync completed',
-      results: {
-        success: result.success ? 1 : 0,
-        failed: result.success ? 0 : 1,
-        errors: result.success ? [] : [result.message],
-        actions: result.actions
-      }
-    });
+    console.log('✅ Синхронизация книг завершена:', result);
+    
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('Book sync error:', error);
+    console.error('❌ Ошибка синхронизации книг:', error);
     return NextResponse.json(
       { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+        success: false, 
+        message: error instanceof Error ? error.message : 'Неизвестная ошибка синхронизации' 
+      }, 
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  try {
+    console.log('📥 Получен GET запрос на синхронизацию книг');
+    
+    // Выполняем синхронизацию с лимитом по умолчанию
+    const result = await syncBooks(10);
+    
+    console.log('✅ Синхронизация книг завершена');
+    
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('❌ Ошибка синхронизации книг:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Неизвестная ошибка синхронизации' 
+      }, 
       { status: 500 }
     );
   }

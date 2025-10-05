@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { DownloadQueueMonitor } from '@/components/telegram/download-queue'
 import { TimerSettings } from '@/components/admin/timer-settings'
 import { TelegramStatsSection } from '@/components/admin/telegram-stats'
+import { SyncStatsSection } from '@/components/admin/sync-stats'
 import { getValidSession } from '@/lib/auth-helpers'
 import {
   DropdownMenu,
@@ -266,9 +267,9 @@ export default function AdminPage() {
         return
       }
 
-      // Add timeout to the fetch request
+      // Увеличиваем таймаут до 5 минут
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 минут timeout
 
       const response = await fetch('/api/admin/sync-books', {
         method: 'POST',
@@ -277,7 +278,7 @@ export default function AdminPage() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          limit: 100 // Отправляем параметр limit
+          limit: 10 // Используем лимит 10
         }),
         signal: controller.signal
       })
@@ -287,15 +288,26 @@ export default function AdminPage() {
       const data = await response.json()
 
       if (response.ok) {
-        setLastSyncBooksResult(data.results)
+        setLastSyncBooksResult({
+          success: data.results?.processed || 0,
+          failed: data.results?.errors || 0,
+          errors: [],
+          actions: data.actions || []
+        })
         await loadSyncStatus()
         await loadSyncProgress()
+        // Обновляем статистику после синхронизации
+        // @ts-ignore
+        if (typeof window.refreshSyncStats === 'function') {
+          // @ts-ignore
+          window.refreshSyncStats()
+        }
       } else {
         setError(data.error || 'Ошибка синхронизации книг')
       }
-    } catch (error: unknown) { // Fix: Replace any with unknown
+    } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-        setError('Таймаут запроса: операция заняла слишком много времени')
+        setError('Таймаут запроса: операция заняла слишком много времени. Синхронизация продолжается в фоновом режиме.')
       } else {
         console.error('Sync books error:', error)
         setError('Ошибка при выполнении синхронизации книг')
@@ -341,7 +353,7 @@ export default function AdminPage() {
       } else {
         setError(data.error || 'Ошибка загрузки файлов')
       }
-    } catch (error: unknown) { // Fix: Replace any with unknown
+    } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         setError('Таймаут запроса: операция заняла слишком много времени')
       } else {
@@ -481,6 +493,11 @@ export default function AdminPage() {
           <TelegramStatsSection />
         </div>
 
+        {/* Sync Stats */}
+        <div className="mb-6">
+          <SyncStatsSection />
+        </div>
+
         {/* Unified Sync Books and Download Files */}
         <Card className="mb-6">
           <CardHeader>
@@ -537,13 +554,6 @@ export default function AdminPage() {
                   (lastDownloadFilesResult.actions && lastDownloadFilesResult.actions.length > 0 ?
                     `\n\nВыполненные действия:\n` +
                     lastDownloadFilesResult.actions.map((action, index) => `${index + 1}. ${action}`).join('\n') :
-                    '') +
-                  (syncProgress ? 
-                    `\n\nСтатистика:\n` +
-                    `Всего книг: ${syncProgress.totalBooks}\n` +
-                    `Обработано: ${syncProgress.processedBooks}\n` +
-                    `Осталось: ${syncProgress.unprocessedBooks}\n` +
-                    `Процент завершения: ${syncProgress.completionPercentage}%` : 
                     '') : 
                   lastSyncBooksResult ? 
                   `Синхронизация книг:\n` +
@@ -556,13 +566,6 @@ export default function AdminPage() {
                   (lastSyncBooksResult.actions && lastSyncBooksResult.actions.length > 0 ?
                     `\n\nВыполненные действия:\n` +
                     lastSyncBooksResult.actions.map((action, index) => `${index + 1}. ${action}`).join('\n') :
-                    '') +
-                  (syncProgress ? 
-                    `\n\nСтатистика:\n` +
-                    `Всего книг: ${syncProgress.totalBooks}\n` +
-                    `Обработано: ${syncProgress.processedBooks}\n` +
-                    `Осталось: ${syncProgress.unprocessedBooks}\n` +
-                    `Процент завершения: ${syncProgress.completionPercentage}%` : 
                     '') : 
                   lastSyncResult ? 
                   `Обычная синхронизация:\n` +

@@ -910,107 +910,330 @@ export class TelegramSyncService {
      * @param metadata Массив метаданных книг для импорта
      */
     public async importMetadataWithDeduplication(metadata: BookMetadata[]): Promise<{ processed: number; added: number; updated: number; skipped: number; errors: number; details: unknown[] }> {
-    if (!this.telegramClient) {
-        throw new Error('Telegram client not initialized');
-    }
-    let processed = 0, added = 0, updated = 0, skipped = 0, errors = 0;
-    const details: unknown[] = [];
-    try {
-        // Обрабатываем каждую запись метаданных
-        for (const book of metadata) {
-            const msgId = book.messageId;
-            
-            // Проверяем наличие книги в БД по названию и автору
-            const { data: foundBooks, error: findError } = await serverSupabase
-                .from('books')
-                .select('*')
-                .eq('title', book.title)
-                .eq('author', book.author);
+        if (!this.telegramClient) {
+            throw new Error('Telegram client not initialized');
+        }
+        let processed = 0, added = 0, updated = 0, skipped = 0, errors = 0;
+        const details: unknown[] = [];
+        try {
+            // Обрабатываем каждую запись метаданных
+            for (const book of metadata) {
+                const msgId = book.messageId;
                 
-            if (findError) {
-                errors++;
-                details.push({ msgId, status: 'error', error: findError.message });
-                continue;
-            }
-            
-            // Проверка на дублирование
-            if (foundBooks && foundBooks.length > 0) {
-                // Книга уже существует, обновляем метаданные если нужно
-                const existingBook = foundBooks[0];
-                let needUpdate = false;
-                const updateData: { [key: string]: unknown } = {};
-                
-                // Обновляем только если новые данные лучше существующих
-                if (!existingBook.description && book.description) {
-                    updateData.description = book.description;
-                    needUpdate = true;
-                }
-                
-                if (book.genres && book.genres.length > 0 && (!existingBook.genres || existingBook.genres.length === 0)) {
-                    updateData.genres = book.genres;
-                    needUpdate = true;
-                }
-                
-                if (book.tags && book.tags.length > 0 && (!existingBook.tags || existingBook.tags.length === 0)) {
-                    updateData.tags = book.tags;
-                    needUpdate = true;
-                }
-                
-                if (needUpdate) {
-                    await serverSupabase.from('books').update(updateData).eq('id', existingBook.id);
-                    updated++;
-                    details.push({ msgId, status: 'updated', bookId: existingBook.id });
-                } else {
-                    skipped++;
-                    details.push({ msgId, status: 'skipped', reason: 'metadata complete' });
-                }
-                
-                // Запись в telegram_processed_messages
-                await serverSupabase.from('telegram_processed_messages').upsert({ 
-                    message_id: String(msgId),
-                    channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
-                    book_id: existingBook.id,
-                    processed_at: new Date().toISOString()
-                });
-            } else {
-                // Книга не найдена — добавляем новую
-                const newBook = {
-                    title: book.title,
-                    author: book.author,
-                    series: book.series || null,
-                    series_number: book.seriesNumber || null,
-                    description: book.description || '',
-                    genres: book.genres || [],
-                    tags: book.tags || [],
-                    rating: book.rating || null,
-                    telegram_file_id: String(msgId),
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
-                
-                const { data: inserted, error: insertError } = await serverSupabase.from('books').insert(newBook).select().single();
-                if (insertError) {
+                // Проверяем наличие книги в БД по названию и автору
+                // @ts-ignore
+                const { data: foundBooks, error: findError } = await serverSupabase
+                    .from('books')
+                    .select('*')
+                    .eq('title', book.title)
+                    .eq('author', book.author);
+                    
+                if (findError) {
                     errors++;
-                    details.push({ msgId, status: 'error', error: insertError.message });
+                    details.push({ msgId, status: 'error', error: findError.message });
                     continue;
                 }
                 
-                added++;
-                details.push({ msgId, status: 'added', bookId: inserted.id });
-                
-                // Запись в telegram_processed_messages
-                await serverSupabase.from('telegram_processed_messages').upsert({ 
-                    message_id: String(msgId),
-                    channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
-                    book_id: inserted.id,
-                    processed_at: new Date().toISOString()
+                // Проверка на дублирование
+                if (foundBooks && foundBooks.length > 0) {
+                    // Книга уже существует, обновляем метаданные если нужно
+                    const existingBook: any = foundBooks[0];
+                    let needUpdate = false;
+                    const updateData: { [key: string]: unknown } = {};
+                    
+                    // Обновляем только если новые данные лучше существующих
+                    if (!existingBook.description && book.description) {
+                        updateData.description = book.description;
+                        needUpdate = true;
+                    }
+                    
+                    if (book.genres && book.genres.length > 0 && (!existingBook.genres || existingBook.genres.length === 0)) {
+                        updateData.genres = book.genres;
+                        needUpdate = true;
+                    }
+                    
+                    if (book.tags && book.tags.length > 0 && (!existingBook.tags || existingBook.tags.length === 0)) {
+                        updateData.tags = book.tags;
+                        needUpdate = true;
+                    }
+                    
+                    // Обновляем обложку, если у новой книги есть обложки, а у существующей нет
+                    if (book.coverUrls && book.coverUrls.length > 0 && (!existingBook.cover_url || existingBook.cover_url === '')) {
+                        updateData.cover_url = book.coverUrls[0]; // Берем первую обложку
+                        needUpdate = true;
+                    }
+                    
+                    if (needUpdate) {
+                        // @ts-ignore
+                        const { error: updateError } = await serverSupabase.from('books').update(updateData).eq('id', existingBook.id);
+                        if (updateError) {
+                            errors++;
+                            details.push({ msgId, status: 'error', error: updateError.message });
+                            continue;
+                        }
+                        updated++;
+                        details.push({ 
+                            msgId, 
+                            status: 'updated', 
+                            bookId: existingBook.id,
+                            bookTitle: existingBook.title,
+                            bookAuthor: existingBook.author
+                        });
+                    } else {
+                        skipped++;
+                        details.push({ 
+                            msgId, 
+                            status: 'skipped', 
+                            reason: 'metadata complete',
+                            bookTitle: existingBook.title,
+                            bookAuthor: existingBook.author
+                        });
+                    }
+                    
+                    // Запись в telegram_processed_messages
+                    // @ts-ignore
+                    const { error: upsertError1 } = await serverSupabase.from('telegram_processed_messages').upsert({ 
+                        message_id: String(msgId),
+                        channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
+                        book_id: existingBook.id,
+                        processed_at: new Date().toISOString()
+                    });
+                    if (upsertError1) {
+                        errors++;
+                        details.push({ msgId, status: 'error', error: upsertError1.message });
+                    }
+                } else {
+                    // Книга не найдена — добавляем новую
+                    const newBook = {
+                        title: book.title,
+                        author: book.author,
+                        description: book.description || '',
+                        genres: book.genres || [],
+                        tags: book.tags || [],
+                        rating: book.rating || null,
+                        telegram_file_id: String(msgId),
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    };
+                    
+                    // Добавляем обложку, если она есть
+                    if (book.coverUrls && book.coverUrls.length > 0) {
+                        // @ts-ignore
+                        newBook.cover_url = book.coverUrls[0]; // Берем первую обложку
+                    }
+                    
+                    // @ts-ignore
+                    const { data: inserted, error: insertError } = await serverSupabase.from('books').insert(newBook).select().single();
+                    if (insertError) {
+                        errors++;
+                        details.push({ msgId, status: 'error', error: insertError.message });
+                        continue;
+                    }
+                    
+                    added++;
+                    // @ts-ignore
+                    details.push({ 
+                        msgId, 
+                        status: 'added', 
+                        bookId: (inserted as any).id,
+                        bookTitle: (inserted as any).title,
+                        bookAuthor: (inserted as any).author
+                    });
+                    
+                    // Запись в telegram_processed_messages
+                    // @ts-ignore
+                    const { error: upsertError2 } = await serverSupabase.from('telegram_processed_messages').upsert({ 
+                        message_id: String(msgId),
+                        channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
+                        // @ts-ignore
+                        book_id: (inserted as any).id,
+                        processed_at: new Date().toISOString()
+                    });
+                    if (upsertError2) {
+                        errors++;
+                        details.push({ msgId, status: 'error', error: upsertError2.message });
+                    }
+                }
+                processed++;
+            }
+            return { processed, added, updated, skipped, errors, details };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Синхронизирует книги из Telegram канала с учетом уже обработанных сообщений
+     * @param limit Количество сообщений для обработки (по умолчанию 100)
+     */
+    public async syncBooks(limit: number = 100): Promise<{ processed: number; added: number; updated: number; skipped: number; errors: number; details: unknown[] }> {
+        if (!this.telegramClient) {
+            throw new Error('Telegram client not initialized');
+        }
+
+        try {
+            console.log(`🚀 Начинаем синхронизацию книг (лимит: ${limit})`);
+            
+            // Получаем ID последнего обработанного сообщения
+            console.log('🔍 Получаем ID последнего обработанного сообщения...');
+            const result: { data: any | null; error: any } = await serverSupabase
+                .from('telegram_processed_messages')
+                .select('message_id')
+                .order('processed_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            const { data: lastProcessed, error: lastProcessedError } = result;
+
+            let offsetId: number | undefined = undefined;
+            if (lastProcessed && lastProcessed.message_id) {
+                // Если есть последнее обработанное сообщение, начинаем с него
+                offsetId = parseInt(lastProcessed.message_id, 10);
+                console.log(`  📌 Начинаем с сообщения ID: ${offsetId}`);
+            } else {
+                console.log('  🆕 Начинаем с самых новых сообщений');
+            }
+
+            // Получаем канал с метаданными
+            console.log('📡 Получаем канал с метаданными...');
+            const channel = await this.telegramClient.getMetadataChannel();
+
+            // Convert BigInteger to string for compatibility
+            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+                (channel.id as { toString: () => string }).toString() : 
+                channel.id;
+
+            // Получаем сообщения с пагинацией
+            console.log(`📥 Получаем сообщения (лимит: ${limit}, offsetId: ${offsetId})...`);
+            const messages = await this.telegramClient.getMessages(channelId, limit, offsetId) as unknown as Message[];
+            console.log(`✅ Получено ${messages.length} сообщений\n`);
+
+            // Парсим метаданные из каждого сообщения
+            const metadataList: BookMetadata[] = [];
+            
+            // Обрабатываем каждое сообщение
+            for (const msg of messages) {
+                const anyMsg = msg as unknown as { [key: string]: unknown };
+                console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
+
+                // Пропускаем сообщения без текста
+                if (!(msg as { text?: string }).text) {
+                    console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит текста, пропускаем`);
+                    continue;
+                }
+
+                // Парсим текст сообщения
+                const metadata = MetadataParser.parseMessage((msg as { text: string }).text);
+                // Добавляем ID сообщения в метаданные
+                metadata.messageId = anyMsg.id as number;
+
+                // Извлекаем URL обложек из медиа-файлов сообщения
+                const coverUrls: string[] = [];
+
+                // Проверяем наличие медиа в сообщении
+                if (anyMsg.media) {
+                    console.log(`📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`);
+
+                    // Если это веб-превью (MessageMediaWebPage) - основной случай для обложек
+                    if ((anyMsg.media as { className: string }).className === 'MessageMediaWebPage' && (anyMsg.media as { webpage?: { photo?: unknown } }).webpage?.photo) {
+                        console.log(`  → Веб-превью с фото`);
+                        try {
+                            console.log(`  → Скачиваем фото из веб-превью...`);
+                            const result = await Promise.race([
+                                this.telegramClient.downloadMedia((anyMsg.media as { webpage: { photo: unknown } }).webpage.photo),
+                                new Promise<never>((_, reject) => 
+                                    setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000))
+                            ]);
+                            const photoBuffer = result instanceof Buffer ? result : null;
+                            if (photoBuffer) {
+                                const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
+                                console.log(`  → Загружаем в Storage: covers/${photoKey}`);
+                                await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
+                                const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                coverUrls.push(photoUrl);
+                                console.log(`  ✅ Обложка загружена: ${photoUrl}`);
+                            } else {
+                                console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
+                            }
+                        } catch (err) {
+                            console.error(`  ❌ Ошибка загрузки обложки из веб-превью:`, err);
+                        }
+                    }
+                    // Если это одно фото (MessageMediaPhoto)
+                    else if ((anyMsg.media as { photo?: unknown }).photo) {
+                        console.log(`  → Одиночное фото`);
+                        try {
+                            console.log(`  → Скачиваем фото...`);
+                            const result = await Promise.race([
+                                this.telegramClient.downloadMedia(msg),
+                                new Promise<never>((_, reject) => 
+                                    setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000)
+                                )
+                            ]);
+                            const photoBuffer = result instanceof Buffer ? result : null;
+                            if (photoBuffer) {
+                                const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
+                                console.log(`  → Загружаем в Storage: covers/${photoKey}`);
+                                await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
+                                const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                coverUrls.push(photoUrl);
+                                console.log(`  ✅ Обложка загружена: ${photoUrl}`);
+                            } else {
+                                console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
+                            }
+                        } catch (err) {
+                            console.error(`  ❌ Ошибка загрузки обложки:`, err);
+                        }
+                    }
+                    // Если это документ с изображением
+                    else if ((anyMsg.media as { document?: unknown }).document) {
+                        const mimeType = (anyMsg.media as { document: { mimeType?: string } }).document.mimeType;
+                        if (mimeType && mimeType.startsWith('image/')) {
+                            console.log(`  → Одиночное изображение (документ: ${mimeType})`);
+                            try {
+                                console.log(`  → Скачиваем изображение...`);
+                                const result = await Promise.race([
+                                    this.telegramClient.downloadMedia(msg),
+                                    new Promise<never>((_, reject) => 
+                                        setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000))
+                                ]);
+
+                                const photoBuffer = result instanceof Buffer ? result : null;
+                                if (photoBuffer) {
+                                    const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
+                                    console.log(`  → Загружаем в Storage: covers/${photoKey}`);
+                                    await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
+                                    const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                    coverUrls.push(photoUrl);
+                                    console.log(`  ✅ Обложка загружена: ${photoUrl}`);
+                                } else {
+                                    console.warn(`  ⚠️ Не удалось скачать изображение (пустой буфер)`);
+                                }
+                            } catch (err) {
+                                console.error(`  ❌ Ошибка загрузки обложки:`, err);
+                            }
+                        }
+                    }
+                }
+
+                // Добавляем метаданные в список
+                metadataList.push({
+                    ...metadata,
+                    coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || []
                 });
             }
-            processed++;
+
+            console.log(`📊 Всего подготовлено метаданных: ${metadataList.length}`);
+            
+            // Импортируем метаданные с дедупликацией
+            console.log('💾 Импортируем метаданные с дедупликацией...');
+            const resultImport = await this.importMetadataWithDeduplication(metadataList);
+            console.log('✅ Импорт метаданных завершен');
+            
+            return resultImport;
+        } catch (error) {
+            console.error('Error in syncBooks:', error);
+            throw error;
         }
-        return { processed, added, updated, skipped, errors, details };
-    } catch (error) {
-        throw error;
     }
-}
 }
