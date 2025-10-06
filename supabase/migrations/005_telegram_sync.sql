@@ -118,19 +118,31 @@ CREATE POLICY "Admin can manage sync status"
     ON telegram_sync_status
     FOR ALL
     TO authenticated
-    USING (EXISTS (
-        SELECT 1 FROM user_profiles up 
-        WHERE up.id = auth.uid() 
-        AND up.role = 'admin'
-    ));
+    USING (
+        -- Allow service role
+        current_user = 'authenticator' 
+        OR
+        -- Allow admin users
+        EXISTS (
+            SELECT 1 FROM user_profiles up 
+            WHERE up.id = auth.uid() 
+            AND up.role = 'admin'
+        )
+    );
 
 -- Only admin can manage download queue
 CREATE POLICY "Admin can manage download queue"
     ON telegram_download_queue
     FOR ALL
     TO authenticated
-    USING (EXISTS (
-        SELECT 1 FROM user_profiles up 
-        WHERE up.id = auth.uid() 
-        AND up.role = 'admin'
-    ));
+    USING (
+        -- Allow service role
+        current_user = 'authenticator' 
+        OR
+        -- Allow admin users
+        EXISTS (
+            SELECT 1 FROM user_profiles up 
+            WHERE up.id = auth.uid() 
+            AND up.role = 'admin'
+        )
+    );

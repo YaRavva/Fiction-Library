@@ -19,19 +19,27 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_A
   process.exit(1);
 }
 
-import { DownloadWorker } from '../lib/telegram/worker.js';
+// Отключаем импорт DownloadWorker
+// import { DownloadWorker } from '../lib/telegram/download-worker.js';
 
 async function startDownloadWorker() {
+  // Отключаем запуск воркера
+  console.log('⚠️  Worker загрузки файлов отключен');
+  console.log('ℹ️  Используется старый метод с file-service.ts');
+  console.log('✅ Скрипт завершен');
+  process.exit(0);
+  
+  /*
   console.log('🚀 Запускаем worker загрузки файлов...\n');
 
   try {
     // Создаем и запускаем worker
-    const worker = new DownloadWorker();
+    const worker = await DownloadWorker.getInstance();
     
     // Обработчик сигналов для корректного завершения
     const shutdown = async () => {
       console.log('\n🛑 Получен сигнал завершения, останавливаем worker...');
-      worker.stop();
+      await worker.stop();
       process.exit(0);
     };
     
@@ -48,6 +56,7 @@ async function startDownloadWorker() {
     console.error('❌ Ошибка при запуске worker\'а:', error);
     process.exit(1);
   }
+  */
 }
 
 // Запускаем worker

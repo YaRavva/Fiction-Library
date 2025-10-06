@@ -76,11 +76,11 @@ export async function POST(request: NextRequest) {
     const results = await syncService.downloadFilesFromArchiveChannel(limit, addToQueue);
 
     return NextResponse.json({
-      message: `Successfully processed ${results.length} files`,
+      message: `Успешно обработано ${results.length} файлов`,
       files: results,
     });
   } catch (error) {
-    console.error('Error syncing files from archive channel:', error);
+    console.error('Ошибка синхронизации файлов из канала архива:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',

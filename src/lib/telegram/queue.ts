@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 // Типы для очереди загрузок
 export type DownloadTaskStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -29,11 +29,14 @@ export interface CreateDownloadTaskParams {
 }
 
 export class DownloadQueue {
-  private _supabase: ReturnType<typeof createClient> | null = null;
+  private _supabase: ReturnType<typeof getSupabaseAdmin> | null = null;
   
   private get supabase() {
     if (!this._supabase) {
-      this._supabase = createClient();
+      this._supabase = getSupabaseAdmin();
+    }
+    if (!this._supabase) {
+      throw new Error('Supabase admin client is not available');
     }
     return this._supabase;
   }
@@ -50,16 +53,16 @@ export class DownloadQueue {
         file_id: params.file_id,
         book_id: params.book_id,
         priority: params.priority || 0,
-      }])
+      }] as any)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
-      console.error('Error adding download task:', error);
+      console.error('Ошибка добавления задачи загрузки:', error);
       return null;
     }
 
-    return data as DownloadTask;
+    return data as DownloadTask | null;
   }
 
   /**
@@ -68,14 +71,14 @@ export class DownloadQueue {
   async getNextTask(): Promise<DownloadTask | null> {
     const { data, error } = await this.supabase
       .rpc('get_next_download_task')
-      .single();
+      .maybeSingle();
 
     if (error) {
-      console.error('Error getting next task:', error);
+      console.error('Ошибка получения следующей задачи:', error);
       return null;
     }
 
-    return data as DownloadTask;
+    return data as DownloadTask | null;
   }
 
   /**
@@ -87,10 +90,10 @@ export class DownloadQueue {
         task_id: taskId,
         success,
         error_msg: errorMsg,
-      });
+      } as any);
 
     if (error) {
-      console.error('Error completing task:', error);
+      console.error('Ошибка завершения задачи:', error);
       return false;
     }
 
@@ -103,15 +106,15 @@ export class DownloadQueue {
   async getQueueStats() {
     const { data, error } = await this.supabase
       .from('telegram_download_queue')
-      .select('status', { count: 'exact' })
+      .select('status', { count: 'exact' } as any)
       .eq('status', 'pending');
 
     if (error) {
-      console.error('Error getting queue stats:', error);
+      console.error('Ошибка получения статистики очереди:', error);
       return { pending: 0 };
     }
 
-    return { pending: data.length };
+    return { pending: data ? data.length : 0 };
   }
 
   /**
@@ -127,10 +130,10 @@ export class DownloadQueue {
       .limit(limit);
 
     if (error) {
-      console.error('Error getting active tasks:', error);
+      console.error('Ошибка получения активных задач:', error);
       return [];
     }
 
-    return data as DownloadTask[];
+    return data as DownloadTask[] || [];
   }
 }

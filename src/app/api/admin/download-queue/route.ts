@@ -80,17 +80,17 @@ export async function POST(request: NextRequest) {
 
     if (!task) {
       return NextResponse.json(
-        { error: 'Failed to add task to queue' },
+        { error: 'Не удалось добавить задачу в очередь' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      message: 'Task added to queue',
+      message: 'Задача добавлена в очередь',
       task,
     });
   } catch (error) {
-    console.error('Error adding task to queue:', error);
+    console.error('Ошибка добавления задачи в очередь:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
       stats,
     });
   } catch (error) {
-    console.error('Error getting download queue:', error);
+    console.error('Ошибка получения очереди загрузки:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -214,7 +214,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!taskId) {
       return NextResponse.json(
-        { error: 'Task ID is required' },
+        { error: 'Требуется ID задачи' },
         { status: 400 }
       );
     }
@@ -230,10 +230,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Task deleted successfully',
+      message: 'Задача успешно удалена',
     });
   } catch (error) {
-    console.error('Error deleting task:', error);
+    console.error('Ошибка удаления задачи:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',

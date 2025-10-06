@@ -42,7 +42,7 @@ export function DownloadQueueMonitor() {
       }
       
       const result = await response.json();
-      console.log('Sync result:', result);
+      console.log('Результат синхронизации:', result);
       
       // Обновляем список задач
       const [newTasks, newStats] = await Promise.all([
@@ -54,7 +54,7 @@ export function DownloadQueueMonitor() {
       
       setToastMessage(`Успешно обработано файлов: ${result.files.length}`);
     } catch (error) {
-      console.error('Error syncing archive files:', error);
+      console.error('Ошибка синхронизации файлов архива:', error);
       setToastMessage('Ошибка при синхронизации файлов');
     }
   }
@@ -75,7 +75,7 @@ export function DownloadQueueMonitor() {
       }
       
       const result = await response.json();
-      console.log('Deduplication result:', result);
+      console.log('Результат дедупликации:', result);
       
       if (mode === 'execute') {
         setToastMessage(`Дедупликация завершена:\nНайдено дубликатов: ${result.duplicatesFound}\nУдалено: ${result.duplicatesRemoved}`);
@@ -83,7 +83,7 @@ export function DownloadQueueMonitor() {
         setToastMessage(`Анализ дедупликации завершен:\nНайдено дубликатов: ${result.duplicatesFound}`);
       }
     } catch (error) {
-      console.error('Error running deduplication:', error);
+      console.error('Ошибка выполнения дедупликации:', error);
       setToastMessage('Ошибка при выполнении дедупликации');
     }
   }

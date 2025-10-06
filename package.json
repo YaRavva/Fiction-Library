@@ -8,12 +8,18 @@
     "start": "pnpm next start",
     "lint": "pnpm eslint",
     "worker": "tsx src/scripts/start-download-worker.ts",
+    "start-download-worker": "tsx src/scripts/start-download-worker.ts",
+    "check-download-queue": "tsx src/scripts/check-download-queue.ts",
+    "add-to-download-queue": "tsx src/scripts/add-to-download-queue.ts",
     "test:download": "tsx src/scripts/test-book-download.ts",
     "test:telegram-download": "tsx src/scripts/test-telegram-download-only.ts",
     "test:add-task": "tsx src/scripts/add-test-task.ts",
     "test:check-task": "tsx src/scripts/check-task-status.ts",
     "test:single-file": "tsx src/scripts/test-single-file-upload.ts",
-    "deduplicate": "tsx src/scripts/automated-deduplication.ts"
+    "test:download-limit": "tsx src/scripts/test-download-files-with-limit.ts",
+    "test:queue-system": "tsx src/scripts/test-queue-system.ts",
+    "deduplicate": "tsx src/scripts/automated-deduplication.ts",
+    "clear-download-queues": "tsx src/scripts/clear-download-queues.ts"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",

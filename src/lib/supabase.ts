@@ -189,7 +189,7 @@ export async function upsertBookRecord(book: Partial<Book>) {
   if (book.title && book.author) {
     const { data: existingBook, error: fetchError } = await admin
       .from('books')
-      .select('id')
+      .select('id, title, author')
       .eq('title', book.title)
       .eq('author', book.author)
       .single();
@@ -322,8 +322,17 @@ export async function upsertBookRecord(book: Partial<Book>) {
       // Берем только лучшие совпадения и фильтруем по минимальной релевантности
       const topMatches = matchesWithScores.slice(0, 5);
       
-      // Возвращаем только совпадения с релевантностью >= 2
-      return topMatches.filter(match => match.score >= 2);
+      // Возвращаем массив совпадений с релевантностью >= 2
+      const relevantMatches = topMatches.filter(match => match.score >= 2);
+      if (relevantMatches.length > 0) {
+        console.log(`✅ Найдено ${relevantMatches.length} релевантных совпадений:`);
+        relevantMatches.forEach((match, index) => {
+          console.log(`  ${index + 1}. "${match.title}" автора ${match.author} (релевантность: ${match.score})`);
+        });
+        return relevantMatches;
+      } else {
+        console.log(`⚠️  Релевантные совпадения не найдены`);
+      }
     } else {
       console.log(`⚠️  Недостаточно слов для поиска с релевантностью`);
     }

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DownloadQueueMonitor } from '@/components/telegram/download-queue'
+
 import { TimerSettings } from '@/components/admin/timer-settings'
 import { TelegramStatsSection } from '@/components/admin/telegram-stats'
 import { SyncStatsSection } from '@/components/admin/sync-stats'
@@ -337,46 +337,143 @@ export default function AdminPage() {
         return
       }
 
-      // Add timeout to the fetch request
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-      // Используем новый endpoint и передаем лимит
-      const response = await fetch('/api/admin/download-files', {
+      // Запускаем асинхронную загрузку файлов
+      const startResponse = await fetch('/api/admin/download-files', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ limit: syncLimit }), // Передаем лимит из поля ввода
-        signal: controller.signal
       })
 
-      clearTimeout(timeoutId)
+      const startData = await startResponse.json()
 
-      const data = await response.json()
+      if (!startResponse.ok) {
+        setError(startData.error || 'Ошибка запуска загрузки файлов')
+        return
+      }
 
-      if (response.ok) {
-        setLastDownloadFilesResult(data.results)
-        setLastDownloadFilesReport(data.report || null) // Сохраняем отчет
-        await loadSyncStatus()
+      // Получаем ID операции
+      const { operationId } = startData
+
+      // Периодически проверяем статус операции
+      let isCompleted = false
+      let lastProgressReport = ''
+      
+      // Начальный отчет
+      let progressReport = `🚀 Загрузка файлов (лимит: ${syncLimit})  taskId: ${operationId}\n\n📥 Получение списка файлов для загрузки...\n`
+      setLastDownloadFilesReport(progressReport)
+      lastProgressReport = progressReport
+
+      while (!isCompleted) {
+        // Ждем 1.5 секунды перед следующей проверкой
+        await new Promise(resolve => setTimeout(resolve, 1500))
         
-        // Обновляем статистику после загрузки файлов
-        // @ts-ignore
-        if (typeof window.refreshSyncStats === 'function') {
-          // @ts-ignore
-          window.refreshSyncStats()
+        // Проверяем статус операции
+        const statusResponse = await fetch(`/api/admin/download-files?operationId=${operationId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
+
+        const statusData = await statusResponse.json()
+
+        if (!statusResponse.ok) {
+          setError(statusData.error || 'Ошибка получения статуса операции')
+          isCompleted = true
+          break
         }
-      } else {
-        setError(data.error || 'Ошибка загрузки файлов')
+
+        // Формируем отчет с прогрессом
+        let currentProgressReport = `🚀 Загрузка файлов (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
+        
+        // Разбираем сообщение на строки для правильного отображения
+        const messageLines = statusData.message ? statusData.message.split('\n') : []
+        if (messageLines.length > 0) {
+          // Первая строка - обработанные файлы
+          if (messageLines[0]) {
+            currentProgressReport += `${messageLines[0]}\n`
+          }
+          
+          // Вторая строка и далее - текущий статус
+          for (let i = 1; i < messageLines.length; i++) {
+            if (messageLines[i]) {
+              currentProgressReport += `${messageLines[i]}\n`
+            }
+          }
+        } else {
+          currentProgressReport += `${statusData.message || ''}\n`
+        }
+        
+        // Добавляем статус и прогресс
+        currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
+        
+        // Обновляем отчет только если он изменился
+        if (currentProgressReport !== lastProgressReport) {
+          setLastDownloadFilesReport(currentProgressReport)
+          lastProgressReport = currentProgressReport
+        }
+
+        // Проверяем, завершена ли операция
+        if (statusData.status === 'completed' || statusData.status === 'failed') {
+          isCompleted = true
+          
+          if (statusData.status === 'completed') {
+            setLastDownloadFilesResult(statusData.results)
+            
+            // Финальный отчет
+            let finalReport = `🚀 Загрузка файлов завершена (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
+            
+            if (statusData.report) {
+              // Используем предоставленный отчет
+              finalReport += statusData.report
+            } else if (statusData.result && statusData.result.results) {
+              // Формируем финальный отчет из результата
+              const messageLines = statusData.message ? statusData.message.split('\n') : []
+              if (messageLines.length > 0) {
+                // Первая строка - обработанные файлы
+                if (messageLines[0]) {
+                  finalReport += `${messageLines[0]}\n`
+                }
+              }
+              
+              finalReport += `\n📊 Финальные результаты:\n`
+              finalReport += ` ✅ Успешно: ${statusData.result.successCount || 0}\n`
+              finalReport += ` ❌ Ошибки: ${statusData.result.failedCount || 0}\n`
+              finalReport += ` 📚 Всего: ${statusData.result.totalFiles || statusData.result.results.length}\n`
+            }
+            
+            setLastDownloadFilesReport(finalReport)
+          } else {
+            setError(statusData.message || 'Операция завершена с ошибкой')
+            
+            // Отчет об ошибке
+            let errorReport = `🚀 Загрузка файлов (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
+            errorReport += `❌ Статус: ${statusData.status}\n`
+            errorReport += `💬 Ошибка: ${statusData.message}\n`
+            setLastDownloadFilesReport(errorReport)
+          }
+        }
+      }
+      
+      await loadSyncStatus()
+      
+      // Обновляем статистику после загрузки файлов
+      // @ts-ignore
+      if (typeof window.refreshSyncStats === 'function') {
+        // @ts-ignore
+        window.refreshSyncStats()
       }
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        setError('Таймаут запроса: операция заняла слишком много времени')
-      } else {
-        console.error('Download files error:', error)
-        setError('Ошибка при выполнении загрузки файлов')
-      }
+      console.error('Download files error:', error)
+      setError('Ошибка при выполнении загрузки файлов')
+      
+      // Отчет об ошибке
+      let errorReport = `🚀 Загрузка файлов (лимит: ${syncLimit})\n`
+      errorReport += `❌ Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n`
+      setLastDownloadFilesReport(errorReport)
     } finally {
       setDownloadFiles(false)
     }

@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
 
     if (!storagePath) {
       return NextResponse.json(
-        { error: 'File not found in storage' },
+        { error: 'Файл не найден в хранилище' },
         { status: 404 }
       );
     }
@@ -135,9 +135,9 @@ export async function GET(request: NextRequest) {
       .createSignedUrl(storagePath, expiresIn);
 
     if (signedUrlError || !signedUrlData) {
-      console.error('Error creating signed URL:', signedUrlError);
+      console.error('Ошибка создания подписанного URL:', signedUrlError);
       return NextResponse.json(
-        { error: 'Failed to generate download URL' },
+        { error: 'Не удалось сгенерировать URL для загрузки' },
         { status: 500 }
       );
     }
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error in download-url endpoint:', error);
+    console.error('Ошибка в endpoint download-url:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

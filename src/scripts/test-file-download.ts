@@ -1,53 +1,50 @@
-/**
- * Тестовый скрипт для проверки загрузки файлов из Telegram
- *
- * Использование:
- * npx tsx src/scripts/test-file-download.ts
- */
+import { config } from 'dotenv';
+import { TelegramSyncService } from '@/lib/telegram/sync';
 
-// Загружаем переменные окружения ПЕРВЫМ делом
-import dotenv from 'dotenv';
-import path from 'path';
-
-// Загружаем .env из корна проекта
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-
-// Проверяем, что переменные загружены
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('❌ Ошибка: Переменные окружения не загружены из .env файла');
-  console.error('Проверьте, что файл .env существует в корне проекта');
-  process.exit(1);
-}
-
-import { TelegramSyncService } from '../lib/telegram/sync.js';
+// Загружаем переменные окружения
+config({ path: '.env' });
 
 async function testFileDownload() {
-  console.log('🚀 Запускаем тест загрузки файлов...\n');
-
+  console.log('🚀 Начинаем тестовую загрузку файла с лимитом 1...');
+  
   try {
-    // Создаем экземпляр TelegramSyncService
+    // Получаем экземпляр сервиса синхронизации
     const syncService = await TelegramSyncService.getInstance();
     
-    console.log('✅ Telegram клиент инициализирован');
+    // Скачиваем и обрабатываем 1 файл
+    console.log('📥 Загружаем 1 файл из Telegram...');
+    const results = await syncService.downloadAndProcessFilesDirectly(1);
     
-    // Тестируем загрузку файлов (ограничиваем до 3 файлов для теста)
-    console.log('📥 Начинаем загрузку файлов (максимум 3 файла)...');
-    const results = await syncService.downloadAndProcessFilesDirectly(3);
+    console.log('\n📊 Результаты тестовой загрузки:');
+    console.log(`Обработано файлов: ${results.length}`);
     
-    console.log('\n📊 Результаты загрузки:');
-    console.log(JSON.stringify(results, null, 2));
+    results.forEach((result: any, index: number) => {
+      console.log(`\nФайл ${index + 1}:`);
+      console.log(`  ID сообщения: ${result.messageId}`);
+      console.log(`  Имя файла: ${result.filename || 'Не указано'}`);
+      
+      if (result.skipped) {
+        console.log(`  Статус: ⚠️  Пропущен`);
+        console.log(`  Причина: ${result.reason || 'Не указана'}`);
+      } else if (result.success === false) {
+        console.log(`  Статус: ❌ Ошибка`);
+        console.log(`  Ошибка: ${result.error || 'Не указана'}`);
+      } else {
+        console.log(`  Статус: ✅ Успешно`);
+        console.log(`  Размер файла: ${result.fileSize || 'Не указан'} байт`);
+        console.log(`  URL файла: ${result.fileUrl || 'Не указан'}`);
+        console.log(`  ID книги: ${result.bookId || 'Не указан'}`);
+      }
+    });
     
-    console.log('\n✅ Тест завершен успешно');
+    console.log('\n✅ Тестовая загрузка завершена!');
     
-    // Завершаем работу клиента
+    // Завершаем работу сервиса
     await syncService.shutdown();
-    console.log('🔌 Telegram клиент отключен');
-    
   } catch (error) {
-    console.error('❌ Ошибка при тестировании загрузки файлов:', error);
-    process.exit(1);
+    console.error('❌ Ошибка при тестовой загрузке файла:', error);
   }
 }
 
-// Запускаем тест
+// Выполняем тестовую загрузку
 testFileDownload();
