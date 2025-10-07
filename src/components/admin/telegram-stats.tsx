@@ -41,7 +41,6 @@ export function TelegramStatsSection() {
 
   const loadStats = async () => {
     try {
-      setLoading(true)
       setError(null)
       
       console.log('Fetching Telegram stats...');
@@ -88,8 +87,6 @@ export function TelegramStatsSection() {
         console.error('Error loading Telegram stats:', err)
         setError(`Ошибка загрузки статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}`)
       }
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -119,6 +116,26 @@ export function TelegramStatsSection() {
       if ((err as Error).name !== 'AbortError') {
         console.error('Error loading sync progress:', err)
       }
+    }
+  }
+
+  const loadQueueStats = async () => {
+    try {
+      const supabase = getBrowserSupabase();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('/api/admin/queue', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // We don't need to set queue stats anymore since we removed the QueueMonitor component
+      }
+    } catch (err: unknown) {
+      console.error('Error loading queue stats:', err)
     }
   }
 
@@ -191,23 +208,8 @@ export function TelegramStatsSection() {
     }
   }
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Статистика Telegram</CardTitle>
-          <CardDescription>
-            Загрузка статистики книг в Telegram канале и в базе данных
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-4">
-            <p className="text-muted-foreground">Загрузка статистики...</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Remove the loading state check that was showing "Загрузка статистики..."
+  // The component will always render the cards and just update the numbers
 
   return (
     <Card className="relative">
@@ -223,15 +225,11 @@ export function TelegramStatsSection() {
             await loadStats()
             await loadSyncProgress()
           }}
-          disabled={loading}
+          disabled={downloading} // Disable only during download, not during stats refresh
           variant="outline"
           size="sm"
         >
-          {loading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-          ) : (
-            'Обновить'
-          )}
+          Обновить
         </Button>
       </div>
       <CardContent>
@@ -242,11 +240,11 @@ export function TelegramStatsSection() {
           </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="border rounded-lg p-4">
             <div className="flex items-center">
               <BookOpen className="h-5 w-5 text-blue-500 mr-2" />
-              <h3 className="font-medium">В Telegram</h3>
+              <h3 className="font-medium">Книг в Telegram</h3>
             </div>
             <p className="text-2xl font-bold mt-2">
               {stats?.booksInTelegram || 0}
@@ -282,79 +280,9 @@ export function TelegramStatsSection() {
               {stats?.booksWithoutFiles || 0}
             </p>
           </div>
-          
-          <div className="border rounded-lg p-4">
-            <div className="flex items-center">
-              <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-              <h3 className="font-medium">Обработано книг</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">
-              {syncProgress ? syncProgress.processedBooks : 0}
-            </p>
-          </div>
-          
-          <div className="border rounded-lg p-4">
-            <div className="flex items-center">
-              <Clock className="h-5 w-5 text-orange-500 mr-2" />
-              <h3 className="font-medium">Осталось обработать</h3>
-            </div>
-            <p className="text-2xl font-bold mt-2">
-              {syncProgress ? syncProgress.unprocessedBooks : 0}
-            </p>
-          </div>
         </div>
         
         {/* Блок "Загрузка отсутствующих книг" удален по требованию */}
-        {/* <div className="border rounded-lg p-4 mb-6">
-          <h3 className="font-medium mb-3">Загрузка отсутствующих книг</h3>
-          
-          <div className="flex items-end gap-4 mb-4">
-            <div className="flex-1">
-              <label htmlFor="downloadLimit" className="block text-sm font-medium mb-1">
-                Количество книг для загрузки
-              </label>
-              <input
-                id="downloadLimit"
-                type="number"
-                min="1"
-                max="100"
-                value={downloadLimit}
-                onChange={(e) => setDownloadLimit(parseInt(e.target.value) || 10)}
-                disabled={downloading}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </div>
-            <Button
-              onClick={handleDownloadMissing}
-              disabled={downloading || (stats?.missingBooks === 0)}
-              className="flex items-center gap-2"
-            >
-              {downloading ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-                  Загрузка...
-                </>
-              ) : (
-                'Загрузить отсутствующие'
-              )}
-            </Button>
-          </div>
-          
-          {downloading && (
-            <div className="space-y-3">
-              <Progress value={progress} className="w-full" />
-              <div className="border rounded-md p-2 bg-muted">
-                <h4 className="font-medium mb-2">Результаты последней синхронизации:</h4>
-                <Textarea
-                  value={logs.length > 0 ? logs.join('\n') : 'Ожидание результатов...'}
-                  readOnly
-                  className="h-96 font-mono text-xs overflow-y-auto max-h-96"
-                  placeholder="Лог операции загрузки..."
-                />
-              </div>
-            </div>
-          )}
-        </div> */}
       </CardContent>
     </Card>
   )

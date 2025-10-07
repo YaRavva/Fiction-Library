@@ -148,6 +148,7 @@ export async function GET(request: NextRequest) {
     // Получаем статус задачи
     const taskStatus = taskManager.getTaskStatus(operationId);
     
+    // Если задача не найдена, возвращаем специфичную ошибку
     if (!taskStatus) {
       return NextResponse.json(
         { error: 'Operation not found' },

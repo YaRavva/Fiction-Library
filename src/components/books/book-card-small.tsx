@@ -103,10 +103,15 @@ export function BookCardSmall({ book, onClick, onTagClick }: BookCardSmallProps)
               onClick={(e) => {
                 e.stopPropagation();
                 if (book.file_url) {
-                  // Create a custom filename in the format "author - title.zip"
+                  // Create a custom filename in the format "author - title.ext"
+                  // Use the actual file format instead of defaulting to .zip
                   const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
                   const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-                  const filename = `${sanitizedAuthor} - ${sanitizedTitle}.zip`;
+                  // Get the file extension from the storage_path or file_format field
+                  const fileExtension = book.file_format && book.file_format !== '' ? 
+                    book.file_format : 
+                    (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
+                  const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
                   
                   // Fetch the file and trigger download with custom filename
                   fetch(book.file_url)

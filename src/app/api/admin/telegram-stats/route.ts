@@ -184,16 +184,28 @@ export async function GET(request: NextRequest) {
         console.log('Metadata channel obtained successfully');
         
         console.log('Attempting to get messages from channel...');
-        const messages = await telegramClient.getMessages((channel as { id: number | string }).id, 1000);
+        const channelId = (channel as unknown as { id: bigint | number | string }).id;
+        const messages = await telegramClient.getMessages(channelId, 1000);
         console.log(`Messages retrieved successfully, count: ${Array.isArray(messages) ? messages.length : 0}`);
         
         // Log more details about the messages
         if (Array.isArray(messages)) {
           console.log(`First few message IDs: ${messages.slice(0, 5).map((m: unknown) => (m as { id?: unknown }).id || 'undefined').join(', ')}`);
-          // Count only messages with text content
-          const textMessages = messages.filter((m: unknown) => (m as { text?: unknown }).text);
-          console.log(`Messages with text content: ${textMessages.length}`);
-          return textMessages.length;
+          // Count only messages that represent books (have specific format)
+          // Books typically have author and title in the text
+          const bookMessages = messages.filter((m: unknown) => {
+            const message = m as { text?: string };
+            if (!message.text) return false;
+            
+            // Books usually have a format like "Author - Title" or "Author. Title"
+            // We'll use a simple heuristic: text should contain " - " or ". " and not be too short
+            return (message.text.includes(' - ') || message.text.includes('. ')) && 
+                   message.text.length > 10 && 
+                   message.text.split('\n').length >= 2; // Books usually have multiple lines
+          });
+          
+          console.log(`Messages identified as books: ${bookMessages.length}`);
+          return bookMessages.length;
         }
         return 0;
       };

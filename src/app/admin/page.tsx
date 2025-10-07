@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label'
 
 import { TimerSettings } from '@/components/admin/timer-settings'
 import { TelegramStatsSection } from '@/components/admin/telegram-stats'
-import { SyncStatsSection } from '@/components/admin/sync-stats'
 import { getValidSession } from '@/lib/auth-helpers'
 import {
   DropdownMenu,
@@ -378,9 +377,22 @@ export default function AdminPage() {
           },
         })
 
+        // Проверяем, существует ли ответ
+        if (!statusResponse) {
+          setError('Не удалось получить статус операции')
+          isCompleted = true
+          break
+        }
+
         const statusData = await statusResponse.json()
 
         if (!statusResponse.ok) {
+          // Если операция не найдена, продолжаем polling
+          if (statusResponse.status === 404 && statusData.error === 'Operation not found') {
+            // Просто продолжаем polling, задача может еще не быть зарегистрирована
+            continue
+          }
+          
           setError(statusData.error || 'Ошибка получения статуса операции')
           isCompleted = true
           break
@@ -617,11 +629,6 @@ export default function AdminPage() {
         {/* Telegram Stats - перемещен в самый верх */}
         <div className="mb-6">
           <TelegramStatsSection />
-        </div>
-
-        {/* Sync Stats */}
-        <div className="mb-6">
-          <SyncStatsSection />
         </div>
 
         {/* Unified Sync Books and Download Files */}

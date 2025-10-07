@@ -414,10 +414,15 @@ export default function LibraryPage() {
       // Find the book to get its title and author
       const book = books.find(b => b.id === bookId);
       if (book) {
-        // Create a custom filename in the format "author - title.zip"
+        // Create a custom filename in the format "author - title.ext"
+        // Use the actual file format instead of defaulting to .zip
         const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
         const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-        const filename = `${sanitizedAuthor} - ${sanitizedTitle}.zip`;
+        // Get the file extension from the storage_path or file_format field
+        const fileExtension = book.file_format && book.file_format !== '' ? 
+          book.file_format : 
+          (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
+        const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
         
         // Fetch the file and trigger download with custom filename
         fetch(fileUrl)
@@ -438,7 +443,7 @@ export default function LibraryPage() {
             window.open(fileUrl, '_blank');
           });
       } else {
-        // Fallback if book not found
+        // Fallback if book not found in state
         window.open(fileUrl, '_blank');
       }
     }

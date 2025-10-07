@@ -385,18 +385,54 @@ export class TelegramFileService {
                 String(channel.id);
             
             // Получаем конкретное сообщение
+            // Используем ids вместо offsetId для получения точного сообщения
             console.log(`📥 Получаем сообщение ${messageId}...`);
+            
+            // Получаем сообщение по точному ID
             const messages = await Promise.race([
-                this.telegramClient.getMessages(channelId, 1, messageId) as unknown as any[],
+                this.telegramClient.getMessages(channelId, 10) as unknown as any[], // Получаем больше сообщений для фильтрации
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout getting message')), 30000))
             ]) as unknown as any[];
             
-            if (!messages || messages.length === 0) {
-                throw new Error(`Message ${messageId} not found`);
+            // Фильтруем сообщения, чтобы найти нужное
+            const targetMessage = messages.find((msg: any) => {
+                const anyMsg = msg as unknown as {[key: string]: unknown};
+                return anyMsg.id === messageId;
+            });
+            
+            if (!targetMessage) {
+                // Если не нашли сообщение в первой партии, попробуем получить его напрямую
+                console.log(`🔍 Сообщение ${messageId} не найдено в первой партии, пробуем получить напрямую...`);
+                const directMessages = await Promise.race([
+                    this.telegramClient.getMessages(channelId, 1, messageId - 1) as unknown as any[], // Используем messageId - 1 как offset
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout getting message')), 30000))
+                ]) as unknown as any[];
+                
+                // Ищем сообщение с нужным ID
+                const directMessage = directMessages.find((msg: any) => {
+                    const anyMsg = msg as unknown as {[key: string]: unknown};
+                    return anyMsg.id === messageId;
+                });
+                
+                if (!directMessage) {
+                    throw new Error(`Message ${messageId} not found`);
+                }
+                
+                const anyMsg = directMessage as unknown as {[key: string]: unknown};
+                
+                // Проверяем, есть ли в сообщении медиа (файл)
+                if (!(anyMsg.media as unknown)) {
+                    throw new Error(`Message ${messageId} does not contain media`);
+                }
+                
+                // Обрабатываем файл
+                console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
+                const result = await this.downloadAndProcessSingleFile(anyMsg);
+                
+                return result;
             }
             
-            const message = messages[0];
-            const anyMsg = message as unknown as {[key: string]: unknown};
+            const anyMsg = targetMessage as unknown as {[key: string]: unknown};
             
             // Проверяем, есть ли в сообщении медиа (файл)
             if (!(anyMsg.media as unknown)) {
