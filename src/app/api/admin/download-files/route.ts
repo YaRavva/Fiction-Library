@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
       report += `📊 Статистика:\n`;
       report += `  ✅ Успешно: ${successCount}\n`;
       report += `  ❌ Ошибки: ${failedCount}\n`;
-      report += `  ⚠️  Пропущено: ${skippedCount}\n`;
+      report += `  ⚠️ Пропущено: ${skippedCount}\n`;
       report += `  📚 Всего: ${result.totalFiles || results.length}\n\n`;
       
       // Добавляем историю обработанных файлов из сообщения
