@@ -449,6 +449,29 @@ export default function LibraryPage() {
     }
   }
 
+  const handleRead = (book: Book) => {
+    if (book.file_url) {
+      // Увеличиваем счетчик просмотров
+      incrementViews(book.id);
+      // Переходим к читалке
+      router.push(`/reader?bookId=${book.id}`);
+    }
+  }
+
+  const incrementViews = async (bookId: string) => {
+    try {
+      await supabase.rpc('increment_views', { book_id: bookId })
+      // Обновляем локальное состояние
+      setBooks(books.map(book => 
+        book.id === bookId 
+          ? { ...book, views_count: book.views_count + 1 }
+          : book
+      ))
+    } catch (error) {
+      console.error('Error incrementing views:', error)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -744,6 +767,7 @@ export default function LibraryPage() {
                       key={book.id} 
                       book={book} 
                       onDownload={handleDownload}
+                      onRead={handleRead}
                       onTagClick={handleTagClick}
                     />
                   ))}
@@ -757,6 +781,7 @@ export default function LibraryPage() {
                       key={book.id} 
                       book={book} 
                       onClick={() => handleBookClick(book)} 
+                      onRead={handleRead}
                       onTagClick={handleTagClick}
                     />
                   ))}
@@ -768,7 +793,7 @@ export default function LibraryPage() {
                   books={books} 
                   onBookClick={handleBookClick}
                   onDownloadClick={handleDownloadClick}
-                  onReadClick={handleBookClick}
+                  onReadClick={handleRead}
                   onTagClick={handleTagClick}
                 />
               )}

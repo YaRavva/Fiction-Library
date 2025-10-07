@@ -6,10 +6,11 @@ import Image from 'next/image'
 interface BookCardSmallProps {
   book: Book
   onClick: () => void
+  onRead: (book: Book) => void
   onTagClick?: (tag: string) => void
 }
 
-export function BookCardSmall({ book, onClick, onTagClick }: BookCardSmallProps) {
+export function BookCardSmall({ book, onClick, onRead, onTagClick }: BookCardSmallProps) {
   // Формируем URL обложки
   const coverUrl = book.cover_url || '/placeholder-cover.svg'
   
@@ -88,9 +89,7 @@ export function BookCardSmall({ book, onClick, onTagClick }: BookCardSmallProps)
               disabled={!book.file_url}
               onClick={(e) => {
                 e.stopPropagation();
-                if (book.file_url) {
-                  window.open(book.file_url, '_blank');
-                }
+                onRead(book);
               }}
             >
               <BookOpen className="h-3 w-3" />

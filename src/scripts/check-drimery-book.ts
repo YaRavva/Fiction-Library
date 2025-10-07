@@ -64,3 +64,4 @@ if (require.main === module) {
       console.error('❌ Ошибка при выполнении скрипта:', error);
       process.exit(1);
     });
+}

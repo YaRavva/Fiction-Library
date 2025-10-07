@@ -15,10 +15,11 @@ interface BookCardLargeProps {
     }
   }
   onDownload: (bookId: string, fileUrl: string | undefined) => void
+  onRead: (book: Book) => void
   onTagClick?: (tag: string) => void
 }
 
-export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargeProps) {
+export function BookCardLarge({ book, onDownload, onRead, onTagClick }: BookCardLargeProps) {
   const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null
   const seriesComposition = book.series?.series_composition
   const seriesCoverUrls = book.series?.cover_urls
@@ -50,9 +51,7 @@ export function BookCardLarge({ book, onDownload, onTagClick }: BookCardLargePro
               disabled={!book.file_url}
               onClick={(e) => {
                 e.stopPropagation();
-                if (book.file_url) {
-                  window.open(book.file_url, '_blank');
-                }
+                onRead(book);
               }}
             >
               <BookOpen className="h-4 w-4" />
