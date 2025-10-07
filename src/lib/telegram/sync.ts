@@ -47,12 +47,31 @@ export class TelegramSyncService {
             // Получаем канал с метаданными
             const channel = await this.telegramClient.getMetadataChannel();
 
-            // Получаем сообщения
+            // Получаем ID последнего обработанного сообщения
+            console.log('🔍 Получаем ID последнего обработанного сообщения...');
+            // @ts-ignore
+            const { data: lastProcessed, error: lastProcessedError } = await serverSupabase
+                .from('telegram_processed_messages')
+                .select('message_id')
+                .order('processed_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            let offsetId: number | undefined = undefined;
+            if (!lastProcessedError && lastProcessed && (lastProcessed as { message_id?: string }).message_id) {
+                // Если есть последнее обработанное сообщение, начинаем с него
+                offsetId = parseInt((lastProcessed as { message_id: string }).message_id, 10);
+                console.log(`  📌 Начинаем с сообщения ID: ${offsetId}`);
+            } else {
+                console.log('  🆕 Начинаем с самых новых сообщений');
+            }
+
+            // Получаем сообщения с учетом offsetId
             // Convert BigInteger to string for compatibility
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
                 String(channel.id);
-            const messages = await this.telegramClient.getMessages(channelId, limit) as unknown as Message[];
+            const messages = await this.telegramClient.getMessages(channelId, limit, offsetId) as unknown as Message[];
             console.log(`✅ Получено ${messages.length} сообщений\n`);
 
             // Парсим метаданные из каждого сообщения
@@ -72,11 +91,29 @@ export class TelegramSyncService {
                 // Парсим текст сообщения
                 const metadata = MetadataParser.parseMessage((msg as { text: string }).text);
 
-                // Извлекаем URL обложек из медиа-файлов сообщения
+                // Проверяем наличие книги в БД по названию и автору ПЕРЕД обработкой медиа
+                let bookExists = false;
+                try {
+                    // @ts-ignore
+                    const { data: foundBooks, error: findError } = await serverSupabase
+                        .from('books')
+                        .select('*')
+                        .eq('title', metadata.title)
+                        .eq('author', metadata.author);
+
+                    if (!findError && foundBooks && foundBooks.length > 0) {
+                        bookExists = true;
+                        console.log(`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем обработку обложек`);
+                    }
+                } catch (checkError) {
+                    console.warn(`  ⚠️ Ошибка при проверке существования книги:`, checkError);
+                }
+
+                // Извлекаем URL обложек из медиа-файлов сообщения ТОЛЬКО если книга не существует
                 const coverUrls: string[] = [];
 
-                // Проверяем наличие медиа в сообщении
-                if (anyMsg.media) {
+                // Проверяем наличие медиа в сообщении ТОЛЬКО если книга не существует
+                if (!bookExists && anyMsg.media) {
                     console.log(`📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`);
 
                     // Если это веб-превью (MessageMediaWebPage) - основной случай для обложек

@@ -90,11 +90,29 @@ export class TelegramMetadataService {
                 // Добавляем ID сообщения в метаданные
                 metadata.messageId = anyMsg.id as number;
 
-                // Извлекаем URL обложек из медиа-файлов сообщения
+                // Проверяем наличие книги в БД по названию и автору ПЕРЕД обработкой медиа
+                let bookExists = false;
+                try {
+                    // @ts-ignore
+                    const { data: foundBooks, error: findError } = await serverSupabase
+                        .from('books')
+                        .select('*')
+                        .eq('title', metadata.title)
+                        .eq('author', metadata.author);
+
+                    if (!findError && foundBooks && foundBooks.length > 0) {
+                        bookExists = true;
+                        console.log(`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем обработку обложек`);
+                    }
+                } catch (checkError) {
+                    console.warn(`  ⚠️ Ошибка при проверке существования книги:`, checkError);
+                }
+
+                // Извлекаем URL обложек из медиа-файлов сообщения ТОЛЬКО если книга не существует
                 const coverUrls: string[] = [];
 
-                // Проверяем наличие медиа в сообщении
-                if (anyMsg.media) {
+                // Проверяем наличие медиа в сообщении ТОЛЬКО если книга не существует
+                if (!bookExists && anyMsg.media) {
                     console.log(`📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`);
 
                     // Если это веб-превью (MessageMediaWebPage) - основной случай для обложек

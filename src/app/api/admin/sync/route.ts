@@ -140,226 +140,81 @@ export async function POST(request: NextRequest) {
     const syncService = await TelegramSyncService.getInstance();
 
     if (channelType === 'metadata') {
-      // Синхронизируем метаданные
-      const metadata = await syncService.syncMetadata(limit);
-
-      // Сохраняем в базу данных
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as string[],
-      };
-
-      for (const book of metadata) {
-        try {
-          // Проверяем, существует ли уже серия
-          let seriesId: string | null = null;
-          
-          if (book.series) {
-            const { data: existingSeries } = await supabaseAdmin
-              .from('series')
-              .select('id')
-              .eq('title', book.series)
-              .eq('author', book.author)
-              .single();
-
-            if (existingSeries) {
-              seriesId = existingSeries.id;
-              // Update existing series with new cover URLs if they exist
-              if (book.coverUrls && book.coverUrls.length > 0) {
-                const { error: updateError } = await supabaseAdmin
-                  .from('series')
-                  .update({
-                    cover_url: book.coverUrls[0],
-                    cover_urls: book.coverUrls,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq('id', seriesId);
-                
-                if (updateError) {
-                  console.error('Error updating series cover URLs:', updateError);
-                }
-              }
-            } else {
-              // Создаем новую серию
-              const { data: newSeries, error: seriesError } = await supabaseAdmin
-                .from('series')
-                .insert({
-                  title: book.series,
-                  author: book.author,
-                  description: book.description,
-                  rating: book.rating,
-                  genres: book.genres,
-                  tags: book.tags,
-                  cover_url: book.coverUrls && book.coverUrls.length > 0 ? book.coverUrls[0] : null,
-                  cover_urls: book.coverUrls || [],
-                  series_composition: book.books || [],
-                })
-                .select('id')
-                .single();
-
-              if (seriesError) {
-                console.error('Error creating series:', seriesError);
-                results.failed++;
-                results.errors.push(`Failed to create series "${book.series}": ${seriesError.message}`);
-              } else {
-                seriesId = newSeries.id;
-              }
+      // Синхронизируем метаданные с правильной логикой возобновления
+      console.log('🚀 Запуск синхронизации метаданных (лимит: ' + limit + ')');
+      const results = await syncService.syncBooks(limit);
+      
+      console.log('✅ Синхронизация метаданных завершена:', results);
+      
+      // Форматируем детали для отображения с автором и названием вместо bookID
+      const formattedDetails = results.details.map((detail: any) => {
+        // Извлекаем информацию о книге из деталей
+        const bookInfo = detail.bookTitle && detail.bookAuthor 
+          ? detail.bookAuthor + ' - ' + detail.bookTitle
+          : detail.bookId || 'неизвестная книга';
+        
+        switch (detail.status) {
+          case 'added':
+            return '✅ Добавлена книга: ' + bookInfo + ' (сообщение ' + detail.msgId + ')';
+          case 'updated':
+            return '🔄 Обновлена книга: ' + bookInfo + ' (сообщение ' + detail.msgId + ')';
+          case 'skipped':
+            const reason = detail.reason || 'неизвестная причина';
+            // Переводим причины на русский
+            let russianReason = reason;
+            switch (reason) {
+              case 'existing book has better description':
+                russianReason = 'у существующей книги лучшее описание';
+                break;
+              case 'existing book has genres':
+                russianReason = 'у существующей книги есть жанры';
+                break;
+              case 'existing book has tags':
+                russianReason = 'у существующей книги есть теги';
+                break;
+              case 'existing book has cover':
+                russianReason = 'у существующей книги есть обложка';
+                break;
+              case 'existing book has telegram post id':
+                russianReason = 'у существующей книги есть ID сообщения';
+                break;
+              case 'missing title or author':
+                russianReason = 'отсутствует название или автор';
+                break;
+              case 'no text content':
+                russianReason = 'сообщение без текста';
+                break;
+              case 'metadata complete':
+                russianReason = 'метаданные полные';
+                break;
             }
-          }
-
-          // Проверяем, существует ли книга
-          // Улучшенная проверка дубликатов: проверяем по title, author и дополнительно по году публикации если есть
-          let query = supabaseAdmin
-            .from('books')
-            .select('id, publication_year, file_url')
-            .eq('title', book.title)
-            .eq('author', book.author);
-          
-          // Если у книги есть год публикации, добавляем его в проверку
-          if (book.books && book.books.length > 0) {
-            query = query.eq('publication_year', book.books[0].year);
-          }
-          
-          const { data: existingBooks, error: existingBooksError } = await query;
-          
-          // В случае ошибки запроса, возвращаемся к простой проверке
-          let existingBook: { id: string; file_url?: string; publication_year?: number } | null = null;
-          if (existingBooksError) {
-            console.warn('Enhanced duplicate check failed, falling back to simple check:', existingBooksError.message);
-            const { data: simpleCheck } = await supabaseAdmin
-              .from('books')
-              .select('id, file_url')
-              .eq('title', book.title)
-              .eq('author', book.author)
-              .single();
-            existingBook = simpleCheck || null;
-          } else if (existingBooks && existingBooks.length > 0) {
-            // Если найдены книги, берем первую
-            existingBook = existingBooks[0];
-          }
-
-          if (existingBook) {
-            // Найден дубликат - обрабатываем в зависимости от наличия файла
-            // Проверяем, есть ли у существующей книги файл
-            // Если у существующей книги нет файла, но у текущей есть (обложка)
-            if (!existingBook.file_url && book.coverUrls && book.coverUrls.length > 0) {
-              // Обновляем существующую книгу с обложкой
-              const updateData: Record<string, unknown> = {
-                updated_at: new Date().toISOString(),
-              };
-              
-              // Добавляем обложку
-              updateData.cover_url = book.coverUrls[0];
-
-              // Если есть книги в серии, обновляем год первой книги
-              if (book.books && book.books.length > 0) {
-                updateData.publication_year = book.books[0].year;
-              }
-              
-              // Добавляем другие метаданные
-              updateData.description = book.description;
-              updateData.rating = book.rating;
-              updateData.genres = book.genres;
-              updateData.tags = book.tags;
-
-              const { error: updateError } = await supabaseAdmin
-                .from('books')
-                .update(updateData)
-                .eq('id', existingBook.id);
-
-              if (updateError) {
-                results.failed++;
-                results.errors.push(`Failed to update book "${book.title}" with cover: ${updateError.message}`);
-              } else {
-                results.success++;
-                results.errors.push(`Updated existing book "${book.title}" with cover`);
-              }
-            } 
-            // Если у обеих книг есть файлы (обложки), пропускаем дубликат
-            else if (existingBook.file_url && book.coverUrls && book.coverUrls.length > 0) {
-              results.failed++;
-              results.errors.push(`Duplicate book "${book.title}" skipped (both have covers)`);
-            }
-            // Если ни у одной книги нет файла, обновляем метаданные
-            else {
-              // Обновляем существующую книгу с новыми метаданными
-              const updateData: Record<string, unknown> = {
-                series_id: seriesId,
-                description: book.description,
-                rating: book.rating,
-                genres: book.genres,
-                tags: book.tags,
-                updated_at: new Date().toISOString(),
-              };
-
-              // Добавляем обложку, если есть
-              if (book.coverUrls && book.coverUrls.length > 0) {
-                updateData.cover_url = book.coverUrls[0];
-              }
-
-              // Если есть книги в серии, обновляем год первой книги
-              if (book.books && book.books.length > 0) {
-                updateData.publication_year = book.books[0].year;
-              }
-
-              const { error: updateError } = await supabaseAdmin
-                .from('books')
-                .update(updateData)
-                .eq('id', existingBook.id);
-
-              if (updateError) {
-                results.failed++;
-                results.errors.push(`Failed to update book "${book.title}" metadata: ${updateError.message}`);
-              } else {
-                results.success++;
-                results.errors.push(`Updated existing book "${book.title}" metadata`);
-              }
-            }
-          } else {
-            // Создаем новую книгу
-            const insertData: Record<string, unknown> = {
-              series_id: seriesId,
-              title: book.title,
-              author: book.author,
-              description: book.description,
-              rating: book.rating,
-              genres: book.genres,
-              tags: book.tags,
-              file_format: 'fb2',
-            };
-
-            // Добавляем обложку, если есть
-            if (book.coverUrls && book.coverUrls.length > 0) {
-              insertData.cover_url = book.coverUrls[0];
-            }
-
-            // Если есть книги в серии, добавляем год первой книги
-            if (book.books && book.books.length > 0) {
-              insertData.publication_year = book.books[0].year;
-            }
-
-            const { error: insertError } = await supabaseAdmin
-              .from('books')
-              .insert(insertData);
-
-            if (insertError) {
-              results.failed++;
-              results.errors.push(`Failed to insert book "${book.title}": ${insertError.message}`);
-            } else {
-              results.success++;
-            }
-          }
-        } catch (error) {
-          results.failed++;
-          results.errors.push(`Error processing book "${book.title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return '⚠️ Пропущено: ' + bookInfo + ' (сообщение ' + detail.msgId + ', ' + russianReason + ')';
+          case 'error':
+            const error = detail.error || 'неизвестная ошибка';
+            return '❌ Ошибка: ' + bookInfo + ' (сообщение ' + detail.msgId + ', ' + error + ')';
+          default:
+            return '❓ Неизвестный статус: ' + bookInfo + ' (сообщение ' + detail.msgId + ', ' + JSON.stringify(detail) + ')';
         }
-      }
-
+      });
+      
+      // Создаем красивый отчет с иконками
+      const reportLines = [
+        '🚀 Результаты синхронизации метаданных (лимит: ' + limit + ')',
+        '📊 Статистика:',
+        '   ✅ Успешно обработано: ' + results.processed,
+        '   📚 Добавлено книг: ' + results.added,
+        '   🔄 Обновлено книг: ' + results.updated,
+        '   ⚠️ Пропущено: ' + results.skipped,
+        '   ❌ Ошибок: ' + results.errors,
+        '', // Пустая строка для разделения
+        ...formattedDetails
+      ];
+      
       return NextResponse.json({
-        message: 'Sync completed',
+        message: 'Синхронизация завершена',
         results,
-        totalProcessed: metadata.length,
+        totalProcessed: results.processed,
+        actions: reportLines
       });
     } else {
       return NextResponse.json(
