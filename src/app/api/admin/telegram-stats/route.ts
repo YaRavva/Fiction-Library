@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { TelegramService } from '@/lib/telegram/client';
 import { TelegramSyncService } from '@/lib/telegram/sync';
+import { MetadataParser } from '@/lib/telegram/parser';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -13,6 +14,188 @@ if (!supabaseUrl || !serviceRoleKey) {
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+// Функция для подсчета уникальных книг в Telegram
+async function countUniqueBooksInTelegram(telegramClient: TelegramService, channel: any): Promise<number> {
+  try {
+    console.log('Counting unique books in Telegram channel...');
+    
+    // Convert BigInteger to string for compatibility
+    const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+        (channel.id as { toString: () => string }).toString() : 
+        String(channel.id);
+    
+    // Получаем все книги из базы данных для сравнения
+    console.log('Fetching existing books from database for comparison...');
+    const { data: existingBooks, error: booksError } = await supabaseAdmin
+      .from('books')
+      .select('id, title, author');
+    
+    if (booksError) {
+      console.error(`Error fetching books from database: ${booksError.message}`);
+      throw new Error(`Error fetching books from database: ${booksError.message}`);
+    }
+    
+    console.log(`Loaded ${existingBooks?.length || 0} books from database`);
+    
+    // Создаем карту существующих книг для быстрого поиска
+    const existingBooksMap = new Map<string, any>();
+    existingBooks?.forEach(book => {
+      const key = `${book.author}|${book.title}`;
+      existingBooksMap.set(key, book);
+    });
+    
+    // Получаем сообщения из Telegram канала и анализируем их
+    console.log('Analyzing messages from Telegram channel...');
+    
+    let totalMessages = 0;
+    let bookMessages = 0;
+    let offsetId: number | undefined = undefined;
+    const batchSize = 100;
+    const bookSet = new Set<string>(); // Для отслеживания уникальных книг в Telegram
+    
+    while (true) {
+      console.log(`Processing batch of messages (total processed: ${totalMessages})...`);
+      const messages = await telegramClient.getMessages(channelId, batchSize, offsetId) as any[];
+      
+      if (messages.length === 0) {
+        break;
+      }
+      
+      totalMessages += messages.length;
+      
+      // Обрабатываем каждое сообщение
+      for (const message of messages) {
+        if (message.text) {
+          try {
+            // Пытаемся распарсить сообщение как метаданные книги
+            const metadata = MetadataParser.parseMessage(message.text);
+            
+            // Проверяем, выглядит ли это как книга (есть автор и название)
+            if (metadata.author && metadata.title) {
+              bookMessages++;
+              const bookKey = `${metadata.author}|${metadata.title}`;
+              
+              // Добавляем в набор уникальных книг
+              if (!bookSet.has(bookKey)) {
+                bookSet.add(bookKey);
+              }
+            }
+          } catch (parseError) {
+            // Не сообщение с книгой, пропускаем
+          }
+        }
+      }
+      
+      console.log(`  Processed: ${messages.length} messages, found books: ${bookMessages}`);
+      
+      // Устанавливаем offsetId для следующей партии
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.id) {
+        offsetId = lastMessage.id;
+      } else {
+        break;
+      }
+      
+      // Добавляем задержку, чтобы не перегружать Telegram API
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.log(`Total unique books in Telegram: ${bookSet.size}`);
+    return bookSet.size;
+    
+  } catch (error) {
+    console.error('Error counting unique books in Telegram:', error);
+    throw error;
+  }
+}
+
+// Функция для обновления статистики в фоновом режиме
+async function updateStatsInBackground() {
+  try {
+    console.log('Starting background stats update...');
+    
+    // Получаем количество книг в базе данных
+    let booksInDatabase = 0;
+    try {
+      console.log('Attempting to count books in database...');
+      const { count, error: booksCountError } = await supabaseAdmin
+        .from('books')
+        .select('*', { count: 'exact', head: true });
+
+      if (booksCountError) {
+        console.error(`Error counting books in database: ${booksCountError.message}`);
+      } else {
+        booksInDatabase = count || 0;
+      }
+      console.log(`Books counted in database: ${booksInDatabase}`);
+    } catch (error: unknown) {
+      console.error('Error counting books in database:', error);
+    }
+
+    // Получаем количество книг без файлов
+    let booksWithoutFiles = 0;
+    try {
+      console.log('Attempting to count books without files...');
+      const { count, error: booksWithoutFilesError } = await supabaseAdmin
+        .from('books')
+        .select('*', { count: 'exact', head: true })
+        .is('file_url', null);
+
+      if (booksWithoutFilesError) {
+        console.error(`Error counting books without files: ${booksWithoutFilesError.message}`);
+      } else {
+        booksWithoutFiles = count || 0;
+      }
+      console.log(`Books without files counted: ${booksWithoutFiles}`);
+    } catch (error: unknown) {
+      console.error('Error counting books without files:', error);
+    }
+
+    // Получаем количество уникальных книг в Telegram канале
+    let booksInTelegram = 0;
+    try {
+      console.log('Attempting to initialize Telegram client...');
+      const telegramClient = await TelegramService.getInstance();
+      console.log('Telegram client initialized successfully');
+      
+      console.log('Attempting to get metadata channel...');
+      const channel = await telegramClient.getMetadataChannel();
+      console.log('Metadata channel obtained successfully');
+      
+      // Подсчитываем уникальные книги в Telegram
+      console.log('Counting unique books in Telegram...');
+      booksInTelegram = await countUniqueBooksInTelegram(telegramClient, channel);
+      console.log(`Unique books counted in Telegram: ${booksInTelegram}`);
+    } catch (error: unknown) {
+      console.error('Error counting books in Telegram:', error);
+    }
+
+    // Сохраняем статистику в базе данных
+    const statsData = {
+      books_in_database: booksInDatabase,
+      books_in_telegram: booksInTelegram,
+      missing_books: Math.max(0, booksInTelegram - booksInDatabase),
+      books_without_files: booksWithoutFiles,
+      updated_at: new Date().toISOString()
+    };
+
+    // Обновляем или создаем запись в таблице telegram_stats
+    const { error: upsertError } = await supabaseAdmin
+      .from('telegram_stats')
+      .upsert(statsData, { onConflict: 'id' });
+
+    if (upsertError) {
+      console.error('Error upserting stats data:', upsertError);
+    } else {
+      console.log('Stats data upserted successfully');
+    }
+
+    console.log('Background stats update completed');
+  } catch (error) {
+    console.error('Error in background stats update:', error);
+  }
+}
 
 /**
  * GET /api/admin/telegram-stats
@@ -96,143 +279,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Получаем количество книг в базе данных
-    let booksInDatabase = 0;
-    try {
-      console.log('Attempting to count books in database...');
-      
-      // Add timeout wrapper for database operations
-      const databaseOperation = async () => {
-        const { count, error: booksCountError } = await supabaseAdmin
-          .from('books')
-          .select('*', { count: 'exact', head: true });
+    // Пытаемся получить последние сохраненные статистические данные
+    const { data: stats, error: statsError } = await supabaseAdmin
+      .from('telegram_stats')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
 
-        if (booksCountError) {
-          console.error(`Error counting books in database: ${booksCountError.message}`);
-          return 0;
-        }
-        
-        return count || 0;
-      };
-      
-      // Wrap in Promise.race with timeout
-      const dbTimeoutPromise = new Promise<number>((_, reject) => 
-        setTimeout(() => reject(new Error('Database operation timeout after 10 seconds')), 10000)
-      );
-      
-      booksInDatabase = await Promise.race([databaseOperation(), dbTimeoutPromise]);
-      console.log(`Books counted in database: ${booksInDatabase}`);
-    } catch (error: unknown) {
-      console.error('Error counting books in database:', error);
-      console.error('Database error details:', {
-        message: (error as Error).message,
-        stack: (error as Error).stack,
-        name: (error as Error).name
+    if (statsError) {
+      console.log('No existing stats found, returning default values');
+      // Если статистика еще не сохранена, возвращаем значения по умолчанию
+      return NextResponse.json({
+        booksInDatabase: 0,
+        booksInTelegram: 0,
+        missingBooks: 0,
+        booksWithoutFiles: 0,
       });
-      booksInDatabase = 0;
     }
 
-    // Получаем количество книг без файлов
-    let booksWithoutFiles = 0;
-    try {
-      console.log('Attempting to count books without files...');
-      
-      // Add timeout wrapper for database operations
-      const noFilesOperation = async () => {
-        const { count, error: booksWithoutFilesError } = await supabaseAdmin
-          .from('books')
-          .select('*', { count: 'exact', head: true })
-          .is('file_url', null);
-
-        if (booksWithoutFilesError) {
-          console.error(`Error counting books without files: ${booksWithoutFilesError.message}`);
-          return 0;
-        }
-        
-        return count || 0;
-      };
-      
-      // Wrap in Promise.race with timeout
-      const noFilesTimeoutPromise = new Promise<number>((_, reject) => 
-        setTimeout(() => reject(new Error('Database operation timeout after 10 seconds')), 10000)
-      );
-      
-      booksWithoutFiles = await Promise.race([noFilesOperation(), noFilesTimeoutPromise]);
-      console.log(`Books without files counted: ${booksWithoutFiles}`);
-    } catch (error: unknown) {
-      console.error('Error counting books without files:', error);
-      console.error('Database error details:', {
-        message: (error as Error).message,
-        stack: (error as Error).stack,
-        name: (error as Error).name
-      });
-      booksWithoutFiles = 0;
-    }
-
-    // Получаем количество книг в Telegram канале
-    let booksInTelegram = 0;
-    try {
-      console.log('Attempting to initialize Telegram client...');
-      
-      // Add timeout wrapper for Telegram operations
-      const telegramOperation = async () => {
-        const telegramClient = await TelegramService.getInstance();
-        console.log('Telegram client initialized successfully');
-        
-        console.log('Attempting to get metadata channel...');
-        const channel = await telegramClient.getMetadataChannel();
-        console.log('Metadata channel obtained successfully');
-        
-        console.log('Attempting to get messages from channel...');
-        const channelId = (channel as unknown as { id: bigint | number | string }).id;
-        const messages = await telegramClient.getMessages(channelId, 1000);
-        console.log(`Messages retrieved successfully, count: ${Array.isArray(messages) ? messages.length : 0}`);
-        
-        // Log more details about the messages
-        if (Array.isArray(messages)) {
-          console.log(`First few message IDs: ${messages.slice(0, 5).map((m: unknown) => (m as { id?: unknown }).id || 'undefined').join(', ')}`);
-          // Count only messages that represent books (have specific format)
-          // Books typically have author and title in the text
-          const bookMessages = messages.filter((m: unknown) => {
-            const message = m as { text?: string };
-            if (!message.text) return false;
-            
-            // Books usually have a format like "Author - Title" or "Author. Title"
-            // We'll use a simple heuristic: text should contain " - " or ". " and not be too short
-            return (message.text.includes(' - ') || message.text.includes('. ')) && 
-                   message.text.length > 10 && 
-                   message.text.split('\n').length >= 2; // Books usually have multiple lines
-          });
-          
-          console.log(`Messages identified as books: ${bookMessages.length}`);
-          return bookMessages.length;
-        }
-        return 0;
-      };
-      
-      // Wrap in Promise.race with timeout
-      const timeoutPromise = new Promise<number>((_, reject) => 
-        setTimeout(() => reject(new Error('Telegram operation timeout after 25 seconds')), 25000)
-      );
-      
-      booksInTelegram = await Promise.race([telegramOperation(), timeoutPromise]);
-      console.log(`Final booksInTelegram count: ${booksInTelegram}`);
-    } catch (error: unknown) {
-      console.error('Error counting books in Telegram:', error);
-      console.error('Error details:', {
-        message: (error as Error).message,
-        stack: (error as Error).stack,
-        name: (error as Error).name
-      });
-      // Не прекращаем выполнение, просто устанавливаем 0
-      booksInTelegram = 0;
-    }
-
+    // Возвращаем сохраненные статистические данные
     return NextResponse.json({
-      booksInDatabase: booksInDatabase || 0,
-      booksInTelegram: booksInTelegram,
-      missingBooks: Math.max(0, booksInTelegram - (booksInDatabase || 0)),
-      booksWithoutFiles: booksWithoutFiles || 0,
+      booksInDatabase: stats.books_in_database || 0,
+      booksInTelegram: stats.books_in_telegram || 0,
+      missingBooks: stats.missing_books || 0,
+      booksWithoutFiles: stats.books_without_files || 0,
     });
   } catch (error) {
     console.error('Error getting Telegram stats:', error);
@@ -248,14 +319,11 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/admin/telegram-stats
- * Запускает загрузку отсутствующих книг с прогресс баром и логом
- * 
- * Body:
- * - limit: number (опционально) - количество книг для загрузки (по умолчанию 10)
+ * Запускает асинхронное обновление статистики
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log('POST /api/admin/telegram-stats called');
+    console.log('POST /api/admin/telegram-stats called - starting async stats update');
     // Проверяем авторизацию
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -331,44 +399,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Получаем параметры из body
-    let limit = 10;
-    try {
-      const body = await request.json();
-      limit = body.limit || 10;
-    } catch (parseError) {
-      // Если не удалось распарсить JSON, используем значение по умолчанию
-      console.log('Could not parse request body, using default limit');
-    }
+    // Запускаем обновление статистики в фоновом режиме
+    updateStatsInBackground()
+      .then(() => {
+        console.log('Background stats update completed successfully');
+      })
+      .catch((error) => {
+        console.error('Error in background stats update:', error);
+      });
 
-    // Запускаем синхронизацию отсутствующих файлов
-    const syncService = await TelegramSyncService.getInstance();
-    
-    // Add timeout wrapper for the download operation
-    const downloadOperation = async () => {
-      return await syncService.downloadFilesFromArchiveChannel(limit, true);
-    };
-    
-    // Wrap in Promise.race with timeout (5 minutes for file downloads)
-    const downloadTimeoutPromise = new Promise<unknown[]>((_, reject) => 
-      setTimeout(() => reject(new Error('File download operation timeout after 5 minutes')), 300000)
-    );
-    
-    const results = await Promise.race([downloadOperation(), downloadTimeoutPromise]);
-
+    // Возвращаем сразу, не дожидаясь завершения фоновой операции
     return NextResponse.json({
-      message: `Successfully processed ${(results as unknown[]).length} files`,
-      files: results,
-      progress: 100,
-      logs: [`Начало загрузки...`, `Обработано файлов: ${(results as unknown[]).length}`, `Загрузка завершена`]
+      message: 'Stats update started successfully',
+      status: 'processing'
     });
-  } catch (error: unknown) {
-    console.error('Error starting download of missing books:', error);
-    console.error('Error details:', {
-      message: (error as Error).message,
-      stack: (error as Error).stack,
-      name: (error as Error).name
-    });
+  } catch (error) {
+    console.error('Error starting stats update:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',
