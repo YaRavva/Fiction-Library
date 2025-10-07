@@ -1,56 +1,49 @@
-/**
- * Скрипт для загрузки единичного файла из Telegram по ID сообщения
- * с полным логированием и обработкой ошибок
- *
- * Использование:
- * npx tsx src/scripts/download-single-file.ts <messageId>
- * Пример: npx tsx src/scripts/download-single-file.ts 4379
- */
-
-// Загружаем переменные окружения из .env файла
 import { config } from 'dotenv';
-import path from 'path';
-
-// Загружаем .env из корня проекта
-config({ path: path.resolve(process.cwd(), '.env') });
-
 import { TelegramSyncService } from '../lib/telegram/sync';
+import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 
+// Загружаем переменные окружения
+config({ path: '.env' });
+
 /**
- * Загружает и обрабатывает единичный файл из Telegram по ID сообщения
+ * Переводит технические коды причин пропуска в человекочитаемые сообщения на русском языке
+ * @param reason Технический код причины пропуска
+ * @returns Человекочитаемое сообщение на русском языке
+ */
+function translateSkipReason(reason: string): string {
+  switch (reason) {
+    case 'book_not_found':
+      return 'Книга не найдена в базе данных';
+    case 'book_not_imported':
+      return 'Книга не импортирована из публичного канала';
+    case 'already_processed':
+      return 'Файл уже был загружен ранее';
+    case 'book_already_has_file':
+      return 'У книги уже есть загруженный файл';
+    case 'book_already_has_file_in_books_table':
+      return 'У книги уже есть файл в таблице books';
+    default:
+      return reason || 'Неизвестная причина';
+  }
+}
+
+/**
+ * Загружает и обрабатывает один файл из Telegram по ID сообщения
  * @param messageId ID сообщения с файлом в Telegram
+ * @returns Результат обработки файла
  */
 export async function downloadSingleFile(messageId: number) {
-  console.log(`🚀 Начинаем загрузку файла из сообщения ${messageId}`);
-  
-  // Проверяем, что переменные окружения загружены
-  if (!process.env.TELEGRAM_API_ID || !process.env.TELEGRAM_API_HASH || !process.env.TELEGRAM_SESSION) {
-    console.error('❌ Ошибка: Не все необходимые переменные окружения загружены');
-    console.error('Проверьте, что файл .env существует и содержит переменные:');
-    console.error('  - TELEGRAM_API_ID');
-    console.error('  - TELEGRAM_API_HASH');
-    console.error('  - TELEGRAM_SESSION');
-    process.exit(1);
-  }
-  
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('❌ Ошибка: Не все необходимые переменные окружения Supabase загружены');
-    console.error('Проверьте, что файл .env содержит переменные:');
-    console.error('  - NEXT_PUBLIC_SUPABASE_URL');
-    console.error('  - SUPABASE_SERVICE_ROLE_KEY');
-    process.exit(1);
-  }
-  
   let syncService: TelegramSyncService | null = null;
   
   try {
+    console.log(`🚀 Начинаем загрузку файла из Telegram (ID сообщения: ${messageId})`);
+    
     // Получаем экземпляр сервиса синхронизации
     syncService = await TelegramSyncService.getInstance();
-    console.log('✅ Telegram клиент инициализирован');
     
     // Обрабатываем файл
-    console.log(`📥 Обрабатываем файл из сообщения ${messageId}...`);
+    console.log('📥 Обрабатываем файл...');
     const result = await syncService.processSingleFileById(messageId);
     
     const success = result.success !== false;
@@ -59,7 +52,9 @@ export async function downloadSingleFile(messageId: number) {
     // Выводим результат обработки
     if (skipped) {
       console.log(`⚠️ Файл пропущен: ${result.filename || 'Без имени'} (ID: ${result.messageId})`);
-      console.log(`   Причина: ${result.reason || 'Неизвестная причина'}`);
+      // Используем функцию перевода для причины пропуска
+      const translatedReason = translateSkipReason(result.reason as string);
+      console.log(`   Причина: ${translatedReason}`);
       
       if (result.bookTitle && result.bookAuthor) {
         console.log(`   Книга: ${result.bookAuthor} - ${result.bookTitle}`);
@@ -103,7 +98,9 @@ export async function downloadSingleFile(messageId: number) {
     report += `Статус: ${skipped ? 'Пропущен' : success ? 'Успешно' : 'Ошибка'}\n`;
     
     if (skipped) {
-      report += `Причина: ${result.reason || 'Неизвестная причина'}\n`;
+      // Используем функцию перевода для причины пропуска
+      const translatedReason = translateSkipReason(result.reason as string);
+      report += `Причина: ${translatedReason}\n`;
     } else if (!success && result.error) {
       report += `Ошибка: ${result.error}\n`;
     }
@@ -225,7 +222,7 @@ export async function downloadSingleFile(messageId: number) {
     return {
       success: skipped || success,
       message: skipped 
-        ? `Файл ${result.filename || 'Без имени'} пропущен: ${result.reason || 'Неизвестная причина'}` 
+        ? `Файл ${result.filename || 'Без имени'} пропущен: ${translateSkipReason(result.reason as string)}` 
         : success 
           ? `Файл ${result.filename || 'Без имени'} успешно обработан` 
           : `Ошибка обработки файла: ${result.error}`,
@@ -255,31 +252,24 @@ export async function downloadSingleFile(messageId: number) {
 
 // Если скрипт запущен напрямую
 if (require.main === module) {
-  // Проверяем аргументы командной строки
   const args = process.argv.slice(2);
-  if (args.length === 0) {
-    console.error('❌ Необходимо указать ID сообщения');
-    console.error('Использование: npx tsx src/scripts/download-single-file.ts <messageId>');
-    console.error('Пример: npx tsx src/scripts/download-single-file.ts 4379');
+  const messageId = args[0] ? parseInt(args[0], 10) : 0;
+  
+  if (!messageId || isNaN(messageId)) {
+    console.error('❌ Пожалуйста, укажите ID сообщения с файлом');
+    console.log('Использование: npx tsx src/scripts/download-single-file.ts <messageId>');
+    console.log('Пример: npx tsx src/scripts/download-single-file.ts 12345');
     process.exit(1);
   }
   
-  const messageId = parseInt(args[0], 10);
-  if (isNaN(messageId)) {
-    console.error('❌ Неверный формат ID сообщения');
-    console.error('ID должен быть числом');
-    process.exit(1);
-  }
-  
-  // Запускаем загрузку файла
-  (async () => {
-    const result = await downloadSingleFile(messageId);
-    console.log('\n' + result.report);
-    
-    // Завершаем процесс с кодом в зависимости от результата
-    process.exit(result.success ? 0 : 1);
-  })().catch(error => {
-    console.error('❌ Необработанная ошибка:', error);
-    process.exit(1);
-  });
+  downloadSingleFile(messageId)
+    .then((result) => {
+      console.log('\n📋 Отчет:');
+      console.log(result.report);
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('❌ Ошибка выполнения скрипта:', error);
+      process.exit(1);
+    });
 }

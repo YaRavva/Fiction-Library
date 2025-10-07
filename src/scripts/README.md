@@ -45,8 +45,9 @@ npx tsx src/scripts/download-single-file.ts 4379
    - `book_not_found` - книга не найдена в базе данных
    - `book_not_imported` - книга не импортирована из публичного канала
    - `already_processed` - файл уже был загружен ранее
-   - `book_already_has_file` - для книги уже есть загруженный файл
+   - `book_already_has_file` - для книги уже есть загруженный файл (в таблице telegram_processed_messages)
    - `book_already_has_file_in_books_table` - в таблице books уже есть запись с файлом
+
 3. **Ошибка** - произошла ошибка при обработке файла
 
 ## find-unprocessed-files.ts

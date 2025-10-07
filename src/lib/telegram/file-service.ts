@@ -26,6 +26,11 @@ export class TelegramFileService {
         // Убираем расширение файла
         const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
         
+        // Проверяем, что имя файла не пустое
+        if (!nameWithoutExt || nameWithoutExt.trim() === '') {
+            return { author: 'Unknown', title: 'Без названия' };
+        }
+        
         // Специальная обработка для известных паттернов
         
         // Паттерн: "Автор - Название"
@@ -34,6 +39,14 @@ export class TelegramFileService {
         if (dashMatch) {
             let author = dashMatch[1].trim();
             let title = dashMatch[2].trim();
+            
+            // Проверяем, что автор и название не пустые
+            if (!author || author.trim() === '') {
+                author = 'Unknown';
+            }
+            if (!title || title.trim() === '') {
+                title = 'Без названия';
+            }
             
             // Особая обработка для случая, когда в названии есть слово "мицелий"
             if (title.toLowerCase().includes('мицелий')) {
@@ -69,6 +82,14 @@ export class TelegramFileService {
                     title = `цикл ${title}`;
                 }
                 
+                // Проверяем, что автор и название не пустые
+                if (!authorsPart || authorsPart.trim() === '') {
+                    return { author: 'Unknown', title: title || 'Без названия' };
+                }
+                if (!title || title.trim() === '') {
+                    return { author: authorsPart, title: 'Без названия' };
+                }
+                
                 return { author: authorsPart, title };
             }
         }
@@ -85,6 +106,14 @@ export class TelegramFileService {
                     title = `цикл ${title}`;
                 }
                 
+                // Проверяем, что автор и название не пустые
+                if (!authorsPart || authorsPart.trim() === '') {
+                    return { author: 'Unknown', title: title || 'Без названия' };
+                }
+                if (!title || title.trim() === '') {
+                    return { author: authorsPart, title: 'Без названия' };
+                }
+                
                 return { author: authorsPart, title };
             }
         }
@@ -98,6 +127,14 @@ export class TelegramFileService {
                 // Авторы - это слова до "Хроники"
                 const authors = words.slice(0, chroniclesIndex).join(' ').replace(/_/g, ' ').trim();
                 const title = words.slice(chroniclesIndex).join(' ').replace(/_/g, ' ').trim();
+                
+                // Проверяем, что автор и название не пустые
+                if (!authors || authors.trim() === '') {
+                    return { author: 'Unknown', title: title || 'Без названия' };
+                }
+                if (!title || title.trim() === '') {
+                    return { author: authors, title: 'Без названия' };
+                }
                 
                 return { author: authors, title };
             }
@@ -113,7 +150,7 @@ export class TelegramFileService {
         if (words.length < 2) {
             return { 
                 author: 'Unknown', 
-                title: nameWithoutExt 
+                title: nameWithoutExt || 'Без названия'
             };
         }
         
@@ -144,6 +181,14 @@ export class TelegramFileService {
                 title = `цикл ${title}`;
             }
             
+            // Проверяем, что автор и название не пустые
+            if (!authors || authors.trim() === '') {
+                return { author: 'Unknown', title: title || 'Без названия' };
+            }
+            if (!title || title.trim() === '') {
+                return { author: authors, title: 'Без названия' };
+            }
+            
             return { 
                 author: authors, 
                 title: title 
@@ -164,7 +209,7 @@ export class TelegramFileService {
         
         return { 
             author: 'Unknown', 
-            title: title
+            title: title || 'Без названия'
         };
     }
 
@@ -673,7 +718,7 @@ export class TelegramFileService {
                         filename: filenameCandidate,
                         success: true,
                         skipped: true,
-                        reason: 'book_already_has_file',
+                        reason: 'book_already_has_file', // Книга уже имеет загруженный файл
                         bookTitle: book?.title,
                         bookAuthor: book?.author,
                         searchTerms: searchTerms
@@ -708,7 +753,7 @@ export class TelegramFileService {
                             filename: filenameCandidate,
                             success: true,
                             skipped: true,
-                            reason: 'book_already_has_file_in_books_table',
+                            reason: 'book_already_has_file_in_books_table', // Книга уже имеет файл в таблице books
                             bookTitle: book?.title,
                             bookAuthor: book?.author,
                             searchTerms: searchTerms

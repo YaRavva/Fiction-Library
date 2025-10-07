@@ -5,6 +5,28 @@ import { TelegramSyncService } from '@/lib/telegram/sync';
 config({ path: '.env' });
 
 /**
+ * Переводит технические коды причин пропуска в человекочитаемые сообщения на русском языке
+ * @param reason Технический код причины пропуска
+ * @returns Человекочитаемое сообщение на русском языке
+ */
+function translateSkipReason(reason: string): string {
+  switch (reason) {
+    case 'book_not_found':
+      return 'Книга не найдена';
+    case 'book_not_imported':
+      return 'Книга не импортирована';
+    case 'already_processed':
+      return 'Файл уже загружен ранее';
+    case 'book_already_has_file':
+      return 'У книги уже есть файл';
+    case 'book_already_has_file_in_books_table':
+      return 'У книги уже есть файл (в таблице books)';
+    default:
+      return reason || 'Неизвестная причина';
+  }
+}
+
+/**
  * Тестовый скрипт для проверки загрузки файлов с лимитом
  * 
  * Использование:
@@ -79,11 +101,8 @@ async function testDownloadFilesWithLimit() {
           }
           
           if (result.reason) {
-            const reasonText = result.reason === 'book_not_found' ? 'Книга не найдена' : 
-                              result.reason === 'already_processed' ? 'Файл уже загружен ранее' : 
-                              result.reason === 'book_not_imported' ? 'Книга не импортирована' : 
-                              result.reason === 'book_already_has_file' ? 'У книги уже есть файл' : 
-                              result.reason === 'book_already_has_file_in_books_table' ? 'У книги уже есть файл (в таблице books)' : result.reason;
+            // Используем функцию перевода для причины пропуска
+            const reasonText = translateSkipReason(result.reason as string);
             console.log(`   ⚠️ Причина: ${reasonText}`);
           }
           

@@ -178,6 +178,12 @@ export async function POST(request: NextRequest) {
               case 'existing book has telegram post id':
                 russianReason = 'у существующей книги есть ID сообщения';
                 break;
+              case 'book already exists in database':
+                russianReason = 'книга уже существует в базе данных';
+                break;
+              case 'book already exists':
+                russianReason = 'книга уже существует в базе данных';
+                break;
               case 'missing title or author':
                 russianReason = 'отсутствует название или автор';
                 break;

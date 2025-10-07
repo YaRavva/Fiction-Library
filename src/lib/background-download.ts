@@ -2,6 +2,28 @@ import { TelegramSyncService } from './telegram/sync';
 import { taskManager, TaskProgress } from './task-manager';
 
 /**
+ * Переводит технические коды причин пропуска в человекочитаемые сообщения на русском языке
+ * @param reason Технический код причины пропуска
+ * @returns Человекочитаемое сообщение на русском языке
+ */
+function translateSkipReason(reason: string): string {
+  switch (reason) {
+    case 'book_not_found':
+      return 'Книга не найдена в базе данных';
+    case 'book_not_imported':
+      return 'Книга не импортирована из публичного канала';
+    case 'already_processed':
+      return 'Файл уже был загружен ранее';
+    case 'book_already_has_file':
+      return 'У книги уже есть загруженный файл';
+    case 'book_already_has_file_in_books_table':
+      return 'У книги уже есть файл в таблице books';
+    default:
+      return reason || 'Неизвестная причина';
+  }
+}
+
+/**
  * Фоновый обработчик для загрузки файлов
  */
 export class BackgroundDownloadHandler {
@@ -63,7 +85,9 @@ export class BackgroundDownloadHandler {
             const fileInfo = result.filename ? 
               `${result.filename} (${fileSize})` : 
               'Файл без имени';
-            processedFilesHistory += `${processedFilesHistory ? '\n' : ''}⚠️ ${bookInfo}, ${fileInfo}, Пропущено: ${result.reason || 'Неизвестная причина'}`;
+            // Используем функцию перевода для причины пропуска
+            const translatedReason = translateSkipReason(result.reason as string);
+            processedFilesHistory += `${processedFilesHistory ? '\n' : ''}⚠️ ${bookInfo}, ${fileInfo}, Пропущено: ${translatedReason}`;
           } else if (result.success !== false) {
             successCount++;
             // Добавляем успешно обработанный файл в историю

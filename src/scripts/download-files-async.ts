@@ -1,6 +1,28 @@
 import { TelegramSyncService } from '../lib/telegram/sync';
 
 /**
+ * Переводит технические коды причин пропуска в человекочитаемые сообщения на русском языке
+ * @param reason Технический код причины пропуска
+ * @returns Человекочитаемое сообщение на русском языке
+ */
+function translateSkipReason(reason: string): string {
+  switch (reason) {
+    case 'book_not_found':
+      return 'Книга не найдена в базе данных';
+    case 'book_not_imported':
+      return 'Книга не импортирована из публичного канала';
+    case 'already_processed':
+      return 'Файл уже был загружен ранее';
+    case 'book_already_has_file':
+      return 'У книги уже есть загруженный файл';
+    case 'book_already_has_file_in_books_table':
+      return 'У книги уже есть файл в таблице books';
+    default:
+      return reason || 'Неизвестная причина';
+  }
+}
+
+/**
  * Асинхронно загружает отсутствующие файлы книг с отображением прогресса
  * @param limit Количество файлов для загрузки (по умолчанию 50)
  * @param progressCallback Функция обратного вызова для отображения прогресса
@@ -81,8 +103,10 @@ export async function downloadMissingFilesAsync(
           const fileInfo = result.filename ? 
             `${result.filename} (${fileSize})` : 
             'Файл без имени';
-          processedFilesHistory += `${processedFilesHistory ? '\n' : ''}⚠️ ${bookInfo}, ${fileInfo}, Пропущено: ${result.reason || 'Неизвестная причина'}`;
-          console.log(`⚠️ Файл ${file.filename || 'Без имени'} пропущен: ${result.reason || 'Неизвестная причина'}`);
+          // Используем функцию перевода для причины пропуска
+          const translatedReason = translateSkipReason(result.reason as string);
+          processedFilesHistory += `${processedFilesHistory ? '\n' : ''}⚠️ ${bookInfo}, ${fileInfo}, Пропущено: ${translatedReason}`;
+          console.log(`⚠️ Файл ${file.filename || 'Без имени'} пропущен: ${translatedReason}`);
         } else if (result.success !== false) {
           successCount++;
           // Добавляем успешно обработанный файл в историю

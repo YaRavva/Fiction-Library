@@ -32,19 +32,18 @@ export class TelegramMetadataService {
             
             // Получаем ID последнего обработанного сообщения
             console.log('🔍 Получаем ID последнего обработанного сообщения...');
-            const result: { data: any | null; error: any } = await serverSupabase
+            // @ts-ignore
+            const { data: lastProcessed, error: lastProcessedError } = await serverSupabase
                 .from('telegram_processed_messages')
                 .select('message_id')
                 .order('processed_at', { ascending: false })
                 .limit(1)
                 .single();
 
-            const { data: lastProcessed, error: lastProcessedError } = result;
-
             let offsetId: number | undefined = undefined;
-            if (lastProcessed && lastProcessed.message_id) {
+            if (!lastProcessedError && lastProcessed && (lastProcessed as { message_id?: string }).message_id) {
                 // Если есть последнее обработанное сообщение, начинаем с него
-                offsetId = parseInt(lastProcessed.message_id, 10);
+                offsetId = parseInt((lastProcessed as { message_id: string }).message_id, 10);
                 console.log(`  📌 Начинаем с сообщения ID: ${offsetId}`);
             } else {
                 console.log('  🆕 Начинаем с самых новых сообщений');
@@ -90,22 +89,52 @@ export class TelegramMetadataService {
                 // Добавляем ID сообщения в метаданные
                 metadata.messageId = anyMsg.id as number;
 
+                // Проверяем, что у книги есть название и автор
+                if (!metadata.title || !metadata.author || metadata.title.trim() === '' || metadata.author.trim() === '') {
+                    console.log(`  ⚠️  Пропускаем сообщение ${anyMsg.id} (отсутствует название или автор)`);
+                    // Добавляем запись в details о пропущенном сообщении
+                    details.push({ 
+                        msgId: anyMsg.id, 
+                        status: 'skipped', 
+                        reason: 'missing title or author',
+                        bookTitle: metadata.title || 'unknown',
+                        bookAuthor: metadata.author || 'unknown'
+                    });
+                    continue;
+                }
+
                 // Проверяем наличие книги в БД по названию и автору ПЕРЕД обработкой медиа
                 let bookExists = false;
+                let existingBookId = null;
                 try {
                     // @ts-ignore
                     const { data: foundBooks, error: findError } = await serverSupabase
                         .from('books')
-                        .select('*')
+                        .select('id')
                         .eq('title', metadata.title)
                         .eq('author', metadata.author);
 
                     if (!findError && foundBooks && foundBooks.length > 0) {
                         bookExists = true;
-                        console.log(`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем обработку обложек`);
+                        existingBookId = (foundBooks[0] as { id: string }).id;
+                        console.log(`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем`);
                     }
                 } catch (checkError) {
                     console.warn(`  ⚠️ Ошибка при проверке существования книги:`, checkError);
+                }
+
+                // Пропускаем сообщение, если книга уже существует
+                if (bookExists) {
+                    // Добавляем запись в details о пропущенном сообщении
+                    details.push({ 
+                        msgId: anyMsg.id, 
+                        status: 'skipped', 
+                        reason: 'book already exists in database',
+                        bookId: existingBookId,
+                        bookTitle: metadata.title,
+                        bookAuthor: metadata.author
+                    });
+                    continue;
                 }
 
                 // Извлекаем URL обложек из медиа-файлов сообщения ТОЛЬКО если книга не существует
@@ -202,6 +231,18 @@ export class TelegramMetadataService {
                     ...metadata,
                     coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || []
                 });
+                
+                // Если книга уже существует, добавляем информацию в details
+                if (bookExists) {
+                    details.push({ 
+                        msgId: anyMsg.id, 
+                        status: 'skipped', 
+                        reason: 'book already exists',
+                        bookId: existingBookId,
+                        bookTitle: metadata.title,
+                        bookAuthor: metadata.author
+                    });
+                }
             }
 
             console.log(`📊 Всего подготовлено метаданных: ${metadataList.length}`);
@@ -214,11 +255,25 @@ export class TelegramMetadataService {
             const combinedDetails = [...details, ...resultImport.details];
             console.log('✅ Импорт метаданных завершен');
             
+            // Общее количество пропущенных книг (из обоих этапов)
+            const totalSkipped = resultImport.skipped + details.filter(d => (d as { status: string }).status === 'skipped').length;
+            
+            // Выводим сводку
+            console.log('\n📊 СВОДКА СИНХРОНИЗАЦИИ:');
+            console.log(`   ========================================`);
+            console.log(`   Обработано сообщений: ${messages.length}`);
+            console.log(`   Подготовлено метаданных: ${metadataList.length}`);
+            console.log(`   Добавлено книг: ${resultImport.added}`);
+            console.log(`   Обновлено книг: ${resultImport.updated}`);
+            console.log(`   Пропущено сообщений: ${totalSkipped}`);
+            console.log(`   Ошибок: ${resultImport.errors}`);
+            console.log(`   Всего обработано: ${resultImport.processed}`);
+            
             return {
                 processed: resultImport.processed,
                 added: resultImport.added,
                 updated: resultImport.updated,
-                skipped: resultImport.skipped,
+                skipped: totalSkipped,
                 errors: resultImport.errors,
                 details: combinedDetails
             };
@@ -361,8 +416,8 @@ export class TelegramMetadataService {
                         skipped++;
                         // Определяем конкретную причину пропуска
                         let skipReason = 'metadata complete';
-                        if (existingBook.description && !book.description) {
-                            skipReason = 'existing book has better description';
+                        if (existingBook.description && existingBook.description !== '' && (!book.description || book.description === '')) {
+                            skipReason = 'existing book has description';
                         } else if (existingBook.genres && existingBook.genres.length > 0 && (!book.genres || book.genres.length === 0)) {
                             skipReason = 'existing book has genres';
                         } else if (existingBook.tags && existingBook.tags.length > 0 && (!book.tags || book.tags.length === 0)) {
@@ -371,6 +426,9 @@ export class TelegramMetadataService {
                             skipReason = 'existing book has cover';
                         } else if (existingBook.telegram_post_id && existingBook.telegram_post_id !== '' && !msgId) {
                             skipReason = 'existing book has telegram post id';
+                        } else {
+                            // Если у существующей книги нет преимуществ, пропускаем по причине дубликата
+                            skipReason = 'book already exists in database';
                         }
                         
                         console.log(`  → Пропускаем книгу "${existingBook.title}" автора ${existingBook.author} (${skipReason})`);
