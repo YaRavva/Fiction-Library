@@ -42,6 +42,7 @@ export async function downloadMissingFilesAsync(
     const results: any[] = [];
     let successCount = 0;
     let failedCount = 0;
+    let skippedCount = 0;
     
     // Для отслеживания истории обработанных файлов
     let processedFilesHistory = '';
@@ -56,7 +57,7 @@ export async function downloadMissingFilesAsync(
     for (const file of files) {
       try {
         const progress = Math.round((processedFiles / totalFiles) * 100);
-        const message = `${processedFilesHistory}\n📥 Загрузка файла ${processedFiles + 1}/${totalFiles}: ${file.filename || 'Без имени'} (ID: ${file.messageId})`;
+        const message = `${processedFilesHistory}${processedFilesHistory ? '\n' : ''}📥 Загрузка файла ${processedFiles + 1}/${totalFiles}: ${file.filename || 'Без имени'} (ID: ${file.messageId})`;
         
         if (progressCallback) {
           progressCallback(progress, message);
@@ -68,15 +69,44 @@ export async function downloadMissingFilesAsync(
         const result = await syncService.processSingleFileById(file.messageId as number);
         results.push(result);
         
-        if (result.success !== false) {
+        if (result.skipped) {
+          skippedCount++;
+          // Добавляем пропущенный файл в историю
+          const bookInfo = result.bookAuthor && result.bookTitle ? 
+            `${result.bookAuthor} - ${result.bookTitle}` : 
+            'Книга не найдена';
+          const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
+            `${Math.round(result.fileSize / 1024)} KB` : 
+            'размер неизвестен';
+          const fileInfo = result.filename ? 
+            `${result.filename} (${fileSize})` : 
+            'Файл без имени';
+          processedFilesHistory += `${processedFilesHistory ? '\n' : ''}⚠️ ${bookInfo}, ${fileInfo}, Пропущено: ${result.reason || 'Неизвестная причина'}`;
+          console.log(`⚠️ Файл ${file.filename || 'Без имени'} пропущен: ${result.reason || 'Неизвестная причина'}`);
+        } else if (result.success !== false) {
           successCount++;
           // Добавляем успешно обработанный файл в историю
-          processedFilesHistory += `${processedFilesHistory ? ' ' : ''}✅ ${file.filename || 'Без имени'}`;
-          console.log(`✅ Файл ${file.filename || 'Без имени'} успешно загружен`);
+          const bookInfo = result.bookAuthor && result.bookTitle ? 
+            `${result.bookAuthor} - ${result.bookTitle}` : 
+            'Книга без названия';
+          const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
+            `${Math.round(result.fileSize / 1024)} KB` : 
+            'размер неизвестен';
+          const fileInfo = result.filename ? 
+            `${result.filename} (${fileSize})` : 
+            'Файл без имени';
+          processedFilesHistory += `${processedFilesHistory ? '\n' : ''}✅ ${bookInfo}, ${fileInfo}, Файл успешно обработан и привязан к книге`;
+          console.log(`✅ Файл ${file.filename || 'Без имени'} успешно загружен и привязан к книге`);
         } else {
           failedCount++;
           // Добавляем файл с ошибкой в историю
-          processedFilesHistory += `${processedFilesHistory ? ' ' : ''}❌ ${file.filename || 'Без имени'}`;
+          const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
+            `${Math.round(result.fileSize / 1024)} KB` : 
+            'размер неизвестен';
+          const fileInfo = result.filename ? 
+            `${result.filename} (${fileSize})` : 
+            'Файл без имени';
+          processedFilesHistory += `${processedFilesHistory ? '\n' : ''}❌ ${fileInfo}, Ошибка: ${result.error || 'Неизвестная ошибка'}`;
           console.log(`❌ Ошибка загрузки файла ${file.filename || 'Без имени'}: ${result.error}`);
         }
         
@@ -85,11 +115,11 @@ export async function downloadMissingFilesAsync(
         // Отправляем промежуточный результат
         if (progressCallback) {
           const intermediateProgress = Math.round((processedFiles / totalFiles) * 100);
-          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${processedFiles}/${totalFiles}`;
+          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${processedFiles}/${totalFiles}`;
           progressCallback(intermediateProgress, statusMessage, result);
         }
         
-        console.log(`📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${processedFiles}/${totalFiles}`);
+        console.log(`📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${processedFiles}/${totalFiles}`);
       } catch (error) {
         failedCount++;
         processedFiles++;
@@ -103,36 +133,46 @@ export async function downloadMissingFilesAsync(
         results.push(result);
         
         // Добавляем файл с ошибкой в историю
-        processedFilesHistory += `${processedFilesHistory ? ' ' : ''}❌ ${file.filename || 'Без имени'}`;
+        const fileSize = file.fileSize && typeof file.fileSize === 'number' ? 
+          `${Math.round(file.fileSize / 1024)} KB` : 
+          'размер неизвестен';
+        const fileInfo = file.filename ? 
+          `${file.filename} (${fileSize})` : 
+          'Файл без имени';
+        processedFilesHistory += `${processedFilesHistory ? '\n' : ''}❌ ${fileInfo}, Ошибка: ${errorMessage}`;
         
         console.log(`❌ Ошибка загрузки файла ${file.filename || 'Без имени'}: ${errorMessage}`);
         
         // Отправляем промежуточный результат
         if (progressCallback) {
           const intermediateProgress = Math.round((processedFiles / totalFiles) * 100);
-          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${processedFiles}/${totalFiles}`;
+          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${processedFiles}/${totalFiles}`;
           progressCallback(intermediateProgress, statusMessage, result);
         }
         
-        console.log(`📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${processedFiles}/${totalFiles}`);
+        console.log(`📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${processedFiles}/${totalFiles}`);
       }
     }
     
     // Финальный прогресс
-    const finalMessage = `${processedFilesHistory}\n🏁 Завершено: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${totalFiles}`;
+    const finalMessage = `${processedFilesHistory}\n🏁 Завершено: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${totalFiles}`;
     if (progressCallback) {
       progressCallback(100, finalMessage);
     }
     
-    console.log(`🏁 Завершено: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${totalFiles}`);
+    console.log(`🏁 Завершено: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${totalFiles}`);
     
     // Формируем отчет об операции
-    let report = `🚀 Асинхронная загрузка файлов завершена (лимит: ${limit})\n\n`;
-    report += `${processedFilesHistory}\n`;
-    report += `\n📊 Финальные результаты:\n`;
-    report += ` ✅ Успешно: ${successCount}\n`;
-    report += ` ❌ Ошибки: ${failedCount}\n`;
-    report += ` 📚 Всего: ${totalFiles}\n`;
+    let report = `🚀 Результаты загрузки файлов\n`;
+    report += `📊 Статистика:\n`;
+    report += `  ✅ Успешно: ${successCount}\n`;
+    report += `  ❌ Ошибки: ${failedCount}\n`;
+    report += `  ⚠️  Пропущено: ${skippedCount}\n`;
+    report += `  📚 Всего: ${totalFiles}\n\n`;
+    
+    if (processedFilesHistory) {
+      report += `${processedFilesHistory}\n`;
+    }
     
     return {
       success: true,
@@ -142,7 +182,8 @@ export async function downloadMissingFilesAsync(
       actions: [
         `Обработано файлов: ${totalFiles}`,
         `Успешно: ${successCount}`,
-        `С ошибками: ${failedCount}`
+        `С ошибками: ${failedCount}`,
+        `Пропущено: ${skippedCount}`
       ],
       report
     };

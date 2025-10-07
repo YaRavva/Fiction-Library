@@ -440,7 +440,7 @@ export class TelegramFileService {
      */
     private async downloadAndProcessSingleFile(message: {[key: string]: unknown}): Promise<{[key: string]: unknown}> {
         const anyMsg = message as unknown as {[key: string]: unknown};
-        console.log(`  📥 Обработка файла из сообщения ${anyMsg.id}...`);
+        console.log(`📥 Обработка файла из сообщения ${anyMsg.id}...`);
         
         try {
             // Извлекаем имя файла для поиска книги без скачивания

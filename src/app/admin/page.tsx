@@ -392,15 +392,24 @@ export default function AdminPage() {
         // Разбираем сообщение на строки для правильного отображения
         const messageLines = statusData.message ? statusData.message.split('\n') : []
         if (messageLines.length > 0) {
-          // Первая строка - обработанные файлы
-          if (messageLines[0]) {
-            currentProgressReport += `${messageLines[0]}\n`
-          }
-          
-          // Вторая строка и далее - текущий статус
-          for (let i = 1; i < messageLines.length; i++) {
-            if (messageLines[i]) {
-              currentProgressReport += `${messageLines[i]}\n`
+          // Обрабатываем строки с обработанными файлами
+          let inHistorySection = false
+          for (let i = 0; i < messageLines.length; i++) {
+            const line = messageLines[i]
+            if (line.includes('✅') || line.includes('❌') || line.includes('⚠️')) {
+              // Это строка с обработанным файлом
+              currentProgressReport += `${line}\n`
+              inHistorySection = true
+            } else if (inHistorySection && line.trim() === '') {
+              // Пропускаем пустую строку после истории
+              continue
+            } else if (inHistorySection && (line.includes('📊 Прогресс:') || line.includes('🏁 Завершено:'))) {
+              // Это строка с прогрессом или финальным сообщением
+              currentProgressReport += `\n${line}\n`
+              inHistorySection = false
+            } else if (!inHistorySection && line.trim() !== '') {
+              // Это другая строка (например, текущий файл)
+              currentProgressReport += `${line}\n`
             }
           }
         } else {
@@ -408,7 +417,9 @@ export default function AdminPage() {
         }
         
         // Добавляем статус и прогресс
-        currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
+        if (!statusData.message?.includes('📊 Прогресс:') && !statusData.message?.includes('🏁 Завершено:')) {
+          currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
+        }
         
         // Обновляем отчет только если он изменился
         if (currentProgressReport !== lastProgressReport) {
@@ -431,18 +442,19 @@ export default function AdminPage() {
               finalReport += statusData.report
             } else if (statusData.result && statusData.result.results) {
               // Формируем финальный отчет из результата
+              finalReport += `📊 Статистика:\n`
+              finalReport += `  ✅ Успешно: ${statusData.result.successCount || 0}\n`
+              finalReport += `  ❌ Ошибки: ${statusData.result.failedCount || 0}\n`
+              finalReport += `  ⚠️  Пропущено: ${statusData.result.skippedCount || 0}\n`
+              finalReport += `  📚 Всего: ${statusData.result.totalFiles || statusData.result.results.length}\n\n`
+              
+              // Добавляем историю обработанных файлов
               const messageLines = statusData.message ? statusData.message.split('\n') : []
-              if (messageLines.length > 0) {
-                // Первая строка - обработанные файлы
-                if (messageLines[0]) {
-                  finalReport += `${messageLines[0]}\n`
+              for (const line of messageLines) {
+                if (line.includes('✅') || line.includes('❌') || line.includes('⚠️')) {
+                  finalReport += `${line}\n`
                 }
               }
-              
-              finalReport += `\n📊 Финальные результаты:\n`
-              finalReport += ` ✅ Успешно: ${statusData.result.successCount || 0}\n`
-              finalReport += ` ❌ Ошибки: ${statusData.result.failedCount || 0}\n`
-              finalReport += ` 📚 Всего: ${statusData.result.totalFiles || statusData.result.results.length}\n`
             }
             
             setLastDownloadFilesReport(finalReport)

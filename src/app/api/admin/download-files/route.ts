@@ -160,35 +160,32 @@ export async function GET(request: NextRequest) {
       const result = taskStatus.result;
       const successCount = result.successCount || 0;
       const failedCount = result.failedCount || 0;
+      const skippedCount = result.skippedCount || 0;
       const results = result.results || [];
       
       // Формируем компактный отчет об операции
       let report = `🚀 Результаты загрузки файлов\n`;
-      report += `📊 Статистика: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${results.length}\n\n`;
+      report += `📊 Статистика:\n`;
+      report += `  ✅ Успешно: ${successCount}\n`;
+      report += `  ❌ Ошибки: ${failedCount}\n`;
+      report += `  ⚠️  Пропущено: ${skippedCount}\n`;
+      report += `  📚 Всего: ${result.totalFiles || results.length}\n\n`;
       
-      if (results.length > 0) {
-        report += `📋 Детали обработки:\n`;
-        results.forEach((result: any, index: number) => {
-          const status = result.success !== false ? '✅' : '❌';
-          const filename = result.filename || 'Без имени';
-          report += ` ${index + 1}. ${status} ${filename} `;
-          
-          // Добавляем информацию о книге, если она есть
-          if (result.bookTitle && result.bookAuthor) {
-            report += `(${result.bookAuthor} - ${result.bookTitle}) `;
-          }
-          
-          // Добавляем размер файла, если он есть
-          if (result.fileSize) {
-            report += `(${Math.round(result.fileSize / 1024)} KB) `;
-          }
-          
-          // Добавляем ошибку, если она есть
-          if (result.success === false && result.error) {
-            report += `[Ошибка: ${result.error.substring(0, 30)}...] `;
-          }
-        });
-        report += '\n';
+      // Добавляем историю обработанных файлов из сообщения
+      const messageLines = taskStatus.message ? taskStatus.message.split('\n') : [];
+      // Ищем строку с историей файлов (все строки до строки с "🏁 Завершено:")
+      let historyLines = [];
+      for (const line of messageLines) {
+        if (line.startsWith('🏁 Завершено:')) {
+          break;
+        }
+        if (line.includes('✅') || line.includes('❌') || line.includes('⚠️')) {
+          historyLines.push(line);
+        }
+      }
+      
+      if (historyLines.length > 0) {
+        report += historyLines.join('\n') + '\n';
       }
 
       return NextResponse.json({
@@ -199,11 +196,13 @@ export async function GET(request: NextRequest) {
         results: {
           success: successCount,
           failed: failedCount,
+          skipped: skippedCount,
           errors: [],
           actions: [
-            `Обработано файлов: ${results.length}`,
+            `Обработано файлов: ${result.totalFiles || results.length}`,
             `Успешно: ${successCount}`,
             `С ошибками: ${failedCount}`,
+            `Пропущено: ${skippedCount}`,
             ...(results.map((result: any, index: number) => {
               const status = result.success !== false ? '✅' : '❌';
               const filename = result.filename || 'Без имени';
@@ -217,7 +216,7 @@ export async function GET(request: NextRequest) {
         report
       });
     }
-
+    
     // Если операция еще не завершена, возвращаем текущий статус
     // Формируем компактный отчет об операции
     let report = `🚀 Результаты загрузки файлов\n\n`;

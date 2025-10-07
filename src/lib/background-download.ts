@@ -32,6 +32,7 @@ export class BackgroundDownloadHandler {
       const results: any[] = [];
       let successCount = 0;
       let failedCount = 0;
+      let skippedCount = 0;
       
       taskManager.updateTaskProgress(taskId, 0, `📥 Найдено ${totalFiles} файлов для загрузки. Начинаем загрузку...`);
       
@@ -50,21 +51,40 @@ export class BackgroundDownloadHandler {
           const result = await syncService.processSingleFileById(file.messageId as number);
           results.push(result);
           
-          if (result.success !== false) {
+          if (result.skipped) {
+            skippedCount++;
+            // Добавляем пропущенный файл в историю
+            const bookInfo = result.bookAuthor && result.bookTitle ? 
+              `${result.bookAuthor} - ${result.bookTitle}` : 
+              'Книга не найдена';
+            const fileInfo = result.filename ? 
+              `${result.filename} (${result.fileSize ? Math.round(result.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+              'Файл без имени';
+            processedFilesHistory += `${processedFilesHistory ? '\n' : ''}⚠️ ${bookInfo}, ${fileInfo}, Пропущено: ${result.reason || 'Неизвестная причина'}`;
+          } else if (result.success !== false) {
             successCount++;
             // Добавляем успешно обработанный файл в историю
-            processedFilesHistory += `${processedFilesHistory ? ' ' : ''}✅ ${file.filename || 'Без имени'}`;
+            const bookInfo = result.bookAuthor && result.bookTitle ? 
+              `${result.bookAuthor} - ${result.bookTitle}` : 
+              'Книга без названия';
+            const fileInfo = result.filename ? 
+              `${result.filename} (${result.fileSize ? Math.round(result.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+              'Файл без имени';
+            processedFilesHistory += `${processedFilesHistory ? '\n' : ''}✅ ${bookInfo}, ${fileInfo}, Файл успешно обработан и привязан к книге`;
           } else {
             failedCount++;
             // Добавляем файл с ошибкой в историю
-            processedFilesHistory += `${processedFilesHistory ? ' ' : ''}❌ ${file.filename || 'Без имени'}`;
+            const fileInfo = result.filename ? 
+              `${result.filename} (${result.fileSize ? Math.round(result.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+              'Файл без имени';
+            processedFilesHistory += `${processedFilesHistory ? '\n' : ''}❌ ${fileInfo}, Ошибка: ${result.error || 'Неизвестная ошибка'}`;
           }
           
           processedFiles++;
           
           // Отправляем промежуточный результат
           const intermediateProgress = Math.round((processedFiles / totalFiles) * 100);
-          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${processedFiles}/${totalFiles}`;
+          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${processedFiles}/${totalFiles}`;
           taskManager.updateTaskProgress(taskId, intermediateProgress, statusMessage, result);
         } catch (error) {
           failedCount++;
@@ -79,21 +99,25 @@ export class BackgroundDownloadHandler {
           results.push(result);
           
           // Добавляем файл с ошибкой в историю
-          processedFilesHistory += `${processedFilesHistory ? ' ' : ''}❌ ${file.filename || 'Без имени'}`;
+          const fileInfo = file.filename ? 
+            `${file.filename} (${file.fileSize ? Math.round(file.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+            'Файл без имени';
+          processedFilesHistory += `${processedFilesHistory ? '\n' : ''}❌ ${fileInfo}, Ошибка: ${errorMessage}`;
           
           // Отправляем промежуточный результат
           const intermediateProgress = Math.round((processedFiles / totalFiles) * 100);
-          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${processedFiles}/${totalFiles}`;
+          const statusMessage = `${processedFilesHistory}\n📊 Прогресс: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${processedFiles}/${totalFiles}`;
           taskManager.updateTaskProgress(taskId, intermediateProgress, statusMessage, result);
         }
       }
       
       // Финальный прогресс
-      const finalMessage = `${processedFilesHistory}\n🏁 Завершено: Успешно: ${successCount} | Ошибки: ${failedCount} | Всего: ${totalFiles}`;
+      const finalMessage = `${processedFilesHistory}\n🏁 Завершено: Успешно: ${successCount} | Ошибки: ${failedCount} | Пропущено: ${skippedCount} | Всего: ${totalFiles}`;
       taskManager.updateTaskStatus(taskId, 'completed', finalMessage);
       taskManager.updateTaskProgress(taskId, 100, finalMessage, {
         successCount,
         failedCount,
+        skippedCount,
         totalFiles,
         results
       });
