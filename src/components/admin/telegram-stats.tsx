@@ -14,8 +14,12 @@ interface TelegramStats {
 }
 
 export function TelegramStatsSection() {
-  const [stats, setStats] = useState<TelegramStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<TelegramStats>({
+    booksInDatabase: 0,
+    booksInTelegram: 0,
+    missingBooks: 0,
+    booksWithoutFiles: 0
+  })
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,7 +48,12 @@ export function TelegramStatsSection() {
       
       const data = await response.json()
       console.log('Stats data:', data);
-      setStats(data)
+      setStats({
+        booksInDatabase: data.booksInDatabase || 0,
+        booksInTelegram: data.booksInTelegram || 0,
+        missingBooks: data.missingBooks || 0,
+        booksWithoutFiles: data.booksWithoutFiles || 0
+      })
     } catch (err: unknown) {
       console.log('Error caught in loadStats:', err);
       console.log('Error name:', (err as Error).name);
@@ -52,10 +61,25 @@ export function TelegramStatsSection() {
       
       console.error('Error loading Telegram stats:', err)
       setError(`Ошибка загрузки статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}`)
-    } finally {
-      setLoading(false)
     }
   }
+
+  // Загружаем начальные данные и делаем функцию доступной глобально
+  useEffect(() => {
+    loadStats();
+    
+    // @ts-ignore
+    window.refreshSyncStats = loadStats;
+    
+    // Очищаем при размонтировании
+    return () => {
+      // @ts-ignore
+      if (typeof window.refreshSyncStats === 'function') {
+        // @ts-ignore
+        delete window.refreshSyncStats;
+      }
+    };
+  }, []);
 
   const updateStats = async () => {
     try {
@@ -89,7 +113,7 @@ export function TelegramStatsSection() {
       // Статистика обновится асинхронно, поэтому перезагружаем данные через некоторое время
       setTimeout(() => {
         loadStats()
-      }, 5000) // Перезагружаем через 5 секунд
+      }, 3000) // Перезагружаем через 3 секунды
       
     } catch (err: unknown) {
       console.error('Error updating Telegram stats:', err)
@@ -98,10 +122,6 @@ export function TelegramStatsSection() {
       setUpdating(false)
     }
   }
-
-  useEffect(() => {
-    loadStats()
-  }, [])
 
   return (
     <Card className="relative">
@@ -118,17 +138,10 @@ export function TelegramStatsSection() {
           variant="outline"
           size="sm"
         >
-          {updating ? (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              Обновление...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Обновить
-            </>
-          )}
+          <>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Обновить
+          </>
         </Button>
       </div>
       <CardContent>
@@ -139,54 +152,47 @@ export function TelegramStatsSection() {
           </div>
         )}
         
-        {loading ? (
-          <div className="flex justify-center items-center h-32">
-            <RefreshCw className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Загрузка статистики...</span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center">
+              <BookOpen className="h-5 w-5 text-blue-500 mr-2" />
+              <h3 className="font-medium">Книг в Telegram</h3>
+            </div>
+            <p className="text-2xl font-bold mt-2">
+              {stats.booksInTelegram}
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center">
-                <BookOpen className="h-5 w-5 text-blue-500 mr-2" />
-                <h3 className="font-medium">Книг в Telegram</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2">
-                {stats?.booksInTelegram || 0}
-              </p>
+          
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center">
+              <Database className="h-5 w-5 text-green-500 mr-2" />
+              <h3 className="font-medium">В базе данных</h3>
             </div>
-            
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center">
-                <Database className="h-5 w-5 text-green-500 mr-2" />
-                <h3 className="font-medium">В базе данных</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2">
-                {stats?.booksInDatabase || 0}
-              </p>
-            </div>
-            
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center">
-                <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                <h3 className="font-medium">Отсутствуют книги</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2">
-                {stats?.missingBooks || 0}
-              </p>
-            </div>
-            
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center">
-                <File className="h-5 w-5 text-red-500 mr-2" />
-                <h3 className="font-medium">Отсутствуют файлы</h3>
-              </div>
-              <p className="text-2xl font-bold mt-2">
-                {stats?.booksWithoutFiles || 0}
-              </p>
-            </div>
+            <p className="text-2xl font-bold mt-2">
+              {stats.booksInDatabase}
+            </p>
           </div>
-        )}
+          
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
+              <h3 className="font-medium">Отсутствуют книги</h3>
+            </div>
+            <p className="text-2xl font-bold mt-2">
+              {stats.missingBooks}
+            </p>
+          </div>
+          
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center">
+              <File className="h-5 w-5 text-red-500 mr-2" />
+              <h3 className="font-medium">Отсутствуют файлы</h3>
+            </div>
+            <p className="text-2xl font-bold mt-2">
+              {stats.booksWithoutFiles}
+            </p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

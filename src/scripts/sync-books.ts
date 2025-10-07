@@ -122,9 +122,12 @@ export async function syncBooks(limit: number = 10) {
 
 // Если скрипт запущен напрямую, выполняем синхронизацию
 if (require.main === module) {
-  syncBooks(10)
+  const limit = process.argv[2] ? parseInt(process.argv[2], 10) : 10;
+  
+  syncBooks(limit)
     .then((result) => {
-      console.log('Результат синхронизации:', result);
+      console.log('Результат синхронизации:');
+      result.actions.forEach(line => console.log(line));
       // В контексте CLI скрипта можно завершить процесс
       process.exit(0);
     })

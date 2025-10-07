@@ -259,6 +259,7 @@ export default function AdminPage() {
     setSyncBooks(true)
     setError(null)
     setLastSyncBooksResult(null)
+    setLastDownloadFilesReport(null) // Используем для отображения прогресса синхронизации
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -270,54 +271,179 @@ export default function AdminPage() {
       // Отладочный вывод
       console.log(`🔍 Запуск синхронизации с лимитом: ${syncLimit}`);
 
-      // Увеличиваем таймаут до 5 минут
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 минут timeout
-
-      const response = await fetch('/api/admin/sync-books', {
+      // Запускаем асинхронную синхронизацию метаданных
+      const startResponse = await fetch('/api/admin/sync-async', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          limit: syncLimit // Используем значение из поля ввода
-        }),
-        signal: controller.signal
+        body: JSON.stringify({ limit: syncLimit }), // Передаем лимит из поля ввода
       })
 
-      clearTimeout(timeoutId)
+      const startData = await startResponse.json()
 
-      const data = await response.json()
+      if (!startResponse.ok) {
+        setError(startData.error || 'Ошибка запуска синхронизации метаданных')
+        return
+      }
+
+      // Получаем ID операции
+      const { operationId } = startData
+
+      // Периодически проверяем статус операции
+      let isCompleted = false
+      let lastProgressReport = ''
       
-      // Отладочный вывод результата
-      console.log('📊 Результат синхронизации:', data);
+      // Начальный отчет
+      let progressReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})  taskId: ${operationId}\n\n📥 Получение сообщений для синхронизации...\n`
+      setLastDownloadFilesReport(progressReport)
+      lastProgressReport = progressReport
 
-      if (response.ok) {
-        setLastSyncBooksResult({
-          success: data.results?.processed || 0,
-          failed: data.results?.errors || 0,
-          errors: [],
-          actions: data.actions || []
+      while (!isCompleted) {
+        // Ждем 1.5 секунды перед следующей проверкой
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        // Проверяем статус операции
+        const statusResponse = await fetch(`/api/admin/sync-async?operationId=${operationId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
         })
-        await loadSyncStatus()
-        await loadSyncProgress()
-        // Обновляем статистику после синхронизации
-        // @ts-ignore
-        if (typeof window.refreshSyncStats === 'function') {
-          // @ts-ignore
-          window.refreshSyncStats()
+
+        // Проверяем, существует ли ответ
+        if (!statusResponse) {
+          setError('Не удалось получить статус операции')
+          isCompleted = true
+          break
         }
-      } else {
-        setError(data.error || 'Ошибка синхронизации книг')
+
+        const statusData = await statusResponse.json()
+
+        if (!statusResponse.ok) {
+          setError(statusData.error || 'Ошибка получения статуса операции')
+          isCompleted = true
+          break
+        }
+
+        // Формируем отчет с прогрессом
+        let currentProgressReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
+        
+        // Разбираем сообщение на строки для правильного отображения
+        const messageLines = statusData.message ? statusData.message.split('\n') : []
+        if (messageLines.length > 0) {
+          // Обрабатываем строки с обработанными сообщениями
+          let inHistorySection = false
+          for (let i = 0; i < messageLines.length; i++) {
+            const line = messageLines[i]
+            if (line.includes('✅') || line.includes('❌') || line.includes('⚠️') || line.includes('🔄')) {
+              // Это строка с обработанным сообщением
+              currentProgressReport += `${line}\n`
+              inHistorySection = true
+            } else if (inHistorySection && line.trim() === '') {
+              // Пропускаем пустую строку после истории
+              continue
+            } else if (inHistorySection && (line.includes('📊 Прогресс:') || line.includes('🏁 Завершено:'))) {
+              // Это строка с прогрессом или финальным сообщением
+              currentProgressReport += `\n${line}\n`
+              inHistorySection = false
+            } else if (!inHistorySection && line.trim() !== '') {
+              // Это другая строка (например, текущее сообщение)
+              currentProgressReport += `${line}\n`
+            }
+          }
+        } else {
+          currentProgressReport += `${statusData.message || ''}\n`
+        }
+        
+        // Добавляем статус и прогресс
+        if (!statusData.message?.includes('📊 Прогресс:') && !statusData.message?.includes('🏁 Завершено:')) {
+          currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
+        }
+        
+        // Обновляем отчет только если он изменился
+        if (currentProgressReport !== lastProgressReport) {
+          setLastDownloadFilesReport(currentProgressReport)
+          lastProgressReport = currentProgressReport
+        }
+
+        // Проверяем, завершена ли операция
+        if (statusData.status === 'completed' || statusData.status === 'failed') {
+          isCompleted = true
+          
+          if (statusData.status === 'completed') {
+            setLastSyncBooksResult({
+              success: statusData.result?.addedCount || 0,
+              failed: statusData.result?.errorCount || 0,
+              errors: [],
+              actions: []
+            })
+            
+            // Финальный отчет в формате, аналогичном загрузке файлов
+            let finalReport = `🚀 Результаты синхронизации метаданных\n\n`
+            
+            // Извлекаем статистику из результата
+            const addedCount = statusData.result?.addedCount || 0;
+            const updatedCount = statusData.result?.updatedCount || 0;
+            const skippedCount = statusData.result?.skippedCount || 0;
+            const errorCount = statusData.result?.errorCount || 0;
+            const totalCount = statusData.result?.totalCount || 0;
+            
+            // Формируем статистику
+            finalReport += `📊 Статистика:\n`;
+            finalReport += `  ✅ Добавлено: ${addedCount}\n`;
+            finalReport += `  🔄 Обновлено: ${updatedCount}\n`;
+            finalReport += `  ⚠️  Пропущено: ${skippedCount}\n`;
+            finalReport += `  ❌ Ошибки: ${errorCount}\n`;
+            finalReport += `  📚 Всего: ${totalCount}\n\n`;
+            
+            // Добавляем историю обработанных сообщений из сообщения статуса
+            const messageLines = statusData.message ? statusData.message.split('\n') : [];
+            // Ищем строки с историей (все строки до строки с "🏁 Завершено:")
+            let historyLines = [];
+            for (const line of messageLines) {
+              if (line.startsWith('🏁 Завершено:')) {
+                break;
+              }
+              if (line.includes('✅') || line.includes('❌') || line.includes('⚠️') || line.includes('🔄')) {
+                historyLines.push(line);
+              }
+            }
+            
+            if (historyLines.length > 0) {
+              finalReport += historyLines.join('\n') + '\n';
+            }
+            
+            setLastDownloadFilesReport(finalReport)
+          } else {
+            setError(statusData.message || 'Операция завершена с ошибкой')
+            
+            // Отчет об ошибке
+            let errorReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
+            errorReport += `❌ Статус: ${statusData.status}\n`
+            errorReport += `💬 Ошибка: ${statusData.message}\n`
+            setLastDownloadFilesReport(errorReport)
+          }
+        }
+      }
+      
+      await loadSyncStatus()
+      await loadSyncProgress()
+      // Обновляем статистику после синхронизации
+      // @ts-ignore
+      if (typeof window.refreshSyncStats === 'function') {
+        // @ts-ignore
+        window.refreshSyncStats()
       }
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        setError('Таймаут запроса: операция заняла слишком много времени. Синхронизация продолжается в фоновом режиме.')
-      } else {
-        console.error('Sync books error:', error)
-        setError('Ошибка при выполнении синхронизации книг')
-      }
+      console.error('Sync books error:', error)
+      setError('Ошибка при выполнении синхронизации книг')
+      
+      // Отчет об ошибке
+      let errorReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})\n`
+      errorReport += `❌ Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n`
+      setLastDownloadFilesReport(errorReport)
     } finally {
       setSyncBooks(false)
     }
@@ -644,7 +770,7 @@ export default function AdminPage() {
               {/* Поля ввода для синхронизации */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="sync-limit">Лимит публикаций</Label>
+                  <Label htmlFor="sync-limit">Лимит</Label>
                   <Input
                     id="sync-limit"
                     type="number"
@@ -668,7 +794,7 @@ export default function AdminPage() {
                     className="w-full flex items-center gap-2"
                   >
                     <RefreshCw className={`h-4 w-4 ${syncBooks ? 'animate-spin' : ''}`} />
-                    {syncBooks ? 'Синхронизация книг...' : 'Синхронизировать книги'}
+                    {syncBooks ? 'Синхронизация книг...' : 'Загрузить книги'}
                   </Button>
                 </div>
                 <div className="flex-1">
