@@ -388,50 +388,18 @@ export class TelegramFileService {
             // Используем ids вместо offsetId для получения точного сообщения
             console.log(`📥 Получаем сообщение ${messageId}...`);
             
-            // Получаем сообщение по точному ID
-            const messages = await Promise.race([
-                this.telegramClient.getMessages(channelId, 10) as unknown as any[], // Получаем больше сообщений для фильтрации
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout getting message')), 30000))
-            ]) as unknown as any[];
+            // Получаем сообщение по точному ID используя правильный метод
+            // В Telegram API для получения конкретных сообщений по ID нужно использовать параметр ids
+            // @ts-ignore
+            const messages: any[] = await this.telegramClient.client.getMessages(channel, { ids: [messageId] });
             
-            // Фильтруем сообщения, чтобы найти нужное
-            const targetMessage = messages.find((msg: any) => {
-                const anyMsg = msg as unknown as {[key: string]: unknown};
-                return anyMsg.id === messageId;
-            });
-            
-            if (!targetMessage) {
-                // Если не нашли сообщение в первой партии, попробуем получить его напрямую
-                console.log(`🔍 Сообщение ${messageId} не найдено в первой партии, пробуем получить напрямую...`);
-                const directMessages = await Promise.race([
-                    this.telegramClient.getMessages(channelId, 1, messageId - 1) as unknown as any[], // Используем messageId - 1 как offset
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout getting message')), 30000))
-                ]) as unknown as any[];
-                
-                // Ищем сообщение с нужным ID
-                const directMessage = directMessages.find((msg: any) => {
-                    const anyMsg = msg as unknown as {[key: string]: unknown};
-                    return anyMsg.id === messageId;
-                });
-                
-                if (!directMessage) {
-                    throw new Error(`Message ${messageId} not found`);
-                }
-                
-                const anyMsg = directMessage as unknown as {[key: string]: unknown};
-                
-                // Проверяем, есть ли в сообщении медиа (файл)
-                if (!(anyMsg.media as unknown)) {
-                    throw new Error(`Message ${messageId} does not contain media`);
-                }
-                
-                // Обрабатываем файл
-                console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
-                const result = await this.downloadAndProcessSingleFile(anyMsg);
-                
-                return result;
+            // Проверяем, получили ли мы сообщения
+            if (!messages || messages.length === 0) {
+                throw new Error(`Message ${messageId} not found`);
             }
             
+            // Получаем первое (и единственное) сообщение из результата
+            const targetMessage = messages[0];
             const anyMsg = targetMessage as unknown as {[key: string]: unknown};
             
             // Проверяем, есть ли в сообщении медиа (файл)
@@ -451,7 +419,7 @@ export class TelegramFileService {
     }
 
     /**
-     * Скачивает и обрабатывает один файл напрямую с правильной логикой:
+     * Обрабатывает один файл напрямую с правильной логикой:
      * 1. Получается имя файла из приватного канала
      * 2. Сразу используется релевантный поиск
      * 3. Если книга найдена с высокой степенью релевантности, то файл скачивается, загружается в бакет, 
