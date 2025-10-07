@@ -479,7 +479,7 @@ export default function AdminPage() {
         window.refreshSyncStats()
       }
     } catch (error: unknown) {
-      console.error('Download files error:', error)
+      console.error('Ошибка загрузки файлов:', error)
       setError('Ошибка при выполнении загрузки файлов')
       
       // Отчет об ошибке

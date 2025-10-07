@@ -57,8 +57,11 @@ export class BackgroundDownloadHandler {
             const bookInfo = result.bookAuthor && result.bookTitle ? 
               `${result.bookAuthor} - ${result.bookTitle}` : 
               'Книга не найдена';
+            const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
+              `${Math.round(result.fileSize / 1024)} КБ` : 
+              'размер неизвестен';
             const fileInfo = result.filename ? 
-              `${result.filename} (${result.fileSize ? Math.round(result.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+              `${result.filename} (${fileSize})` : 
               'Файл без имени';
             processedFilesHistory += `${processedFilesHistory ? '\n' : ''}⚠️ ${bookInfo}, ${fileInfo}, Пропущено: ${result.reason || 'Неизвестная причина'}`;
           } else if (result.success !== false) {
@@ -67,15 +70,21 @@ export class BackgroundDownloadHandler {
             const bookInfo = result.bookAuthor && result.bookTitle ? 
               `${result.bookAuthor} - ${result.bookTitle}` : 
               'Книга без названия';
+            const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
+              `${Math.round(result.fileSize / 1024)} КБ` : 
+              'размер неизвестен';
             const fileInfo = result.filename ? 
-              `${result.filename} (${result.fileSize ? Math.round(result.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+              `${result.filename} (${fileSize})` : 
               'Файл без имени';
             processedFilesHistory += `${processedFilesHistory ? '\n' : ''}✅ ${bookInfo}, ${fileInfo}, Файл успешно обработан и привязан к книге`;
           } else {
             failedCount++;
             // Добавляем файл с ошибкой в историю
+            const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
+              `${Math.round(result.fileSize / 1024)} КБ` : 
+              'размер неизвестен';
             const fileInfo = result.filename ? 
-              `${result.filename} (${result.fileSize ? Math.round(result.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+              `${result.filename} (${fileSize})` : 
               'Файл без имени';
             processedFilesHistory += `${processedFilesHistory ? '\n' : ''}❌ ${fileInfo}, Ошибка: ${result.error || 'Неизвестная ошибка'}`;
           }
@@ -99,8 +108,11 @@ export class BackgroundDownloadHandler {
           results.push(result);
           
           // Добавляем файл с ошибкой в историю
+          const fileSize = file.fileSize && typeof file.fileSize === 'number' ? 
+            `${Math.round(file.fileSize / 1024)} КБ` : 
+            'размер неизвестен';
           const fileInfo = file.filename ? 
-            `${file.filename} (${file.fileSize ? Math.round(file.fileSize / 1024) + ' KB' : 'размер неизвестен'})` : 
+            `${file.filename} (${fileSize})` : 
             'Файл без имени';
           processedFilesHistory += `${processedFilesHistory ? '\n' : ''}❌ ${fileInfo}, Ошибка: ${errorMessage}`;
           

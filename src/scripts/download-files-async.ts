@@ -76,7 +76,7 @@ export async function downloadMissingFilesAsync(
             `${result.bookAuthor} - ${result.bookTitle}` : 
             'Книга не найдена';
           const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
-            `${Math.round(result.fileSize / 1024)} KB` : 
+            `${Math.round(result.fileSize / 1024)} КБ` : 
             'размер неизвестен';
           const fileInfo = result.filename ? 
             `${result.filename} (${fileSize})` : 
@@ -90,7 +90,7 @@ export async function downloadMissingFilesAsync(
             `${result.bookAuthor} - ${result.bookTitle}` : 
             'Книга без названия';
           const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
-            `${Math.round(result.fileSize / 1024)} KB` : 
+            `${Math.round(result.fileSize / 1024)} КБ` : 
             'размер неизвестен';
           const fileInfo = result.filename ? 
             `${result.filename} (${fileSize})` : 
@@ -101,7 +101,7 @@ export async function downloadMissingFilesAsync(
           failedCount++;
           // Добавляем файл с ошибкой в историю
           const fileSize = result.fileSize && typeof result.fileSize === 'number' ? 
-            `${Math.round(result.fileSize / 1024)} KB` : 
+            `${Math.round(result.fileSize / 1024)} КБ` : 
             'размер неизвестен';
           const fileInfo = result.filename ? 
             `${result.filename} (${fileSize})` : 
@@ -134,7 +134,7 @@ export async function downloadMissingFilesAsync(
         
         // Добавляем файл с ошибкой в историю
         const fileSize = file.fileSize && typeof file.fileSize === 'number' ? 
-          `${Math.round(file.fileSize / 1024)} KB` : 
+          `${Math.round(file.fileSize / 1024)} КБ` : 
           'размер неизвестен';
         const fileInfo = file.filename ? 
           `${file.filename} (${fileSize})` : 
