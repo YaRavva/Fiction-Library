@@ -140,7 +140,8 @@ export class TelegramFileService {
             }
         }
         
-        // Разбиваем имя файла на слова для более сложного анализа
+        // Паттерн: "Автор1_Автор2_Название" - когда автор и название разделены подчеркиваниями
+        // Пытаемся определить, где заканчивается автор и начинается название
         const words = nameWithoutExt
             .split(/[_\-\s]+/) // Разделяем по пробелам, подчеркиваниям и дефисам
             .filter(word => word.length > 0) // Убираем пустые слова
@@ -193,6 +194,25 @@ export class TelegramFileService {
                 author: authors, 
                 title: title 
             };
+        }
+        
+        // Новый паттерн: "Автор1_Автор2_Название" - пытаемся определить, где заканчивается автор
+        // Ищем наиболее вероятное разделение на автора и название
+        if (words.length >= 3) {
+            // Попробуем разные варианты разделения
+            for (let i = 1; i < Math.min(words.length - 1, 4); i++) { // Проверяем до 3 слов для автора
+                const potentialAuthor = words.slice(0, i).join(' ');
+                const potentialTitle = words.slice(i).join(' ');
+                
+                // Если потенциальное название содержит ключевые слова, характерные для названий
+                const titleKeywords = ['цикл', ' saga', ' series', 'оксфордский', 'великий', 'мир', 'война', 'приключения'];
+                if (titleKeywords.some(keyword => potentialTitle.toLowerCase().includes(keyword))) {
+                    return { 
+                        author: potentialAuthor, 
+                        title: potentialTitle 
+                    };
+                }
+            }
         }
         
         // Если ничего не подошло, возвращаем как есть
@@ -311,8 +331,9 @@ export class TelegramFileService {
     /**
      * Получает список файлов для обработки без их непосредственной обработки
      * @param limit Количество сообщений для получения
+     * @param offsetId ID сообщения, с которого начинать (для пагинации)
      */
-    public async getFilesToProcess(limit: number = 10): Promise<{[key: string]: unknown}[]> {
+    public async getFilesToProcess(limit: number = 10, offsetId?: number): Promise<{[key: string]: unknown}[]> {
         if (!this.telegramClient) {
             throw new Error('Telegram client not initialized');
         }
@@ -322,57 +343,28 @@ export class TelegramFileService {
             console.log('📚 Получаем доступ к каналу "Архив для фантастики"...');
             const channel = await this.telegramClient.getFilesChannel();
             
-            // Получаем ID последнего загруженного файла из telegram_processed_messages
-            console.log('🔍 Получаем ID последнего загруженного файла...');
-            
-            // Получаем последний обработанный файл из telegram_processed_messages
-            const result: { data: any | null; error: any } = await serverSupabase
-                .from('telegram_processed_messages')
-                .select('telegram_file_id')
-                .not('telegram_file_id', 'is', null)
-                .order('processed_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            const { data: lastProcessed, error: lastProcessedError } = result;
-
-            let lastFileId: number | undefined = undefined;
-            if (lastProcessed && lastProcessed.telegram_file_id) {
-                // Если есть последний обработанный файл, начинаем с него
-                lastFileId = parseInt(lastProcessed.telegram_file_id, 10);
-                console.log(`  📌 Начинаем с файла ID: ${lastFileId}`);
-            } else {
-                console.log('  🆕 Начинаем с самых новых файлов');
-            }
-            
             // Convert BigInteger to string for compatibility
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
                 String(channel.id);
             
+            const allResults: {[key: string]: unknown}[] = [];
+            
             // Получаем сообщения с пагинацией
-            console.log(`📥 Получаем сообщения (лимит: ${limit}, lastFileId: ${lastFileId})...`);
+            console.log(`📥 Получаем сообщения (лимит: ${limit}, offsetId: ${offsetId})...`);
             const messages = await Promise.race([
-                this.telegramClient.getMessages(channelId, limit, lastFileId) as unknown as any[],
+                this.telegramClient.getMessages(channelId, limit, offsetId) as unknown as any[],
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout getting messages')), 60000))
             ]) as unknown as any[];
-            console.log(`✅ Получено ${messages.length} сообщений\n`);
-
-            const results: {[key: string]: unknown}[] = [];
+            
+            console.log(`✅ Получено ${messages.length} сообщений`);
             
             // Формируем список файлов для обработки
             for (const msg of messages) {
                 const anyMsg = msg as unknown as {[key: string]: unknown};
                 
-                // Если у нас есть ID последнего файла, пропускаем сообщения с ID больше чем последний загруженный
-                if (lastFileId && parseInt(String(anyMsg.id), 10) > lastFileId) {
-                    console.log(`⏭️  Пропускаем сообщение ${anyMsg.id} (уже обработано)`);
-                    continue;
-                }
-                
                 // Проверяем, есть ли в сообщении медиа (файл)
                 if (!(anyMsg.media as unknown)) {
-                    console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа, пропускаем`);
                     continue;
                 }
                 
@@ -395,15 +387,15 @@ export class TelegramFileService {
                     filenameCandidate = anyMsg.fileName as string;
                 }
                 
-                results.push({
+                allResults.push({
                     messageId: anyMsg.id,
                     filename: filenameCandidate,
                     hasMedia: !!(anyMsg.media as unknown)
                 });
             }
             
-            console.log(`\n📊 Всего файлов для обработки: ${results.length}`);
-            return results;
+            console.log(`\n📊 Всего файлов для обработки: ${allResults.length}`);
+            return allResults;
         } catch (error) {
             console.error('Error getting files to process:', error);
             throw error;
@@ -435,8 +427,7 @@ export class TelegramFileService {
             
             // Получаем сообщение по точному ID используя правильный метод
             // В Telegram API для получения конкретных сообщений по ID нужно использовать параметр ids
-            // @ts-ignore
-            const messages: any[] = await this.telegramClient.client.getMessages(channel, { ids: [messageId] });
+            const messages = await this.telegramClient.getMessages(channel, 1, messageId) as any[];
             
             // Проверяем, получили ли мы сообщения
             if (!messages || messages.length === 0) {
@@ -445,11 +436,27 @@ export class TelegramFileService {
             
             // Получаем первое (и единственное) сообщение из результата
             const targetMessage = messages[0];
+            
+            // Проверяем, что сообщение не undefined или null
+            if (!targetMessage) {
+                throw new Error(`Message ${messageId} is undefined or null`);
+            }
+            
             const anyMsg = targetMessage as unknown as {[key: string]: unknown};
             
             // Проверяем, есть ли в сообщении медиа (файл)
-            if (!(anyMsg.media as unknown)) {
-                throw new Error(`Message ${messageId} does not contain media`);
+            if (!anyMsg || anyMsg.media === undefined || anyMsg.media === null) {
+                console.warn(`  ⚠️  Message ${messageId} does not contain media property`);
+                // Попробуем найти медиа в других свойствах
+                if (anyMsg && anyMsg.document) {
+                    console.log(`  📄 Найден документ в свойстве document`);
+                    anyMsg.media = anyMsg.document;
+                } else if (anyMsg && anyMsg.photo) {
+                    console.log(`  📸 Найдено фото в свойстве photo`);
+                    anyMsg.media = anyMsg.photo;
+                } else {
+                    throw new Error(`Message ${messageId} does not contain media`);
+                }
             }
             
             // Обрабатываем файл
@@ -625,6 +632,22 @@ export class TelegramFileService {
             
             // Выбираем наиболее релевантную книгу из найденных
             const bestMatch = this.selectBestMatch(uniqueMatches, searchTerms, title, author);
+            
+            // Проверяем, что нашли подходящую книгу
+            if (!bestMatch) {
+                console.log(`  ⚠️  Подходящая книга не найдена по релевантности. Файл пропущен: ${filenameCandidate}`);
+                return {
+                    messageId: anyMsg.id,
+                    filename: filenameCandidate,
+                    success: true,
+                    skipped: true,
+                    reason: 'no_matching_book',
+                    bookTitle: title,
+                    bookAuthor: author,
+                    searchTerms: searchTerms
+                };
+            }
+            
             console.log(`  ✅ Выбрана лучшая книга: "${(bestMatch as { title: string }).title}" автора ${(bestMatch as { author: string }).author}`);
             
             const book = bestMatch as { id: string; title: string; author: string };
@@ -761,7 +784,7 @@ export class TelegramFileService {
                     }
                 }
             } catch (checkBookError) {
-                console.warn(`  ⚠️  Ошибка при проверке существующих записей в books:`, checkBookError);
+                console.warn(`  ⚠️  Ошибкашибка при проверке существующих записей в books:`, checkBookError);
             }
             
             // Только если книга найдена и файл еще не загружен, скачиваем файл
@@ -893,13 +916,13 @@ export class TelegramFileService {
                         .select();
                     
                     if (updateError) {
-                        console.warn(`  ⚠️  Ошибка при обновлении telegram_processed_messages:`, updateError);
+                        console.warn(`  ⚠️  Ошибка при обновении telegram_processed_messages:`, updateError);
                     } else {
                         console.log(`  ✅ Запись в telegram_processed_messages обновлена с telegram_file_id: ${anyMsg.id}`);
                     }
                 }
             } catch (updateMessageError) {
-                console.warn(`  ⚠️  Ошибка при обновлении telegram_processed_messages:`, updateMessageError);
+                console.warn(`  ⚠️  Ошибка при обновении telegram_processed_messages:`, updateMessageError);
             }
 
             console.log(`  ✅ Файл успешно обработан и привязан к книге: ${filenameCandidate}`);
@@ -963,14 +986,70 @@ export class TelegramFileService {
             const bookItem = book as { title: string; author: string };
             let score = 0;
             
-            // Проверяем совпадение по извлеченному названию
-            if (bookItem.title.toLowerCase().includes(title.toLowerCase())) {
-                score += 10;
+            // Проверяем точное совпадение названия (с очень высоким весом)
+            if (bookItem.title.toLowerCase() === title.toLowerCase()) {
+                score += 50;
             }
             
-            // Проверяем совпадение по извлеченному автору
+            // Проверяем точное совпадение автора (с высоким весом)
+            if (bookItem.author.toLowerCase() === author.toLowerCase()) {
+                score += 30;
+            }
+            
+            // Проверяем совпадение по извлеченному названию (с высоким весом)
+            if (bookItem.title.toLowerCase().includes(title.toLowerCase())) {
+                score += 20;
+            }
+            
+            // Проверяем совпадение по извлеченному автору (с высоким весом)
             if (bookItem.author.toLowerCase().includes(author.toLowerCase())) {
-                score += 10;
+                score += 20;
+            }
+            
+            // Проверяем, что оба элемента (название и автор) присутствуют
+            const titleInBook = bookItem.title.toLowerCase().includes(title.toLowerCase());
+            const authorInBook = bookItem.author.toLowerCase().includes(author.toLowerCase());
+            
+            // Если и название, и автор присутствуют, добавляем бонус
+            if (titleInBook && authorInBook) {
+                score += 30; // Большой бонус за полное совпадение
+            }
+            
+            // Добавляем проверку на частичное совпадение слов в названии
+            // Разбиваем название книги на слова
+            const bookTitleWords = bookItem.title.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+            const searchTitleWords = title.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+            let titleWordsMatchCount = 0;
+            
+            for (const word of searchTitleWords) {
+                if (bookItem.title.toLowerCase().includes(word)) {
+                    titleWordsMatchCount++;
+                }
+            }
+            
+            // Если совпадает более 50% слов из названия, добавляем бонус
+            if (searchTitleWords.length > 0 && titleWordsMatchCount / searchTitleWords.length >= 0.5) {
+                score += 15;
+            }
+            
+            // Проверяем, чтобы не было ложных совпадений
+            // Например, "Мир Перекрёстка" не должен совпадать с "Исчезнувший мир"
+            const falsePositiveKeywords = [
+                'исчезнувш', 'умирающ', 'смерть', 'оксфордск', 'консул', 'галактическ', 
+                'логосов', 'напряжен', 'двуеди', 'морск', 'славянск'
+            ];
+            
+            const titleContainsFalsePositive = falsePositiveKeywords.some(keyword => 
+                bookItem.title.toLowerCase().includes(keyword) && !title.toLowerCase().includes(keyword)
+            );
+            
+            const searchTitleContainsFalsePositive = falsePositiveKeywords.some(keyword => 
+                title.toLowerCase().includes(keyword) && !bookItem.title.toLowerCase().includes(keyword)
+            );
+            
+            // Если есть ложные совпадения, уменьшаем счет
+            if (titleContainsFalsePositive || searchTitleContainsFalsePositive) {
+                score -= 20;
             }
             
             // Проверяем совпадение по поисковым терминам
@@ -981,6 +1060,51 @@ export class TelegramFileService {
                 if (bookItem.author.toLowerCase().includes(term.toLowerCase())) {
                     score += 5;
                 }
+            }
+            
+            // НОВОЕ: Проверяем включение всех слов из имени файла в название и автора книги
+            // Это особенно важно когда автор = "Unknown"
+            // Разбиваем извлеченное название на слова
+            const allWords = title.toLowerCase().split(/[_\-\s]+/).filter((word: string) => word.length > 2);
+            let allWordsInTitle = true;
+            let allWordsInAuthor = true;
+            let wordsFoundCount = 0;
+            let titleWordsFound = 0;
+            let authorWordsFound = 0;
+            
+            for (const word of allWords) {
+                // Проверяем включение слова в название книги
+                if (bookItem.title.toLowerCase().includes(word)) {
+                    wordsFoundCount++;
+                    titleWordsFound++;
+                } else {
+                    allWordsInTitle = false;
+                }
+                // Проверяем включение слова в автора книги
+                if (bookItem.author.toLowerCase().includes(word)) {
+                    wordsFoundCount++;
+                    authorWordsFound++;
+                } else {
+                    allWordsInAuthor = false;
+                }
+            }
+            
+            // Если все слова из имени файла включены в название или автора, добавляем бонус
+            // Учитываем количество найденных слов
+            if (allWordsInTitle || allWordsInAuthor || wordsFoundCount > 0) {
+                // Бонус зависит от количества найденных слов
+                const wordBonus = Math.min(30, wordsFoundCount * 5); // Максимум 30 баллов
+                score += wordBonus;
+                
+                // Дополнительный бонус, если слова найдены и в названии, и в авторе
+                if (titleWordsFound > 0 && authorWordsFound > 0) {
+                    score += 10; // Дополнительный бонус
+                }
+            }
+            
+            // Если все слова включены и в название, и в автора, добавляем еще больший бонус
+            if (allWordsInTitle && allWordsInAuthor) {
+                score += 20; // Дополнительный бонус
             }
             
             return { book: bookItem, score };
@@ -994,8 +1118,14 @@ export class TelegramFileService {
             console.log(`    ${index + 1}. "${match.book.title}" автора ${match.book.author} (счет: ${match.score})`);
         });
         
-        // Возвращаем книгу с наивысшей релевантностью
-        return rankedMatches[0].book;
+        // Возвращаем книгу с наивысшей релевантностью, но только если счет достаточно высок
+        if (rankedMatches[0].score >= 30) {
+            return rankedMatches[0].book;
+        }
+        
+        // Если нет книг с высокой релевантностью, возвращаем null
+        console.log(`  ⚠️  Нет книг с достаточной релевантностью (минимум 30)`);
+        return null;
     }
 
     public async shutdown(): Promise<void> {

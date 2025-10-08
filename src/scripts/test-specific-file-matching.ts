@@ -4,36 +4,22 @@ import { resolve } from 'path';
 // Загружаем переменные окружения из .env файла
 config({ path: resolve(__dirname, '../../.env') });
 
-// Тестовые данные для проверки улучшенного алгоритма сопоставления
+// Тестовые данные для проверки конкретного сценария
 const testBooks = [
   {
     id: '1',
-    title: 'цикл Великий Грайан',
-    author: 'Ольга Голотвина',
-    telegram_post_id: '100'
-  },
-  {
-    id: '2',
-    title: 'Люди в красном (2012) (2014)',
-    author: 'Джон Скальци',
-    telegram_post_id: '101'
-  },
-  {
-    id: '3',
     title: 'цикл Дневники Киллербота',
     author: 'Марта Уэллс',
-    telegram_post_id: '102'
+    telegram_post_id: '100'
   }
 ];
 
 const testFiles = [
-  { filename: 'Ольга_Голотвина_Великий_Грайан_.zip', messageId: '3481' },
-  { filename: 'Джон_Скальци_Люди_в_красном_сборник.fb2', messageId: '3992' },
   { filename: 'Марта_Уэллс_Дневники_Киллербота.zip', messageId: '3314' }
 ];
 
-// Импортируем функцию сопоставления из file-service
-function findMatchingFileImproved(book: any, files: any[]): any | null {
+// Импортируем функцию сопоставления из book-worm-service
+function findMatchingFileSpecific(book: any, files: any[]): any | null {
   console.log(`\n🔍 Поиск файла для книги: "${book.title}" автора ${book.author}`);
   
   // Проверяем, что у книги есть название и автор
@@ -54,7 +40,7 @@ function findMatchingFileImproved(book: any, files: any[]): any | null {
     
     let score = 0;
     
-    // Проверяем точное совпадение названия (с очень высоким весом)
+    // Проверяем точное совпадение названия книги (с высоким весом)
     if (filename.includes(bookTitle.replace(/\s+/g, '_'))) {
       score += 20;
     }
@@ -64,7 +50,8 @@ function findMatchingFileImproved(book: any, files: any[]): any | null {
       score += 20;
     }
     
-    // Проверяем, что оба элемента (название и автор) присутствуют
+    // Проверяем, что оба элемента (название и автор) присутствуют в имени файла
+    // Это критически важно для правильного сопоставления
     const titleInFilename = filename.includes(bookTitle.replace(/\s+/g, '_'));
     const authorInFilename = filename.includes(bookAuthor.replace(/\s+/g, '_'));
     
@@ -90,12 +77,13 @@ function findMatchingFileImproved(book: any, files: any[]): any | null {
     }
     
     // Проверяем, чтобы не было ложных совпадений
+    // Например, "Мир Перекрёстка" не должен совпадать с "Исчезнувший мир"
     const falsePositiveKeywords = [
       'исчезнувш', 'умирающ', 'смерть', 'оксфордск', 'консул', 'галактическ', 
       'логосов', 'напряжен', 'двуеди', 'морск', 'славянск'
     ];
     
-    const titleContainsFalsePositive = falsePositiveKeywords.some(keyword => 
+    const bookTitleContainsFalsePositive = falsePositiveKeywords.some(keyword => 
       bookTitle.includes(keyword) && !filename.includes(keyword)
     );
     
@@ -104,8 +92,26 @@ function findMatchingFileImproved(book: any, files: any[]): any | null {
     );
     
     // Если есть ложные совпадения, уменьшаем счет
-    if (titleContainsFalsePositive || filenameContainsFalsePositive) {
+    if (bookTitleContainsFalsePositive || filenameContainsFalsePositive) {
       score -= 20;
+    }
+    
+    // Проверяем частичное совпадение названия (более 80% символов)
+    const titleMatchThreshold = Math.floor(bookTitle.length * 0.8);
+    if (titleMatchThreshold > 0) {
+      const partialTitle = bookTitle.substring(0, Math.min(titleMatchThreshold, bookTitle.length));
+      if (filename.includes(partialTitle.replace(/\s+/g, '_'))) {
+        score += 10;
+      }
+    }
+    
+    // Проверяем частичное совпадение автора (более 80% символов)
+    const authorMatchThreshold = Math.floor(bookAuthor.length * 0.8);
+    if (authorMatchThreshold > 0) {
+      const partialAuthor = bookAuthor.substring(0, Math.min(authorMatchThreshold, bookAuthor.length));
+      if (filename.includes(partialAuthor.replace(/\s+/g, '_'))) {
+        score += 10;
+      }
     }
     
     // Проверяем совпадение по поисковым терминам
@@ -154,7 +160,7 @@ function findMatchingFileImproved(book: any, files: any[]): any | null {
     console.log(`  Файл: ${file.filename} (счет: ${score})`);
     
     // Если текущий файл имеет лучший счет, обновляем лучшее совпадение
-    // Но только если счет достаточно высок (минимум 30)
+    // Но только если счет достаточно высок (минимум 30 - это означает, что найдены и название, и автор)
     if (score > bestScore && score >= 30) {
       bestScore = score;
       bestMatch = file;
@@ -171,16 +177,16 @@ function findMatchingFileImproved(book: any, files: any[]): any | null {
 }
 
 // Основная функция тестирования
-async function runImprovedFileMatchingTest() {
-  console.log('🧪 Тестирование улучшенного алгоритма сопоставления файлов');
-  console.log('========================================================');
+async function runSpecificFileMatchingTest() {
+  console.log('🧪 Тестирование специфического алгоритма сопоставления файлов');
+  console.log('====================================================');
   
   let successCount = 0;
   let totalCount = testBooks.length;
   
   // Тестируем сопоставление для каждой книги
   for (const book of testBooks) {
-    const matchingFile = findMatchingFileImproved(book, testFiles);
+    const matchingFile = findMatchingFileSpecific(book, testFiles);
     
     if (matchingFile) {
       console.log(`  🎯 Тест пройден: найден файл для книги "${book.title}"`);
@@ -207,7 +213,7 @@ async function runImprovedFileMatchingTest() {
 
 // Запуск теста
 if (require.main === module) {
-  runImprovedFileMatchingTest().then(success => {
+  runSpecificFileMatchingTest().then(success => {
     process.exit(success ? 0 : 1);
   }).catch(error => {
     console.error('Ошибка при выполнении теста:', error);
@@ -215,4 +221,4 @@ if (require.main === module) {
   });
 }
 
-export { runImprovedFileMatchingTest, findMatchingFileImproved };
+export { runSpecificFileMatchingTest, findMatchingFileSpecific };

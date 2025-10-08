@@ -100,9 +100,21 @@ export class TelegramService {
 
     public async getMessages(chatId: any, limit: number = 10, offsetId?: number): Promise<unknown> {
         try {
-            const options: { limit: number; offsetId?: number } = { limit };
+            // Для получения конкретного сообщения по ID используем ids
+            if (offsetId !== undefined && limit === 1) {
+                // Получаем конкретное сообщение по ID
+                // Используем правильный формат для InputMessage
+                const messages = await this.client.getMessages(chatId, { 
+                    ids: [offsetId] 
+                });
+                return messages;
+            }
+            
+            // Для получения списка сообщений используем стандартные параметры
+            const options: { limit: number; offsetId?: number; addOffset?: number } = { limit };
             if (offsetId !== undefined) {
                 options.offsetId = offsetId;
+                options.addOffset = 0; // Убедимся, что addOffset равен 0
             }
             const messages = await this.client.getMessages(chatId, options);
             return messages;
