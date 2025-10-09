@@ -107,6 +107,9 @@ export default function AdminPage() {
     progress: 0
   });
 
+  // Добавляем состояние для быстрого обновления индекса
+  const [quickIndexUpdating, setQuickIndexUpdating] = useState(false);
+
   const loadSyncStatus = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -284,22 +287,22 @@ export default function AdminPage() {
       }
 
       // Отладочный вывод
-      console.log(`🔍 Запуск синхронизации с лимитом: ${syncLimit}`);
+      console.log(`🔍 Запуск индексации сообщений Telegram`);
 
-      // Запускаем асинхронную синхронизацию метаданных
-      const startResponse = await fetch('/api/admin/sync-async', {
+      // Запускаем индексацию сообщений Telegram
+      const startResponse = await fetch('/api/admin/index-posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ limit: syncLimit }), // Передаем лимит из поля ввода
+        body: JSON.stringify({ limit: 100 }), // Фиксированный лимит 100
       })
 
       const startData = await startResponse.json()
 
       if (!startResponse.ok) {
-        setError(startData.error || 'Ошибка запуска синхронизации метаданных')
+        setError(startData.error || 'Ошибка запуска индексации сообщений')
         return
       }
 
@@ -311,7 +314,7 @@ export default function AdminPage() {
       let lastProgressReport = ''
       
       // Начальный отчет
-      let progressReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})  taskId: ${operationId}\n\n📥 Получение сообщений для синхронизации...\n`
+      let progressReport = `🚀 Индексация сообщений Telegram  taskId: ${operationId}\n\n📥 Получение сообщений для индексации...\n`
       setLastDownloadFilesReport(progressReport)
       lastProgressReport = progressReport
 
@@ -320,7 +323,7 @@ export default function AdminPage() {
         await new Promise(resolve => setTimeout(resolve, 1500))
         
         // Проверяем статус операции
-        const statusResponse = await fetch(`/api/admin/sync-async?operationId=${operationId}`, {
+        const statusResponse = await fetch(`/api/admin/index-posts?operationId=${operationId}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -343,37 +346,11 @@ export default function AdminPage() {
         }
 
         // Формируем отчет с прогрессом
-        let currentProgressReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
-        
-        // Разбираем сообщение на строки для правильного отображения
-        const messageLines = statusData.message ? statusData.message.split('\n') : []
-        if (messageLines.length > 0) {
-          // Обрабатываем строки с обработанными сообщениями
-          let inHistorySection = false
-          for (let i = 0; i < messageLines.length; i++) {
-            const line = messageLines[i]
-            if (line.includes('✅') || line.includes('❌') || line.includes('⚠️') || line.includes('🔄')) {
-              // Это строка с обработанным сообщением
-              currentProgressReport += `${line}\n`
-              inHistorySection = true
-            } else if (inHistorySection && line.trim() === '') {
-              // Пропускаем пустую строку после истории
-              continue
-            } else if (inHistorySection && (line.includes('📊 Прогресс:') || line.includes('🏁 Завершено:'))) {
-              // Это строка с прогрессом или финальным сообщением
-              currentProgressReport += `\n${line}\n`
-              inHistorySection = false
-            } else if (!inHistorySection && line.trim() !== '') {
-              // Это другая строка (например, текущее сообщение)
-              currentProgressReport += `${line}\n`
-            }
-          }
-        } else {
-          currentProgressReport += `${statusData.message || ''}\n`
-        }
+        let currentProgressReport = `🚀 Индексация сообщений Telegram  taskId: ${operationId}\n\n`
+        currentProgressReport += `${statusData.message || ''}\n`
         
         // Добавляем статус и прогресс
-        if (!statusData.message?.includes('📊 Прогресс:') && !statusData.message?.includes('🏁 Завершено:')) {
+        if (!statusData.message?.includes('🏁')) {
           currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
         }
         
@@ -389,53 +366,23 @@ export default function AdminPage() {
           
           if (statusData.status === 'completed') {
             setLastSyncBooksResult({
-              success: statusData.result?.addedCount || 0,
+              success: statusData.result?.indexedCount || 0,
               failed: statusData.result?.errorCount || 0,
               errors: [],
               actions: []
             })
             
-            // Финальный отчет в формате, аналогичном загрузке файлов
-            let finalReport = `🚀 Результаты синхронизации метаданных\n\n`
-            
-            // Извлекаем статистику из результата
-            const addedCount = statusData.result?.addedCount || 0;
-            const updatedCount = statusData.result?.updatedCount || 0;
-            const skippedCount = statusData.result?.skippedCount || 0;
-            const errorCount = statusData.result?.errorCount || 0;
-            const totalCount = statusData.result?.totalCount || 0;
-            
-            // Формируем статистику
-            finalReport += `📊 Статистика:\n`;
-            finalReport += `  ✅ Добавлено: ${addedCount}\n`;
-            finalReport += `  🔄 Обновлено: ${updatedCount}\n`;
-            finalReport += `  ⚠️  Пропущено: ${skippedCount}\n`;
-            finalReport += `  ❌ Ошибки: ${errorCount}\n`;
-            finalReport += `  📚 Всего: ${totalCount}\n\n`;
-            
-            // Добавляем историю обработанных сообщений из сообщения статуса
-            const messageLines = statusData.message ? statusData.message.split('\n') : [];
-            // Ищем строки с историей (все строки до строки с "🏁 Завершено:")
-            let historyLines = [];
-            for (const line of messageLines) {
-              if (line.startsWith('🏁 Завершено:')) {
-                break;
-              }
-              if (line.includes('✅') || line.includes('❌') || line.includes('⚠️') || line.includes('🔄')) {
-                historyLines.push(line);
-              }
-            }
-            
-            if (historyLines.length > 0) {
-              finalReport += historyLines.join('\n') + '\n';
-            }
-            
+            // Финальный отчет
+            let finalReport = `🚀 Результаты индексации сообщений Telegram\n\n`
+            finalReport += `📊 Статистика:\n`
+            finalReport += `  ✅ Проиндексировано: ${statusData.result?.indexedCount || 0}\n`
+            finalReport += `  ❌ Ошибки: ${statusData.result?.errorCount || 0}\n`
             setLastDownloadFilesReport(finalReport)
           } else {
             setError(statusData.message || 'Операция завершена с ошибкой')
             
             // Отчет об ошибке
-            let errorReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
+            let errorReport = `🚀 Индексация сообщений Telegram  taskId: ${operationId}\n\n`
             errorReport += `❌ Статус: ${statusData.status}\n`
             errorReport += `💬 Ошибка: ${statusData.message}\n`
             setLastDownloadFilesReport(errorReport)
@@ -452,15 +399,141 @@ export default function AdminPage() {
         window.refreshSyncStats()
       }
     } catch (error: unknown) {
-      console.error('Sync books error:', error)
-      setError('Ошибка при выполнении синхронизации книг')
+      console.error('Index posts error:', error)
+      setError('Ошибка при выполнении индексации сообщений')
       
       // Отчет об ошибке
-      let errorReport = `🚀 Синхронизация метаданных (лимит: ${syncLimit})\n`
+      let errorReport = `🚀 Индексация сообщений Telegram\n`
       errorReport += `❌ Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n`
       setLastDownloadFilesReport(errorReport)
     } finally {
       setSyncBooks(false)
+    }
+  }
+
+  // Функция для быстрого обновления индекса
+  const handleQuickIndexUpdate = async () => {
+    setQuickIndexUpdating(true)
+    setError(null)
+    setLastDownloadFilesReport(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
+
+      console.log(`🔍 Запуск быстрого обновления индекса сообщений Telegram`);
+
+      // Запускаем быстрое обновление индекса
+      const startResponse = await fetch('/api/admin/quick-index-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      const startData = await startResponse.json()
+
+      if (!startResponse.ok) {
+        setError(startData.error || 'Ошибка запуска быстрого обновления индекса')
+        return
+      }
+
+      // Получаем ID операции
+      const { operationId } = startData
+
+      // Периодически проверяем статус операции
+      let isCompleted = false
+      let lastProgressReport = ''
+      
+      // Начальный отчет
+      let progressReport = `🚀 Быстрое обновление индекса Telegram  taskId: ${operationId}\n\n🔍 Проверка наличия новых сообщений...\n`
+      setLastDownloadFilesReport(progressReport)
+      lastProgressReport = progressReport
+
+      while (!isCompleted) {
+        // Ждем 1.5 секунды перед следующей проверкой
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+        // Проверяем статус операции
+        const statusResponse = await fetch(`/api/admin/quick-index-update?operationId=${operationId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        })
+
+        // Проверяем, существует ли ответ
+        if (!statusResponse) {
+          setError('Не удалось получить статус операции')
+          isCompleted = true
+          break
+        }
+
+        const statusData = await statusResponse.json()
+
+        if (!statusResponse.ok) {
+          setError(statusData.error || 'Ошибка получения статуса операции')
+          isCompleted = true
+          break
+        }
+
+        // Формируем отчет с прогрессом
+        let currentProgressReport = `🚀 Быстрое обновление индекса Telegram  taskId: ${operationId}\n\n`
+        currentProgressReport += `${statusData.message || ''}\n`
+        
+        // Добавляем статус и прогресс
+        if (!statusData.message?.includes('🏁')) {
+          currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
+        }
+        
+        // Обновляем отчет только если он изменился
+        if (currentProgressReport !== lastProgressReport) {
+          setLastDownloadFilesReport(currentProgressReport)
+          lastProgressReport = currentProgressReport
+        }
+
+        // Проверяем, завершена ли операция
+        if (statusData.status === 'completed' || statusData.status === 'failed') {
+          isCompleted = true
+          
+          if (statusData.status === 'completed') {
+            // Финальный отчет
+            let finalReport = `🚀 Результаты быстрого обновления индекса Telegram\n\n`
+            if (statusData.result?.newMessagesFound) {
+              finalReport += `✅ Найдено и проиндексировано новых сообщений: ${statusData.result.indexedCount}\n`
+            } else {
+              finalReport += `✅ Новых сообщений не найдено\n`
+            }
+            finalReport += `❌ Ошибок: ${statusData.result?.errorCount || 0}\n`
+            setLastDownloadFilesReport(finalReport)
+          } else {
+            setError(statusData.message || 'Операция завершена с ошибкой')
+            
+            // Отчет об ошибке
+            let errorReport = `🚀 Быстрое обновление индекса Telegram  taskId: ${operationId}\n\n`
+            errorReport += `❌ Статус: ${statusData.status}\n`
+            errorReport += `💬 Ошибка: ${statusData.message}\n`
+            setLastDownloadFilesReport(errorReport)
+          }
+        }
+      }
+      
+      await loadSyncStatus()
+      await loadSyncProgress()
+    } catch (error: unknown) {
+      console.error('Quick index update error:', error)
+      setError('Ошибка при выполнении быстрого обновления индекса')
+      
+      // Отчет об ошибке
+      let errorReport = `🚀 Быстрое обновление индекса Telegram\n`
+      errorReport += `❌ Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n`
+      setLastDownloadFilesReport(errorReport)
+    } finally {
+      setQuickIndexUpdating(false)
     }
   }
 
@@ -914,33 +987,14 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Левая половина - текущий функционал */}
               <div className="space-y-4">
-                {/* Поля ввода для синхронизации */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="sync-limit">Лимит</Label>
-                    <Input
-                      id="sync-limit"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      value={syncLimit}
-                      onChange={(e) => setSyncLimit(Math.max(1, Math.min(1000, Number(e.target.value) || 100)))}
-                      className="w-full"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Количество публикаций для синхронизации (1-1000)
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <Button
                     onClick={handleSyncBooks}
                     disabled={syncBooks}
                     className="w-full flex items-center gap-2 h-9 text-sm"
                   >
                     <RefreshCw className={`h-4 w-4 ${syncBooks ? 'animate-spin' : ''}`} />
-                    {syncBooks ? 'Синхронизация книг...' : 'Загрузить книги'}
+                    {syncBooks ? 'Полная индексация...' : 'Полная индексация'}
                   </Button>
                   <Button
                     onClick={handleDownloadFiles}
@@ -950,6 +1004,29 @@ export default function AdminPage() {
                     <RefreshCw className={`h-4 w-4 ${downloadFiles ? 'animate-spin' : ''}`} />
                     {downloadFiles ? 'Загрузка файлов...' : 'Загрузить файлы'}
                   </Button>
+                </div>
+                
+                {/* Новая группа кнопок для индексации метаданных */}
+                <div className="pt-4 border-t">
+                  <h3 className="text-lg font-medium mb-2">Индексация метаданных</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={handleSyncBooks}
+                      disabled={syncBooks}
+                      className="w-full flex items-center gap-2 h-9 text-sm"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${syncBooks ? 'animate-spin' : ''}`} />
+                      {syncBooks ? 'Полная...' : 'Полная'}
+                    </Button>
+                    <Button
+                      onClick={handleQuickIndexUpdate}
+                      disabled={quickIndexUpdating}
+                      className="w-full flex items-center gap-2 h-9 text-sm"
+                    >
+                      <RotateCw className={`h-4 w-4 ${quickIndexUpdating ? 'animate-spin' : ''}`} />
+                      {quickIndexUpdating ? 'Обновление...' : 'Обновить'}
+                    </Button>
+                  </div>
                 </div>
               </div>
 

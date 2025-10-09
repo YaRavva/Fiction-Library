@@ -787,7 +787,7 @@ export class BookWormService {
     private findMatchingFile(book: Book, files: any[]): any | null {
         // Проверяем, что у книги есть название и автор
         if (!book.title || !book.author || book.title.trim() === '' || book.author.trim() === '') {
-            console.log(`    ⚠️  Книга не имеет названия или автора, пропускаем`);
+            console.log(`    �️  Книга не имеет названия или автора, пропускаем`);
             return null;
         }
         
@@ -1036,6 +1036,63 @@ export class BookWormService {
         } catch (error) {
             console.error('❌ Error indexing Telegram messages:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Выполняет расширенную индексацию сообщений с улучшенной обработкой метаданных
+     */
+    public async advancedIndexMessages(batchSize: number = 100): Promise<IndexResult> {
+        console.log('🚀 Выполняем расширенную индексацию всех сообщений Telegram...');
+        
+        try {
+            await this.initializeServices();
+            
+            if (!this.metadataService) {
+                throw new Error('Metadata service not initialized');
+            }
+            
+            // Используем улучшенный метод индексации
+            const result = await this.metadataService.indexAllMessages(batchSize);
+            
+            console.log(`✅ Расширенная индексация завершена: ${result.indexed} сообщений проиндексировано, ${result.errors} ошибок`);
+            
+            // Получаем и выводим статистику по индексу
+            const stats = await this.metadataService.getIndexStatistics();
+            console.log('\n📊 Статистика индекса:');
+            console.log(`   Всего сообщений: ${stats.totalMessages}`);
+            console.log(`   Сообщений с автором: ${stats.messagesWithAuthor}`);
+            console.log(`   Сообщений с названием: ${stats.messagesWithTitle}`);
+            
+            return result;
+        } catch (error) {
+            console.error('❌ Ошибка в расширенной индексации:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Ищет сообщения по ключевым словам
+     * @param keywords Ключевые слова для поиска
+     * @param limit Максимальное количество результатов
+     */
+    public async searchMessages(keywords: string[], limit: number = 50): Promise<Array<{message_id: number, author: string | null, title: string | null, similarity: number}>> {
+        console.log(`🔍 Searching for messages with keywords: ${keywords.join(', ')}`);
+        
+        try {
+            await this.initializeServices();
+            
+            if (!this.metadataService) {
+                throw new Error('Metadata service not initialized');
+            }
+            
+            const results = await this.metadataService.searchMessagesByKeywords(keywords, limit);
+            
+            console.log(`✅ Found ${results.length} matching messages`);
+            return results;
+        } catch (error) {
+            console.error('❌ Error searching messages:', error);
+            return [];
         }
     }
 

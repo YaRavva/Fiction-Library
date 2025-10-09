@@ -193,6 +193,134 @@ export class TelegramMetadataService {
     }
 
     /**
+     * Находит сообщения по ключевым словам в названии или авторе
+     * @param keywords Ключевые слова для поиска
+     * @param limit Максимальное количество результатов (по умолчанию 50)
+     * @returns Массив сообщений, соответствующих критериям поиска
+     */
+    public async searchMessagesByKeywords(
+        keywords: string[], 
+        limit: number = 50
+    ): Promise<Array<{message_id: number, author: string | null, title: string | null, similarity: number}>> {
+        try {
+            if (keywords.length === 0) {
+                return [];
+            }
+            
+            // Формируем условия поиска для каждого ключевого слова
+            const orConditions: string[] = [];
+            
+            keywords.forEach(keyword => {
+                const lowerKeyword = keyword.toLowerCase();
+                orConditions.push(
+                    `author.ilike.%${lowerKeyword}%`,
+                    `title.ilike.%${lowerKeyword}%`
+                );
+            });
+            
+            // @ts-ignore
+            const { data, error } = await serverSupabase
+                .from('telegram_messages_index')
+                .select('message_id, author, title')
+                .or(orConditions.join(','))
+                .limit(limit);
+
+            if (error) {
+                console.warn('Ошибка при поиске сообщений по ключевым словам:', error);
+                return [];
+            }
+
+            // Вычисляем коэффициент релевантности для каждого сообщения
+            const resultsWithSimilarity = (data || []).map(item => {
+                const itemData = item as { 
+                    message_id: number; 
+                    author: string | null; 
+                    title: string | null;
+                };
+                
+                let similarity = 0;
+                
+                // Проверяем совпадение по каждому ключевому слову
+                keywords.forEach(keyword => {
+                    const lowerKeyword = keyword.toLowerCase();
+                    
+                    if (itemData.author && itemData.author.toLowerCase().includes(lowerKeyword)) {
+                        similarity += 3; // Высокий вес для автора
+                    }
+                    
+                    if (itemData.title && itemData.title.toLowerCase().includes(lowerKeyword)) {
+                        similarity += 5; // Самый высокий вес для названия
+                    }
+                });
+                
+                return {
+                    message_id: itemData.message_id,
+                    author: itemData.author,
+                    title: itemData.title,
+                    similarity
+                };
+            });
+            
+            // Сортируем по убыванию релевантности
+            resultsWithSimilarity.sort((a, b) => b.similarity - a.similarity);
+            
+            console.log(`✅ Найдено ${resultsWithSimilarity.length} сообщений по ключевым словам: ${keywords.join(', ')}`);
+            return resultsWithSimilarity;
+        } catch (error) {
+            console.error('Error in searchMessagesByKeywords:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Получает статистику по индексированным сообщениям
+     * @returns Объект со статистикой
+     */
+    public async getIndexStatistics(): Promise<{
+        totalMessages: number;
+        messagesWithAuthor: number;
+        messagesWithTitle: number;
+    }> {
+        try {
+            // @ts-ignore
+            const { data: totalData, error: totalError } = await serverSupabase
+                .from('telegram_messages_index')
+                .select('*', { count: 'exact', head: true });
+
+            if (totalError) throw totalError;
+
+            // @ts-ignore
+            const { data: authorData, error: authorError } = await serverSupabase
+                .from('telegram_messages_index')
+                .select('*', { count: 'exact', head: true })
+                .not('author', 'is', null);
+
+            if (authorError) throw authorError;
+
+            // @ts-ignore
+            const { data: titleData, error: titleError } = await serverSupabase
+                .from('telegram_messages_index')
+                .select('*', { count: 'exact', head: true })
+                .not('title', 'is', null);
+
+            if (titleError) throw titleError;
+
+            return {
+                totalMessages: totalData ? totalData.length : 0,
+                messagesWithAuthor: authorData ? authorData.length : 0,
+                messagesWithTitle: titleData ? titleData.length : 0
+            };
+        } catch (error) {
+            console.error('Error in getIndexStatistics:', error);
+            return {
+                totalMessages: 0,
+                messagesWithAuthor: 0,
+                messagesWithTitle: 0
+            };
+        }
+    }
+
+    /**
      * Синхронизирует книги из Telegram канала с учетом уже обработанных сообщений
      * @param limit Количество сообщений для обработки (по умолчанию 10)
      */
