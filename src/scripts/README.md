@@ -289,6 +289,46 @@ npx tsx src/scripts/analyze-book-duplicates.ts
 npx tsx src/scripts/check-message-processing-order.ts
 ```
 
+### index-telegram-messages.ts
+Индексация всех сообщений из Telegram канала для быстрого поиска и определения новых книг:
+- Создает индекс всех сообщений, храня только ID, автора и название
+- Позволяет быстро определять наличие новых сообщений в канале
+- Оптимизирован для эффективного обнаружения новых книг
+
+```bash
+npx tsx src/scripts/index-telegram-messages.ts
+```
+
+### check-for-new-messages.ts
+Проверка наличия новых сообщений в Telegram канале:
+- Сравнивает последний индексированный ID с фактическим последним ID в Telegram
+- Определяет, появились ли новые сообщения в канале
+- Может использоваться для автоматизации процесса синхронизации
+
+```bash
+npx tsx src/scripts/check-for-new-messages.ts
+```
+
+### check-for-new-messages-api.ts
+Проверка наличия новых сообщений через BookWorm API:
+- Использует BookWorm service для проверки новых сообщений
+- Не требует запуска отдельных процессов
+- Подходит для использования в веб-средах
+
+```bash
+npx tsx src/scripts/check-for-new-messages-api.ts
+```
+
+### index-telegram-messages-api.ts
+Индексация всех сообщений через BookWorm API:
+- Использует BookWorm service для индексации сообщений
+- Не требует запуска отдельных процессов
+- Подходит для использования в веб-средах
+
+```bash
+npx tsx src/scripts/index-telegram-messages-api.ts
+```
+
 ## Логика работы скриптов
 
 ### Алгоритм синхронизации файлов

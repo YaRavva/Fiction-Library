@@ -33,6 +33,11 @@ interface SyncResult {
     };
 }
 
+interface IndexResult {
+    indexed: number;
+    errors: number;
+}
+
 export class BookWormService {
     private metadataService: TelegramMetadataService | null = null;
     private fileService: TelegramFileService | null = null;
@@ -1007,6 +1012,72 @@ export class BookWormService {
         } catch (error) {
             console.error('❌ Ошибка при извлечении файлов из архива:', error);
             // Не прерываем выполнение основной синхронизации из-за ошибки извлечения
+        }
+    }
+
+    /**
+     * Индексирует все сообщения из Telegram канала для быстрого поиска
+     */
+    public async indexAllMessages(batchSize: number = 100): Promise<IndexResult> {
+        console.log('.CreateIndexing all Telegram messages...');
+        
+        try {
+            await this.initializeServices();
+            
+            if (!this.metadataService) {
+                throw new Error('Metadata service not initialized');
+            }
+            
+            // Индексируем все сообщения
+            const result = await this.metadataService.indexAllMessages(batchSize);
+            
+            console.log(`✅ Indexed ${result.indexed} messages with ${result.errors} errors`);
+            return result;
+        } catch (error) {
+            console.error('❌ Error indexing Telegram messages:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Проверяет наличие новых сообщений в канале
+     */
+    public async checkForNewMessages(): Promise<{ hasNewMessages: boolean; latestIndexedId: string | null; latestTelegramId: string | null }> {
+        console.log('🔍 Checking for new messages...');
+        
+        try {
+            await this.initializeServices();
+            
+            if (!this.metadataService || !this.telegramClient) {
+                throw new Error('Services not initialized');
+            }
+            
+            // Получаем последний ID из индекса
+            const latestIndexedId = await this.metadataService.getLatestMessageId();
+            console.log(`Latest indexed message ID: ${latestIndexedId || 'None'}`);
+            
+            // Получаем фактический последний ID из Telegram
+            const channel = await this.telegramClient.getMetadataChannel();
+            
+            // Convert BigInteger to string for compatibility
+            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+                (channel.id as { toString: () => string }).toString() : 
+                String(channel.id);
+            
+            // Получаем последние сообщения из Telegram
+            const messages = await this.telegramClient.getMessages(channelId, 1) as unknown as { id?: number }[];
+            const latestTelegramId = messages && messages.length > 0 && messages[0].id ? 
+                String(messages[0].id) : null;
+            
+            console.log(`Latest Telegram message ID: ${latestTelegramId || 'None'}`);
+            
+            // Сравниваем IDs
+            const hasNewMessages = latestIndexedId !== latestTelegramId;
+            
+            return { hasNewMessages, latestIndexedId, latestTelegramId };
+        } catch (error) {
+            console.error('❌ Error checking for new messages:', error);
+            throw error;
         }
     }
 

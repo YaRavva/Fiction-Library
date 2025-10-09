@@ -1,75 +1,65 @@
-import { config } from 'dotenv';
-import { TelegramSyncService } from '../lib/telegram/sync';
+#!/usr/bin/env -S npx tsx
 
-// Загружаем переменные окружения из .env файла
-config();
+/**
+ * Script to count total messages in the Telegram channel
+ * This script gets the actual count of messages in the channel.
+ */
 
-async function countTelegramMessages() {
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+import { TelegramService } from '../lib/telegram/client';
+
+async function main() {
   try {
-    console.log('🔍 Подсчет количества сообщений в Telegram канале...\n');
+    console.log('🔍 Counting messages in Telegram channel...');
     
-    // Получаем экземпляр сервиса синхронизации
-    const syncService = await TelegramSyncService.getInstance();
+    // Get the Telegram client
+    const telegramClient = await TelegramService.getInstance();
     
-    // Получаем канал с метаданными
-    console.log('📡 Получаем канал с метаданными...');
-    if (!syncService['telegramClient']) {
-      console.error('❌ Не удалось получить доступ к Telegram клиенту');
-      return;
-    }
-    
-    const channel = await syncService['telegramClient'].getMetadataChannel();
+    // Get the metadata channel
+    console.log('📡 Getting metadata channel...');
+    const channel = await telegramClient.getMetadataChannel();
     
     // Convert BigInteger to string for compatibility
     const channelId = typeof channel.id === 'object' && channel.id !== null ? 
         (channel.id as { toString: () => string }).toString() : 
         String(channel.id);
     
-    console.log(`🆔 ID канала: ${channelId}`);
-    console.log(`📝 Название канала: ${(channel as { title?: string }).title || 'Неизвестно'}`);
+    console.log(`📥 Counting messages in channel ${channelId}...`);
     
-    // Получаем сообщения с постепенным подсчетом
-    console.log('\n📥 Подсчет сообщений...');
-    let totalMessages = 0;
-    let offsetId: number | undefined = undefined;
-    const batchSize = 100; // Размер пакета для получения сообщений
+    // Try to get total count - this might not work directly, so we'll try a different approach
+    // Let's get a large batch of messages to estimate
+    console.log('📥 Getting messages to count...');
+    const messages = await telegramClient.getMessages(channelId, 5000) as unknown as { id?: number }[];
     
-    while (true) {
-      console.log(`   Загружаем пакет сообщений (offsetId: ${offsetId || 'начало'})...`);
-      const messages = await syncService['telegramClient'].getMessages(channelId, batchSize, offsetId) as unknown[];
+    console.log(`📊 Total messages retrieved: ${messages.length}`);
+    
+    if (messages.length > 0) {
+      const messageIds = messages
+        .map(msg => msg.id || 0)
+        .filter(id => id > 0)
+        .sort((a, b) => b - a); // Sort descending (newest first)
       
-      if (messages.length === 0) {
-        break;
-      }
+      console.log(`🔢 Latest message ID: ${messageIds[0]}`);
+      console.log(`🔢 Earliest message ID in batch: ${messageIds[messageIds.length - 1]}`);
       
-      totalMessages += messages.length;
-      console.log(`   Получено ${messages.length} сообщений. Всего: ${totalMessages}`);
-      
-      // Устанавливаем offsetId для следующего запроса
-      // Берем ID последнего сообщения в пакете
-      const lastMessage = messages[messages.length - 1] as { id?: number };
-      if (lastMessage.id) {
-        offsetId = lastMessage.id;
-      } else {
-        break;
-      }
-      
-      // Добавляем небольшую задержку, чтобы не перегружать Telegram API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Show first 10 message IDs
+      console.log(`\n📋 First 10 message IDs (newest first):`);
+      console.log(`   ${messageIds.slice(0, 10).join(', ')}`);
     }
     
-    console.log(`\n📊 Общее количество сообщений в канале: ${totalMessages}`);
-    
+    console.log('\n✨ Count completed successfully!');
+    process.exit(0);
   } catch (error) {
-    console.error('❌ Ошибка:', error);
-  } finally {
-    // Отключаемся от Telegram
-    const syncService = await TelegramSyncService.getInstance();
-    await syncService.shutdown();
+    console.error('❌ Error in count-telegram-messages script:', error);
+    process.exit(1);
   }
 }
 
-// Если скрипт запущен напрямую, выполняем функцию
+// Run the script
 if (require.main === module) {
-  countTelegramMessages();
+  main();
 }

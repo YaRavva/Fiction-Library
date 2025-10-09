@@ -19,36 +19,17 @@ export class TelegramMetadataService {
     }
 
     /**
-     * Синхронизирует книги из Telegram канала с учетом уже обработанных сообщений
-     * @param limit Количество сообщений для обработки (по умолчанию 10)
+     * Индексирует все сообщения из Telegram канала для быстрого поиска и определения новых книг
+     * @param batchSize Размер пакета для загрузки (по умолчанию 100)
      */
-    public async syncBooks(limit: number = 10): Promise<{ processed: number; added: number; updated: number; skipped: number; errors: number; details: unknown[] }> {
+    public async indexAllMessages(batchSize: number = 100): Promise<{ indexed: number; errors: number }> {
         if (!this.telegramClient) {
             throw new Error('Telegram client not initialized');
         }
 
         try {
-            console.log(`🚀 Начинаем синхронизацию книг (лимит: ${limit})`);
+            console.log(`🚀 Начинаем индексацию всех сообщений из канала (пакетами по ${batchSize})`);
             
-            // Получаем ID последнего обработанного сообщения
-            console.log('🔍 Получаем ID последнего обработанного сообщения...');
-            // @ts-ignore
-            const { data: lastProcessed, error: lastProcessedError } = await serverSupabase
-                .from('telegram_processed_messages')
-                .select('message_id')
-                .order('processed_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            let offsetId: number | undefined = undefined;
-            if (!lastProcessedError && lastProcessed && (lastProcessed as { message_id?: string }).message_id) {
-                // Если есть последнее обработанное сообщение, начинаем с него
-                offsetId = parseInt((lastProcessed as { message_id: string }).message_id, 10);
-                console.log(`  📌 Начинаем с сообщения ID: ${offsetId}`);
-            } else {
-                console.log('  🆕 Начинаем с самых новых сообщений');
-            }
-
             // Получаем канал с метаданными
             console.log('📡 Получаем канал с метаданными...');
             const channel = await this.telegramClient.getMetadataChannel();
@@ -58,17 +39,225 @@ export class TelegramMetadataService {
                 (channel.id as { toString: () => string }).toString() : 
                 String(channel.id);
 
-            // Получаем сообщения с пагинацией
-            console.log(`📥 Получаем сообщения (лимит: ${limit}, offsetId: ${offsetId})...`);
-            const messages = await this.telegramClient.getMessages(channelId, limit, offsetId) as unknown as Message[];
-            console.log(`✅ Получено ${messages.length} сообщений\n`);
+            // Получаем все сообщения с пагинацией
+            console.log('📥 Получаем все сообщения из канала...');
+            const allMessages = await this.telegramClient.getAllMessages(channelId, batchSize) as unknown as Message[];
+            console.log(`✅ Получено ${allMessages.length} сообщений для индексации`);
+
+            let indexed = 0;
+            let errors = 0;
+
+            // Обрабатываем каждое сообщение
+            for (const msg of allMessages) {
+                const anyMsg = msg as unknown as { [key: string]: unknown };
+                
+                try {
+                    // Парсим текст сообщения только для получения автора и названия
+                    let author: string | undefined;
+                    let title: string | undefined;
+                    
+                    if ((msg as { text?: string }).text) {
+                        const metadata = MetadataParser.parseMessage((msg as { text: string }).text);
+                        author = metadata.author;
+                        title = metadata.title;
+                    }
+
+                    // Добавляем запись в индекс
+                    try {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      const supabase: any = serverSupabase;
+                      const { error: upsertError } = await supabase
+                        .from('telegram_messages_index')
+                        .upsert({
+                            message_id: typeof anyMsg.id === 'number' ? anyMsg.id : parseInt(String(anyMsg.id), 10),
+                            channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '',
+                            author: author || null,
+                            title: title || null,
+                            updated_at: new Date().toISOString()
+                        }, {
+                            onConflict: 'message_id'
+                        });
+
+                      if (upsertError) {
+                          console.warn(`  ⚠️ Ошибка индексации сообщения ${anyMsg.id}:`, upsertError);
+                          errors++;
+                      } else {
+                          indexed++;
+                      }
+                    } catch (dbError) {
+                      console.warn(`  ⚠️ Ошибка при сохранении записи о сообщении:`, dbError);
+                      errors++;
+                    }
+
+                } catch (error) {
+                    console.warn(`  ⚠️ Ошибка обработки сообщения ${anyMsg.id}:`, error);
+                    errors++;
+                }
+            }
+
+            console.log(`📊 Индексация завершена: ${indexed} сообщений проиндексировано, ${errors} ошибок`);
+            return { indexed, errors };
+        } catch (error) {
+            console.error('Error in indexAllMessages:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Проверяет наличие новых сообщений в канале после последней обработки
+     * @returns ID самого нового сообщения или null, если не найдено
+     */
+    public async getLatestMessageId(): Promise<string | null> {
+        try {
+            // Now message_id is stored as BIGINT, so we can sort it directly
+            // @ts-ignore
+            const { data, error } = await serverSupabase
+                .from('telegram_messages_index')
+                .select('message_id')
+                .order('message_id', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error) {
+                console.warn('Ошибка при получении последнего сообщения:', error);
+                return null;
+            }
+
+            // Return the highest ID as string
+            return data ? (data as { message_id: number }).message_id.toString() : null;
+        } catch (error) {
+            console.error('Error in getLatestMessageId:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Получает ID последнего обработанного сообщения
+     * @returns ID последнего обработанного сообщения или null
+     */
+    public async getLastProcessedMessageId(): Promise<string | null> {
+        try {
+            // @ts-ignore
+            const { data, error } = await serverSupabase
+                .from('telegram_processed_messages')
+                .select('message_id')
+                .order('processed_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error) {
+                console.warn('Ошибка при получении последнего обработанного сообщения:', error);
+                return null;
+            }
+
+            return data ? (data as { message_id: string }).message_id : null;
+        } catch (error) {
+            console.error('Error in getLastProcessedMessageId:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Находит новые сообщения, которые еще не были обработаны
+     * @param limit Количество сообщений для обработки (по умолчанию 10)
+     * @returns Массив новых сообщений или пустой массив
+     */
+    public async findNewMessages(limit: number = 10): Promise<Array<{message_id: number, author: string | null, title: string | null}>> {
+        try {
+            // Получаем ID последнего обработанного сообщения
+            const lastProcessedIdStr = await this.getLastProcessedMessageId();
+            const lastProcessedId = lastProcessedIdStr ? parseInt(lastProcessedIdStr, 10) : 0;
+            
+            console.log(`🔍 Поиск новых сообщений после ID: ${lastProcessedId}`);
+            
+            // Находим сообщения с ID больше последнего обработанного
+            // @ts-ignore
+            const { data, error } = await serverSupabase
+                .from('telegram_messages_index')
+                .select('message_id, author, title')
+                .gt('message_id', lastProcessedId)
+                .order('message_id', { ascending: true })
+                .limit(limit);
+
+            if (error) {
+                console.warn('Ошибка при поиске новых сообщений:', error);
+                return [];
+            }
+
+            console.log(`✅ Найдено ${data?.length || 0} новых сообщений`);
+            return data || [];
+        } catch (error) {
+            console.error('Error in findNewMessages:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Синхронизирует книги из Telegram канала с учетом уже обработанных сообщений
+     * @param limit Количество сообщений для обработки (по умолчанию 10)
+     */
+    public async syncBooks(limit: number = 10): Promise<{ processed: number; added: number; updated: number; skipped: number; errors: number; details: unknown[] }> {
+        if (!this.telegramClient) {
+            throw new Error('Telegram client not initialized');
+        }
+
+        try {
+            console.log(`🚀 Начинаем синхронизацию новых книг (лимит: ${limit})`);
+            
+            // Находим новые сообщения
+            console.log('🔍 Поиск новых сообщений...');
+            const newMessages = await this.findNewMessages(limit);
+            
+            if (newMessages.length === 0) {
+                console.log('  ℹ️ Новых сообщений не найдено');
+                return {
+                    processed: 0,
+                    added: 0,
+                    updated: 0,
+                    skipped: 0,
+                    errors: 0,
+                    details: []
+                };
+            }
+
+            console.log(`✅ Найдено ${newMessages.length} новых сообщений для обработки\n`);
+            
+            // Получаем полные сообщения через Telegram API
+            console.log('📡 Получаем канал с метаданными...');
+            const channel = await this.telegramClient.getMetadataChannel();
+
+            // Convert BigInteger to string for compatibility
+            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
+                (channel.id as { toString: () => string }).toString() : 
+                String(channel.id);
+
+            // Получаем полные сообщения по их ID
+            console.log('📥 Получаем полные сообщения из Telegram...');
+            const fullMessages: Message[] = [];
+            
+            for (const msgInfo of newMessages) {
+                try {
+                    // @ts-ignore
+                    const fullMessage = await this.telegramClient.getMessageById(channelId, msgInfo.message_id);
+                    if (fullMessage) {
+                        fullMessages.push(fullMessage as unknown as Message);
+                        console.log(`  ✅ Получено сообщение ${msgInfo.message_id}`);
+                    } else {
+                        console.warn(`  ⚠️ Сообщение ${msgInfo.message_id} не найдено`);
+                    }
+                } catch (error) {
+                    console.warn(`  ⚠️ Ошибка получения сообщения ${msgInfo.message_id}:`, error);
+                }
+            }
+            
+            console.log(`✅ Получено ${fullMessages.length} полных сообщений\n`);
 
             // Парсим метаданные из каждого сообщения
             const metadataList: BookMetadata[] = [];
             const details: unknown[] = []; // Объявляем details здесь для использования в цикле
             
             // Обрабатываем каждое сообщение
-            for (const msg of messages) {
+            for (const msg of fullMessages) {
                 const anyMsg = msg as unknown as { [key: string]: unknown };
                 console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
 
@@ -272,7 +461,7 @@ export class TelegramMetadataService {
             // Выводим сводку
             console.log('\n📊 СВОДКА СИНХРОНИЗАЦИИ:');
             console.log(`   ========================================`);
-            console.log(`   Обработано сообщений: ${messages.length}`);
+            console.log(`   Обработано сообщений: ${fullMessages.length}`);
             console.log(`   Подготовлено метаданных: ${metadataList.length}`);
             console.log(`   Добавлено книг: ${resultImport.added}`);
             console.log(`   Обновлено книг: ${resultImport.updated}`);

@@ -241,4 +241,33 @@ export class TelegramService {
             console.error('Error disconnecting Telegram client:', error);
         }
     }
+
+    /**
+     * Получает конкретное сообщение по его ID
+     * @param chatId ID чата или канала
+     * @param messageId ID сообщения
+     * @returns Сообщение или null, если не найдено
+     */
+    public async getMessageById(chatId: any, messageId: number): Promise<unknown | null> {
+        try {
+            console.log(`🔍 Получение сообщения с ID ${messageId}...`);
+            
+            // Получаем конкретное сообщение по ID
+            const messages = await this.client.getMessages(chatId, { 
+                ids: [messageId] 
+            });
+            
+            // Возвращаем первое (и единственное) сообщение, если оно найдено
+            if (messages && messages.length > 0) {
+                console.log(`✅ Сообщение с ID ${messageId} найдено`);
+                return messages[0];
+            } else {
+                console.log(`⚠️ Сообщение с ID ${messageId} не найдено`);
+                return null;
+            }
+        } catch (error) {
+            console.error(`Ошибка при получении сообщения с ID ${messageId}:`, error);
+            return null;
+        }
+    }
 }

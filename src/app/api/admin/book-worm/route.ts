@@ -82,8 +82,30 @@ export async function POST(request: NextRequest) {
     const mode = body.mode;
 
     // Валидация режима
-    if (!mode || !['full', 'update'].includes(mode)) {
-      return NextResponse.json({ error: 'Invalid mode. Use "full" or "update"' }, { status: 400 });
+    if (!mode || !['full', 'update', 'index'].includes(mode)) {
+      return NextResponse.json({ error: 'Invalid mode. Use "full", "update", or "index"' }, { status: 400 });
+    }
+
+    // Для режима индексации выполняем индексацию сообщений непосредственно в этом запросе
+    if (mode === 'index') {
+      try {
+        // Создаем экземпляр сервиса
+        const bookWorm = new BookWormService();
+        
+        // Выполняем индексацию всех сообщений
+        const result = await bookWorm.indexAllMessages();
+        
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Telegram messages indexing completed',
+          mode,
+          result
+        });
+      } catch (indexError: unknown) {
+        console.error('Telegram messages indexing error:', indexError);
+        const errorMessage = indexError instanceof Error ? indexError.message : 'Unknown indexing error occurred';
+        return NextResponse.json({ error: 'Indexing error: ' + errorMessage }, { status: 500 });
+      }
     }
 
     // Для режима "update" выполняем синхронизацию непосредственно в этом запросе
