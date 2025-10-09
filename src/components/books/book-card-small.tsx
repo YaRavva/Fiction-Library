@@ -2,6 +2,7 @@ import { Book } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Star, BookOpen, Download } from 'lucide-react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 
 interface BookCardSmallProps {
   book: Book
@@ -12,6 +13,8 @@ interface BookCardSmallProps {
 }
 
 export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: BookCardSmallProps) {
+  const router = useRouter()
+  
   // Формируем URL обложки
   const coverUrl = book.cover_url || '/placeholder-cover.svg'
   
@@ -29,7 +32,8 @@ export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: B
         if (onSelect) {
           onSelect(book);
         } else {
-          onClick();
+          // Переходим на страницу книги
+          router.push(`/library/book?id=${book.id}`);
         }
       }}
     >

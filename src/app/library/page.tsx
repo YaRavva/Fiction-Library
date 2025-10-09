@@ -1,7 +1,7 @@
 'use client'
 
 import { getBrowserSupabase } from '@/lib/browserSupabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { Search, BookOpen, User, LogOut, Settings, Star, Download, Shield, Library, LayoutGrid, Grid3X3, Table, X } from 'lucide-react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
@@ -57,6 +57,7 @@ type ViewMode = 'large-cards' | 'small-cards' | 'table'
 export default function LibraryPage() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<Session['user'] | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [books, setBooks] = useState<Book[]>([])
@@ -67,8 +68,15 @@ export default function LibraryPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('large-cards')
   const [booksPerPage, setBooksPerPage] = useState(100)
   const [customBooksPerPage, setCustomBooksPerPage] = useState('100')
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
-  const [isBookModalOpen, setIsBookModalOpen] = useState(false)
+
+  // Проверяем, есть ли поисковый запрос в URL
+  useEffect(() => {
+    const search = searchParams.get('search')
+    if (search) {
+      setSearchQuery(search)
+      searchBooks(search, 1)
+    }
+  }, [searchParams])
 
   const loadBooks = useCallback(async (page = 1) => {
     try {
@@ -393,13 +401,8 @@ export default function LibraryPage() {
   }
 
   const handleBookClick = (book: Book) => {
-    // Если у книги есть файл, открываем его для чтения
-    if (book.file_url) {
-      incrementDownloads(book.id)
-      window.open(book.file_url, '_blank')
-    }
-    // TODO: Implement book detail view for books without files
-    console.log('Book clicked:', book)
+    // Navigate to the book detail page
+    router.push(`/library/book-table?id=${book.id}`)
   }
 
   const handleDownloadClick = (book: Book) => {
@@ -472,16 +475,6 @@ export default function LibraryPage() {
     } catch (error) {
       console.error('Error incrementing views:', error)
     }
-  }
-
-  const handleBookSelect = (book: Book) => {
-    setSelectedBook(book);
-    setIsBookModalOpen(true);
-  }
-
-  const closeBookModal = () => {
-    setIsBookModalOpen(false);
-    setSelectedBook(null);
   }
 
   if (loading) {
@@ -795,7 +788,6 @@ export default function LibraryPage() {
                       onClick={() => handleBookClick(book)} 
                       onRead={handleRead}
                       onTagClick={handleTagClick}
-                      onSelect={handleBookSelect}
                     />
                   ))}
                 </div>
@@ -815,27 +807,6 @@ export default function LibraryPage() {
 
           
         </div>
-
-        {/* Book Detail Modal */}
-        {isBookModalOpen && selectedBook && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <div className="relative max-w-4xl max-h-[90vh] overflow-y-auto bg-background rounded-lg shadow-xl">
-              <Button 
-                className="absolute top-2 right-2 h-8 w-8 p-0"
-                variant="outline"
-                onClick={closeBookModal}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <BookCardLarge 
-                book={selectedBook} 
-                onDownload={handleDownload}
-                onRead={handleRead}
-                onTagClick={handleTagClick}
-              />
-            </div>
-          </div>
-        )}
 
         {/* Bottom Pagination */}
         {totalBooks > (booksPerPage || totalBooks) && booksPerPage !== 0 && (

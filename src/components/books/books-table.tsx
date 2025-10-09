@@ -124,6 +124,7 @@ export function BooksTable({ books, onBookClick, onDownloadClick, onReadClick, o
       meta={{
         onTagClick
       }}
+      onRowClick={onBookClick}
     />
   )
 }
