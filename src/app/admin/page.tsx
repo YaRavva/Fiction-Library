@@ -691,14 +691,40 @@ export default function AdminPage() {
       const data = await response.json()
 
       if (response.ok) {
-        const finalReport = `${report}✅ Книжный Червь успешно запущен в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
-        setLastDownloadFilesReport(finalReport)
+        // Если это режим обновления, отображаем подробный отчет
+        if (mode === 'update' && data.result) {
+          // Используем подробный отчет из API, если он есть
+          const detailedReport = data.report || 
+            `🐋 Результаты работы Книжного Червя в режиме ОБНОВЛЕНИЯ:\n` +
+            `=====================================================\n\n` +
+            `📚 Метаданные:\n` +
+            `   ✅ Обработано: ${data.result.metadata.processed}\n` +
+            `   ➕ Добавлено: ${data.result.metadata.added}\n` +
+            `   🔄 Обновлено: ${data.result.metadata.updated}\n` +
+            `   ⚠️  Пропущено: ${data.result.metadata.skipped}\n` +
+            `   ❌ Ошибок: ${data.result.metadata.errors}\n\n` +
+            `📁 Файлы:\n` +
+            `   ✅ Обработано: ${data.result.files.processed}\n` +
+            `   🔗 Привязано: ${data.result.files.linked}\n` +
+            `   ⚠️  Пропущено: ${data.result.files.skipped}\n` +
+            `   ❌ Ошибок: ${data.result.files.errors}\n\n` +
+            `📊 Сводка:\n` +
+            `   Всего обработано элементов: ${data.result.metadata.processed + data.result.files.processed}\n` +
+            `   Успешных операций: ${data.result.metadata.added + data.result.metadata.updated + data.result.files.linked}\n` +
+            `   Ошибок: ${data.result.metadata.errors + data.result.files.errors}`;
+          
+          setLastDownloadFilesReport(detailedReport);
+        } else {
+          // Для полной синхронизации или других случаев
+          const finalReport = `${report}✅ Книжный Червь успешно запущен в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
+          setLastDownloadFilesReport(finalReport)
+        }
         
         // Обновляем статус
         setBookWormStatus({
-          status: 'running',
-          message: `Запущен в режиме ${mode}`,
-          progress: 0
+          status: 'completed',
+          message: `Завершен в режиме ${mode}`,
+          progress: 100
         });
       } else {
         throw new Error(data.error || 'Ошибка запуска Книжного Червя')
