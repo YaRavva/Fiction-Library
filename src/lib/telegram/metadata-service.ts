@@ -142,18 +142,39 @@ export class TelegramMetadataService {
 
                 // Проверяем наличие медиа в сообщении ТОЛЬКО если книга не существует
                 if (!bookExists && anyMsg.media) {
-                    console.log(`📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`);
-
+                    console.log(`  📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`);
+                    
+                    // Функция для повторных попыток загрузки с увеличенным таймаутом
+                    const downloadWithRetry = async (media: unknown, maxRetries = 3) => {
+                        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                console.log(`    → Попытка загрузки ${attempt}/${maxRetries}...`);
+                                if (!this.telegramClient) {
+                                    throw new Error('Telegram client not initialized');
+                                }
+                                const result = await Promise.race([
+                                    this.telegramClient.downloadMedia(media),
+                                    new Promise<never>((_, reject) => 
+                                        setTimeout(() => reject(new Error(`Timeout: Downloading media took too long (attempt ${attempt}/${maxRetries})`)), 60000)) // Увеличиваем до 60 секунд
+                                ]);
+                                return result;
+                            } catch (err: unknown) {
+                                console.warn(`    ⚠️ Попытка ${attempt} не удалась:`, err instanceof Error ? err.message : 'Unknown error');
+                                if (attempt === maxRetries) {
+                                    throw err; // Если все попытки неудачны, выбрасываем ошибку
+                                }
+                                // Ждем перед следующей попыткой
+                                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                            }
+                        }
+                    };
+                    
                     // Если это веб-превью (MessageMediaWebPage) - основной случай для обложек
                     if ((anyMsg.media as { className: string }).className === 'MessageMediaWebPage' && (anyMsg.media as { webpage?: { photo?: unknown } }).webpage?.photo) {
                         console.log(`  → Веб-превью с фото`);
                         try {
                             console.log(`  → Скачиваем фото из веб-превью...`);
-                            const result = await Promise.race([
-                                this.telegramClient.downloadMedia((anyMsg.media as { webpage: { photo: unknown } }).webpage.photo),
-                                new Promise<never>((_, reject) => 
-                                    setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000))
-                            ]);
+                            const result = await downloadWithRetry((anyMsg.media as { webpage: { photo: unknown } }).webpage.photo);
                             const photoBuffer = result instanceof Buffer ? result : null;
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
@@ -165,8 +186,8 @@ export class TelegramMetadataService {
                             } else {
                                 console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
                             }
-                        } catch (err) {
-                            console.error(`  ❌ Ошибка загрузки обложки из веб-превью:`, err);
+                        } catch (err: unknown) {
+                            console.error(`  ❌ Ошибка загрузки обложки из веб-превью:`, err instanceof Error ? err.message : 'Unknown error');
                         }
                     }
                     // Если это одно фото (MessageMediaPhoto)
@@ -174,12 +195,7 @@ export class TelegramMetadataService {
                         console.log(`  → Одиночное фото`);
                         try {
                             console.log(`  → Скачиваем фото...`);
-                            const result = await Promise.race([
-                                this.telegramClient.downloadMedia(msg),
-                                new Promise<never>((_, reject) => 
-                                    setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000)
-                                )
-                            ]);
+                            const result = await downloadWithRetry(msg);
                             const photoBuffer = result instanceof Buffer ? result : null;
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
@@ -191,8 +207,8 @@ export class TelegramMetadataService {
                             } else {
                                 console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
                             }
-                        } catch (err) {
-                            console.error(`  ❌ Ошибка загрузки обложки:`, err);
+                        } catch (err: unknown) {
+                            console.error(`  ❌ Ошибка загрузки обложки:`, err instanceof Error ? err.message : 'Unknown error');
                         }
                     }
                     // Если это документ с изображением
@@ -202,12 +218,7 @@ export class TelegramMetadataService {
                             console.log(`  → Одиночное изображение (документ: ${mimeType})`);
                             try {
                                 console.log(`  → Скачиваем изображение...`);
-                                const result = await Promise.race([
-                                    this.telegramClient.downloadMedia(msg),
-                                    new Promise<never>((_, reject) => 
-                                        setTimeout(() => reject(new Error('Timeout: Downloading media took too long')), 30000))
-                                ]);
-
+                                const result = await downloadWithRetry(msg);
                                 const photoBuffer = result instanceof Buffer ? result : null;
                                 if (photoBuffer) {
                                     const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
@@ -219,8 +230,8 @@ export class TelegramMetadataService {
                                 } else {
                                     console.warn(`  ⚠️ Не удалось скачать изображение (пустой буфер)`);
                                 }
-                            } catch (err) {
-                                console.error(`  ❌ Ошибка загрузки обложки:`, err);
+                            } catch (err: unknown) {
+                                console.error(`  ❌ Ошибка загрузки обложки:`, err instanceof Error ? err.message : 'Unknown error');
                             }
                         }
                     }

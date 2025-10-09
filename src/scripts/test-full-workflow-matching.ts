@@ -187,9 +187,12 @@ function extractMetadataFromFilename(filename: string): { author: string; title:
             const potentialAuthor = words.slice(0, i).join(' ');
             const potentialTitle = words.slice(i).join(' ');
 
+            // Нормализуем потенциальное название
+            const normalizedTitle = potentialTitle.normalize('NFC').toLowerCase();
+
             // Если потенциальное название содержит ключевые слова, характерные для названий
             const titleKeywords = ['цикл', ' saga', ' series', 'оксфордский', 'великий', 'мир', 'война', 'приключения'];
-            if (titleKeywords.some(keyword => potentialTitle.toLowerCase().includes(keyword))) {
+            if (titleKeywords.some(keyword => normalizedTitle.includes(keyword))) {
                 return { 
                     author: potentialAuthor, 
                     title: potentialTitle 
@@ -220,9 +223,11 @@ function extractMetadataFromFilename(filename: string): { author: string; title:
 function extractSearchTerms(filename: string): string[] {
     // Убираем расширение файла
     const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+    // Нормализуем строку в NFC форму для консистентности
+    const normalized = nameWithoutExt.normalize('NFC');
     
     // Разбиваем имя файла на слова
-    const words = nameWithoutExt
+    const words = normalized
         .split(/[_\-\s]+/) // Разделяем по пробелам, подчеркиваниям и дефисам
         .filter(word => word.length > 0) // Убираем пустые слова
         .map(word => word.trim()) // Убираем пробелы
@@ -241,34 +246,43 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
         return matches[0];
     }
     
+    // Нормализуем входные данные
+    const normalizedTitle = title.normalize('NFC');
+    const normalizedAuthor = author.normalize('NFC');
+    const normalizedSearchTerms = searchTerms.map(term => term.normalize('NFC'));
+    
     // Ранжируем совпадения по релевантности
     const rankedMatches = matches.map(book => {
         const bookItem = book as { title: string; author: string };
+        // Нормализуем данные книги
+        const normalizedBookTitle = bookItem.title.normalize('NFC');
+        const normalizedBookAuthor = bookItem.author.normalize('NFC');
+        
         let score = 0;
         
         // Проверяем точное совпадение названия (с очень высоким весом)
-        if (bookItem.title.toLowerCase() === title.toLowerCase()) {
+        if (normalizedBookTitle.toLowerCase() === normalizedTitle.toLowerCase()) {
             score += 50;
         }
         
         // Проверяем точное совпадение автора (с высоким весом)
-        if (bookItem.author.toLowerCase() === author.toLowerCase()) {
+        if (normalizedBookAuthor.toLowerCase() === normalizedAuthor.toLowerCase()) {
             score += 30;
         }
         
         // Проверяем совпадение по извлеченному названию (с высоким весом)
-        if (bookItem.title.toLowerCase().includes(title.toLowerCase())) {
+        if (normalizedBookTitle.toLowerCase().includes(normalizedTitle.toLowerCase())) {
             score += 20;
         }
         
         // Проверяем совпадение по извлеченному автору (с высоким весом)
-        if (bookItem.author.toLowerCase().includes(author.toLowerCase())) {
+        if (normalizedBookAuthor.toLowerCase().includes(normalizedAuthor.toLowerCase())) {
             score += 20;
         }
         
         // Проверяем, что оба элемента (название и автор) присутствуют
-        const titleInBook = bookItem.title.toLowerCase().includes(title.toLowerCase());
-        const authorInBook = bookItem.author.toLowerCase().includes(author.toLowerCase());
+        const titleInBook = normalizedBookTitle.toLowerCase().includes(normalizedTitle.toLowerCase());
+        const authorInBook = normalizedBookAuthor.toLowerCase().includes(normalizedAuthor.toLowerCase());
         
         // Если и название, и автор присутствуют, добавляем бонус
         if (titleInBook && authorInBook) {
@@ -277,12 +291,12 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
         
         // Добавляем проверку на частичное совпадение слов в названии
         // Разбиваем название книги на слова
-        const bookTitleWords = bookItem.title.toLowerCase().split(/\s+/).filter((word: string) => word.length > 2);
-        const searchTitleWords = title.toLowerCase().split(/\s+/).filter((word: string) => word.length > 2);
+        const bookTitleWords = normalizedBookTitle.toLowerCase().split(/\s+/).filter((word: string) => word.length > 2);
+        const searchTitleWords = normalizedTitle.toLowerCase().split(/\s+/).filter((word: string) => word.length > 2);
         let titleWordsMatchCount = 0;
         
         for (const word of searchTitleWords) {
-            if (bookItem.title.toLowerCase().includes(word)) {
+            if (normalizedBookTitle.toLowerCase().includes(word)) {
                 titleWordsMatchCount++;
             }
         }
@@ -300,11 +314,11 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
         ];
         
         const titleContainsFalsePositive = falsePositiveKeywords.some(keyword => 
-            bookItem.title.toLowerCase().includes(keyword) && !title.toLowerCase().includes(keyword)
+            normalizedBookTitle.toLowerCase().includes(keyword) && !normalizedTitle.toLowerCase().includes(keyword)
         );
         
         const searchTitleContainsFalsePositive = falsePositiveKeywords.some(keyword => 
-            title.toLowerCase().includes(keyword) && !bookItem.title.toLowerCase().includes(keyword)
+            normalizedTitle.toLowerCase().includes(keyword) && !normalizedBookTitle.toLowerCase().includes(keyword)
         );
         
         // Если есть ложные совпадения, уменьшаем счет
@@ -313,11 +327,11 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
         }
         
         // Проверяем совпадение по поисковым терминам
-        for (const term of searchTerms) {
-            if (bookItem.title.toLowerCase().includes(term.toLowerCase())) {
+        for (const term of normalizedSearchTerms) {
+            if (normalizedBookTitle.toLowerCase().includes(term.toLowerCase())) {
                 score += 5;
             }
-            if (bookItem.author.toLowerCase().includes(term.toLowerCase())) {
+            if (normalizedBookAuthor.toLowerCase().includes(term.toLowerCase())) {
                 score += 5;
             }
         }
@@ -325,7 +339,7 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
         // НОВОЕ: Проверяем включение всех слов из имени файла в название и автора книги
         // Это особенно важно когда автор = "Unknown"
         // Разбиваем извлеченное название на слова
-        const allWords = title.toLowerCase().split(/[_\-\s]+/).filter((word: string) => word.length > 2);
+        const allWords = normalizedTitle.toLowerCase().split(/[_\-\s]+/).filter((word: string) => word.length > 2);
         let allWordsInTitle = true;
         let allWordsInAuthor = true;
         let wordsFoundCount = 0;
@@ -334,14 +348,14 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
         
         for (const word of allWords) {
             // Проверяем включение слова в название книги
-            if (bookItem.title.toLowerCase().includes(word)) {
+            if (normalizedBookTitle.toLowerCase().includes(word)) {
                 wordsFoundCount++;
                 titleWordsFound++;
             } else {
                 allWordsInTitle = false;
             }
             // Проверяем включение слова в автора книги
-            if (bookItem.author.toLowerCase().includes(word)) {
+            if (normalizedBookAuthor.toLowerCase().includes(word)) {
                 wordsFoundCount++;
                 authorWordsFound++;
             } else {
@@ -367,7 +381,82 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
             score += 20; // Дополнительный бонус
         }
         
-        return { book: bookItem, score };
+        // НОВОЕ: Улучшенная проверка на совпадение названий с префиксом "цикл"
+        // Если извлеченное название не содержит "цикл", но название книги содержит "цикл",
+        // проверяем, совпадают ли остальные слова
+        if (!normalizedTitle.toLowerCase().includes('цикл') && normalizedBookTitle.toLowerCase().includes('цикл')) {
+            // Убираем префикс "цикл" из названия книги и проверяем совпадение
+            const bookTitleWithoutCycle = normalizedBookTitle.toLowerCase().replace('цикл', '').trim();
+            if (bookTitleWithoutCycle.includes(normalizedTitle.toLowerCase()) || 
+                normalizedTitle.toLowerCase().includes(bookTitleWithoutCycle)) {
+                score += 25; // Большой бонус за совпадение названия с префиксом "цикл"
+            } else {
+                // Проверяем совпадение слов
+                const titleWords = normalizedTitle.toLowerCase().split(/\s+/).filter((word: string) => word.length > 2);
+                const bookTitleWordsWithoutCycle = bookTitleWithoutCycle.split(/\s+/).filter((word: string) => word.length > 2);
+                let cycleWordsMatchCount = 0;
+                
+                for (const word of titleWords) {
+                    if (bookTitleWithoutCycle.includes(word)) {
+                        cycleWordsMatchCount++;
+                    }
+                }
+                
+                // Если совпадает более 50% слов, добавляем бонус
+                if (titleWords.length > 0 && cycleWordsMatchCount / titleWords.length >= 0.5) {
+                    score += 15;
+                }
+            }
+        }
+        
+        // НОВОЕ: Проверка на точное совпадение слов в названии (даже если порядок другой)
+        // Это особенно важно для случаев, когда название книги "цикл Великий Грайан",
+        // а извлеченное название "Великий Грайан"
+        const extractedTitleWords = normalizedTitle.toLowerCase().split(/\s+/).filter((word: string) => word.length > 2);
+        const bookTitleWordsFiltered = normalizedBookTitle.toLowerCase().split(/\s+/).filter((word: string) => word.length > 2);
+        let exactWordsMatchCount = 0;
+        
+        for (const word of extractedTitleWords) {
+            if (bookTitleWordsFiltered.includes(word)) {
+                exactWordsMatchCount++;
+            }
+        }
+        
+        // Если совпадают все слова из извлеченного названия, добавляем большой бонус
+        if (extractedTitleWords.length > 0 && exactWordsMatchCount === extractedTitleWords.length) {
+            score += 35; // Очень большой бонус за точное совпадение всех слов
+        }
+        // Если совпадает большинство слов, добавляем средний бонус
+        else if (extractedTitleWords.length > 0 && exactWordsMatchCount / extractedTitleWords.length >= 0.7) {
+            score += 25;
+        }
+        // Если совпадает более 50% слов, добавляем небольшой бонус
+        else if (extractedTitleWords.length > 0 && exactWordsMatchCount / extractedTitleWords.length >= 0.5) {
+            score += 15;
+        }
+        
+        // НОВОЕ: УЛУЧШЕННАЯ ЛОГИКА - проверяем каждое слово из поисковых терминов на вхождение
+        // как в название, так и в автора книги
+        let improvedWordMatchCount = 0;
+        for (const term of normalizedSearchTerms) {
+            const termLower = term.toLowerCase();
+            // Проверяем вхождение термина в название книги
+            if (normalizedBookTitle.toLowerCase().includes(termLower)) {
+                improvedWordMatchCount++;
+            }
+            // Проверяем вхождение термина в автора книги
+            if (normalizedBookAuthor.toLowerCase().includes(termLower)) {
+                improvedWordMatchCount++;
+            }
+        }
+        
+        // Добавляем бонус за количество совпадений слов
+        if (normalizedSearchTerms.length > 0) {
+            const matchRatio = improvedWordMatchCount / (normalizedSearchTerms.length * 2); // Максимум 100% совпадения
+            score += Math.floor(matchRatio * 40); // Максимум 40 баллов за совпадение слов
+        }
+        
+        return { book: {title: normalizedBookTitle, author: normalizedBookAuthor}, score };
     });
     
     // Сортируем по убыванию релевантности
@@ -379,12 +468,13 @@ function selectBestMatch(matches: any[], searchTerms: string[], title: string, a
     });
     
     // Возвращаем книгу с наивысшей релевантностью, но только если счет достаточно высок
-    if (rankedMatches[0].score >= 30) {
+    // СНИЖАЕМ порог релевантности до 25, чтобы учитывать улучшенные совпадения
+    if (rankedMatches[0].score >= 25) {
         return rankedMatches[0].book;
     }
     
     // Если нет книг с высокой релевантностью, возвращаем null
-    console.log(`  ⚠️  Нет книг с достаточной релевантностью (минимум 30)`);
+    console.log(`  ⚠️  Нет книг с достаточной релевантностью (минимум 25)`);
     return null;
 }
 
