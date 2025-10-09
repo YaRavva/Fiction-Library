@@ -124,6 +124,61 @@ export class TelegramService {
         }
     }
 
+    /**
+     * Получает все сообщения из канала с постраничной загрузкой
+     * @param chatId ID чата или канала
+     * @param batchSize Размер пакета для загрузки (по умолчанию 100)
+     * @returns Массив всех сообщений из канала
+     */
+    public async getAllMessages(chatId: any, batchSize: number = 100): Promise<unknown[]> {
+        try {
+            console.log(`📥 Получение всех сообщений из канала (пакетами по ${batchSize})...`);
+            
+            const allMessages: unknown[] = [];
+            let offsetId: number | undefined = undefined;
+            let batchCount = 0;
+            
+            while (true) {
+                batchCount++;
+                console.log(`   Загрузка пакета ${batchCount} сообщений (offsetId: ${offsetId || 'начало'})...`);
+                
+                // Получаем пакет сообщений
+                const messages = await this.client.getMessages(chatId, { 
+                    limit: batchSize,
+                    offsetId: offsetId,
+                    addOffset: 0
+                });
+                
+                // Если сообщений нет, выходим из цикла
+                if (messages.length === 0) {
+                    break;
+                }
+                
+                // Добавляем сообщения в общий массив
+                allMessages.push(...messages);
+                console.log(`   Получено ${messages.length} сообщений. Всего: ${allMessages.length}`);
+                
+                // Устанавливаем offsetId для следующего запроса
+                // Берем ID последнего сообщения в пакете
+                const lastMessage = messages[messages.length - 1] as { id?: number };
+                if (lastMessage.id) {
+                    offsetId = lastMessage.id;
+                } else {
+                    break;
+                }
+                
+                // Небольшая задержка между запросами, чтобы не перегружать Telegram API
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            console.log(`✅ Всего получено сообщений: ${allMessages.length}`);
+            return allMessages;
+        } catch (error) {
+            console.error('Error getting all messages:', error);
+            throw error;
+        }
+    }
+
     public async downloadFile(fileId: string): Promise<Buffer> {
         try {
             // This is a placeholder - we'll need to implement proper file downloading

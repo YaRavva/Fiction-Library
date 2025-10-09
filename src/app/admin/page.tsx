@@ -3,13 +3,13 @@
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, Database, BookOpen, Users, AlertCircle, CheckCircle, Clock, Library, LogOut, Settings, Shield, User, BarChart, TrendingUp, File, AlertTriangle } from 'lucide-react'
+import { RefreshCw, Database, BookOpen, Users, AlertCircle, CheckCircle, Clock, Library, LogOut, Settings, Shield, User, BarChart, TrendingUp, File, AlertTriangle, Play, RotateCw, Timer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-import { TimerSettings } from '@/components/admin/timer-settings'
+
 import { TelegramStatsSection } from '@/components/admin/telegram-stats'
 import { getValidSession } from '@/lib/auth-helpers'
 import {
@@ -91,6 +91,21 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [user, setUser] = useState<User | null>(null) // Fix: Replace any with User | null
+  
+  // Добавляем новые состояния для управления "Книжным Червем"
+  const [bookWormRunning, setBookWormRunning] = useState(false)
+  const [bookWormMode, setBookWormMode] = useState<'full' | 'update' | 'settings' | null>(null)
+  const [bookWormInterval, setBookWormInterval] = useState(30)
+  const [bookWormAutoUpdate, setBookWormAutoUpdate] = useState(false)
+  const [bookWormStatus, setBookWormStatus] = useState<{
+    status: 'idle' | 'running' | 'completed' | 'error';
+    message: string;
+    progress: number;
+  }>({
+    status: 'idle',
+    message: '',
+    progress: 0
+  });
 
   const loadSyncStatus = useCallback(async () => {
     try {
@@ -641,6 +656,110 @@ export default function AdminPage() {
     }
   }
 
+  // Функция для переключения автоматического обновления
+  const handleToggleAutoUpdate = () => {
+    setBookWormAutoUpdate(!bookWormAutoUpdate);
+  };
+
+  // Функция для запуска "Книжного Червя"
+  const handleRunBookWorm = async (mode: 'full' | 'update') => {
+    setBookWormRunning(true)
+    setBookWormMode(mode)
+    setError(null)
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
+
+      // Создаем отчет о запуске
+      const report = `🐋 Запуск Книжного Червя в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n`
+      setLastDownloadFilesReport(report)
+
+      // Вызываем API endpoint для запуска "Книжного Червя"
+      const response = await fetch('/api/admin/book-worm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ mode }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        const finalReport = `${report}✅ Книжный Червь успешно запущен в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
+        setLastDownloadFilesReport(finalReport)
+        
+        // Обновляем статус
+        setBookWormStatus({
+          status: 'running',
+          message: `Запущен в режиме ${mode}`,
+          progress: 0
+        });
+      } else {
+        throw new Error(data.error || 'Ошибка запуска Книжного Червя')
+      }
+    } catch (error) {
+      console.error('Book Worm error:', error)
+      setError(`Ошибка при выполнении Книжного Червя: ${(error as Error).message}`)
+      const errorReport = `🐋 Запуск Книжного Червя в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n❌ Ошибка: ${(error as Error).message}`
+      setLastDownloadFilesReport(errorReport)
+      
+      // Обновляем статус
+      setBookWormStatus({
+        status: 'error',
+        message: `Ошибка: ${(error as Error).message}`,
+        progress: 0
+      });
+    } finally {
+      setBookWormRunning(false)
+      setBookWormMode(null)
+    }
+  }
+
+  // Функция для проверки статуса "Книжного Червя"
+  const checkBookWormStatus = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        return
+      }
+
+      const response = await fetch('/api/admin/book-worm/status', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setBookWormStatus({
+          status: data.status,
+          message: data.message,
+          progress: data.progress
+        });
+      }
+    } catch (error) {
+      console.error('Error checking Book Worm status:', error)
+    }
+  }
+
+  // Периодически проверяем статус "Книжного Червя"
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (bookWormRunning || bookWormStatus.status === 'running') {
+        checkBookWormStatus()
+      }
+    }, 5000) // Проверяем каждые 5 секунд
+
+    return () => clearInterval(interval)
+  }, [bookWormRunning, bookWormStatus.status])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -757,55 +876,100 @@ export default function AdminPage() {
           <TelegramStatsSection />
         </div>
 
-        {/* Unified Sync Books and Download Files */}
+        {/* Unified Sync Books and Download Files - модифицируем этот блок */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Синхронизация</CardTitle>
             <CardDescription>
-              Синхронизировать книги и загрузить файлы
+              Управление синхронизацией данных
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* Поля ввода для синхронизации */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sync-limit">Лимит</Label>
-                  <Input
-                    id="sync-limit"
-                    type="number"
-                    min="1"
-                    max="1000"
-                    value={syncLimit}
-                    onChange={(e) => setSyncLimit(Math.max(1, Math.min(1000, Number(e.target.value) || 100)))}
-                    className="w-full"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Количество публикаций для синхронизации (1-1000)
-                  </p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Левая половина - текущий функционал */}
+              <div className="space-y-4">
+                {/* Поля ввода для синхронизации */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sync-limit">Лимит</Label>
+                    <Input
+                      id="sync-limit"
+                      type="number"
+                      min="1"
+                      max="1000"
+                      value={syncLimit}
+                      onChange={(e) => setSyncLimit(Math.max(1, Math.min(1000, Number(e.target.value) || 100)))}
+                      className="w-full"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Количество публикаций для синхронизации (1-1000)
+                    </p>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button
                     onClick={handleSyncBooks}
                     disabled={syncBooks}
-                    className="w-full flex items-center gap-2"
+                    className="w-full flex items-center gap-2 h-9 text-sm"
                   >
                     <RefreshCw className={`h-4 w-4 ${syncBooks ? 'animate-spin' : ''}`} />
                     {syncBooks ? 'Синхронизация книг...' : 'Загрузить книги'}
                   </Button>
-                </div>
-                <div className="flex-1">
                   <Button
                     onClick={handleDownloadFiles}
                     disabled={downloadFiles}
-                    className="w-full flex items-center gap-2"
+                    className="w-full flex items-center gap-2 h-9 text-sm"
                   >
                     <RefreshCw className={`h-4 w-4 ${downloadFiles ? 'animate-spin' : ''}`} />
                     {downloadFiles ? 'Загрузка файлов...' : 'Загрузить файлы'}
                   </Button>
+                </div>
+              </div>
+
+              {/* Правая половина - управление "Книжным Червем" */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Книжный червь</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button
+                      onClick={() => handleRunBookWorm('full')}
+                      disabled={bookWormRunning && bookWormMode === 'full'}
+                      className="w-full flex items-center gap-2 h-9 text-sm"
+                    >
+                      <Play className="h-4 w-4" />
+                      {bookWormRunning && bookWormMode === 'full' ? 'Полная синхронизация...' : 'Полная синхронизация'}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleRunBookWorm('update')}
+                      disabled={bookWormRunning && bookWormMode === 'update'}
+                      className="w-full flex items-center gap-2 h-9 text-sm"
+                    >
+                      <RotateCw className="h-4 w-4" />
+                      {bookWormRunning && bookWormMode === 'update' ? 'Обновление...' : 'Обновление'}
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="book-worm-interval" className="whitespace-nowrap">Интервал (минуты)</Label>
+                    <Input
+                      id="book-worm-interval"
+                      type="number"
+                      min="5"
+                      max="1440"
+                      value={bookWormInterval}
+                      onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
+                      className="w-24 h-8 text-sm"
+                    />
+                    <Button
+                      onClick={handleToggleAutoUpdate}
+                      variant={bookWormAutoUpdate ? "default" : "outline"}
+                      className="flex-1 h-8 text-sm"
+                    >
+                      {bookWormAutoUpdate ? 'Включено' : 'Выключено'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -864,10 +1028,7 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        {/* Timer Settings */}
-        <div className="mb-6">
-          <TimerSettings />
-        </div>
+        {/* Удаляем блок TimerSettings */}
         
         {/* Back to Library */}
         <div className="flex justify-center">
