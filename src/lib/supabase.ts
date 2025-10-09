@@ -338,7 +338,16 @@ export async function upsertBookRecord(book: Partial<Book>) {
     }
   }
   
-  // Если книга не найдена по релевантности или нет достаточных метаданных, не создаем новую запись
-  console.log(`⚠️  Книга не найдена и не будет создана автоматически`);
-  return null;
+  // Если книга не найдена по релевантности, создаем новую запись
+  console.log(`➕ Создаем новую книгу: title="${book.title}", author="${book.author}"`);
+  const { data: newBook, error: insertError } = await admin
+    .from('books')
+    .insert(book as any) // Приводим к any для обхода проблемы с типами
+    .select()
+    .single();
+
+  if (insertError) throw insertError;
+
+  console.log(`✅ Новая книга создана: ${(newBook as { id: string }).id}`);
+  return newBook;
 }
