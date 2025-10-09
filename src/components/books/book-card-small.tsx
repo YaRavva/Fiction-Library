@@ -8,9 +8,10 @@ interface BookCardSmallProps {
   onClick: () => void
   onRead: (book: Book) => void
   onTagClick?: (tag: string) => void
+  onSelect?: (book: Book) => void
 }
 
-export function BookCardSmall({ book, onClick, onRead, onTagClick }: BookCardSmallProps) {
+export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: BookCardSmallProps) {
   // Формируем URL обложки
   const coverUrl = book.cover_url || '/placeholder-cover.svg'
   
@@ -23,7 +24,14 @@ export function BookCardSmall({ book, onClick, onRead, onTagClick }: BookCardSma
   return (
     <div 
       className="w-full max-w-xs cursor-pointer hover:shadow-md transition-shadow flex flex-col h-full border rounded-lg bg-card text-card-foreground"
-      onClick={onClick}
+      onClick={(e) => {
+        // Проверяем, был ли клик по обложке или пустому пространству внутри карточки
+        if (onSelect) {
+          onSelect(book);
+        } else {
+          onClick();
+        }
+      }}
     >
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-t-lg">
         {isTripleCover() ? (

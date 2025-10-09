@@ -67,6 +67,8 @@ export default function LibraryPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('large-cards')
   const [booksPerPage, setBooksPerPage] = useState(100)
   const [customBooksPerPage, setCustomBooksPerPage] = useState('100')
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false)
 
   const loadBooks = useCallback(async (page = 1) => {
     try {
@@ -173,7 +175,7 @@ export default function LibraryPage() {
     return () => subscription.unsubscribe()
   }, [supabase, router, loadBooks, currentPage])
 
-  const searchBooks = async (query: string, page = 1) => {
+  const searchBooks = useCallback(async (query: string, page = 1) => {
     if (!query.trim()) {
       await loadBooks(page)
       return
@@ -239,10 +241,10 @@ export default function LibraryPage() {
     } catch (error) {
       console.error('Error searching books:', error)
     }
-  }
+  }, [supabase, booksPerPage, loadBooks])
 
   // Новая функция для поиска по тегам
-  const searchBooksByTag = async (tag: string, page = 1) => {
+  const searchBooksByTag = useCallback(async (tag: string, page = 1) => {
     try {
       // Проверяем, является ли тег специальным тегом "#вышеX"
       if (tag.startsWith('выше') && tag.length > 4) {
@@ -353,7 +355,7 @@ export default function LibraryPage() {
     } catch (error) {
       console.error('Error searching books by tag:', error);
     }
-  }
+  }, [supabase, booksPerPage])
 
   // Создаем новую функцию для обработки клика по тегу
   const handleTagClick = (tag: string) => {
@@ -470,6 +472,16 @@ export default function LibraryPage() {
     } catch (error) {
       console.error('Error incrementing views:', error)
     }
+  }
+
+  const handleBookSelect = (book: Book) => {
+    setSelectedBook(book);
+    setIsBookModalOpen(true);
+  }
+
+  const closeBookModal = () => {
+    setIsBookModalOpen(false);
+    setSelectedBook(null);
   }
 
   if (loading) {
@@ -783,6 +795,7 @@ export default function LibraryPage() {
                       onClick={() => handleBookClick(book)} 
                       onRead={handleRead}
                       onTagClick={handleTagClick}
+                      onSelect={handleBookSelect}
                     />
                   ))}
                 </div>
@@ -802,6 +815,27 @@ export default function LibraryPage() {
 
           
         </div>
+
+        {/* Book Detail Modal */}
+        {isBookModalOpen && selectedBook && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <div className="relative max-w-4xl max-h-[90vh] overflow-y-auto bg-background rounded-lg shadow-xl">
+              <Button 
+                className="absolute top-2 right-2 h-8 w-8 p-0"
+                variant="outline"
+                onClick={closeBookModal}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <BookCardLarge 
+                book={selectedBook} 
+                onDownload={handleDownload}
+                onRead={handleRead}
+                onTagClick={handleTagClick}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Bottom Pagination */}
         {totalBooks > (booksPerPage || totalBooks) && booksPerPage !== 0 && (
