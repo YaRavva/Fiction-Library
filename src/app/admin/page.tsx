@@ -374,53 +374,50 @@ export default function AdminPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {/* Режимы синхронизации */}
-              <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center justify-between gap-6">
+              {/* Управление Книжным червем */}
+              <div className="flex items-center gap-3">
                 <Button
                   onClick={() => handleRunBookWorm('full')}
                   disabled={bookWormRunning && bookWormMode === 'full'}
-                  className="h-10"
+                  size="sm"
                 >
-                  Полная синхронизация
+                  Полная
                 </Button>
 
                 <Button
                   onClick={() => handleRunBookWorm('update')}
                   disabled={bookWormRunning && bookWormMode === 'update'}
                   variant="outline"
-                  className="h-10"
+                  size="sm"
                 >
                   Обновление
                 </Button>
               </div>
 
               {/* Настройки таймера */}
-              <div className="pt-4 border-t space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="book-worm-interval" className="text-sm">
-                    Интервал (минуты)
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="book-worm-interval"
-                      type="number"
-                      min="5"
-                      max="1440"
-                      value={bookWormInterval}
-                      onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
-                      className="w-20 h-8 text-sm"
-                    />
-                    <Button
-                      onClick={handleToggleAutoUpdate}
-                      variant={bookWormAutoUpdate ? "default" : "outline"}
-                      size="sm"
-                      className="h-8"
-                    >
-                      {bookWormAutoUpdate ? 'Включено' : 'Выключено'}
-                    </Button>
-                  </div>
-                </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="book-worm-interval" className="text-sm whitespace-nowrap">
+                  Таймер:
+                </Label>
+                <Input
+                  id="book-worm-interval"
+                  type="number"
+                  min="5"
+                  max="1440"
+                  value={bookWormInterval}
+                  onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
+                  className="w-20 h-8 text-sm"
+                />
+                <span className="text-sm text-muted-foreground">мин</span>
+                <Button
+                  onClick={handleToggleAutoUpdate}
+                  variant={bookWormAutoUpdate ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                >
+                  {bookWormAutoUpdate ? 'ВКЛ' : 'ВЫКЛ'}
+                </Button>
               </div>
             </div>
           </CardContent>
