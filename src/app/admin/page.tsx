@@ -23,40 +23,6 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 
-interface SyncStatus {
-  id: string
-  channel_id: string
-  last_message_id: string
-  last_sync_at: string
-  error_count: number
-  is_active: boolean
-}
-
-interface SyncStats {
-  totalBooks: number
-  totalSeries: number
-}
-
-interface SyncProgress {
-  totalBooks: number
-  processedBooks: number
-  unprocessedBooks: number
-  processedMessages: number
-  completionPercentage: number
-  recentUnprocessed: {
-    id: string
-    title: string
-    author: string
-    created_at: string
-  }[]
-}
-
-interface SyncResult {
-  success: number
-  failed: number
-  errors: string[]
-  actions?: string[]
-}
 
 interface UserProfile {
   id: string
@@ -76,23 +42,7 @@ export default function AdminPage() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
-  const [syncBooks, setSyncBooks] = useState(false)
-  const [downloadFiles, setDownloadFiles] = useState(false)
-  const [checkingProgress, setCheckingProgress] = useState(false)
-  const [syncLimit, setSyncLimit] = useState(100) // Изменено на 100 по умолчанию
-  const [syncHistory, setSyncHistory] = useState<SyncStatus[]>([])
-  const [stats, setStats] = useState<SyncStats>({ totalBooks: 0, totalSeries: 0 })
-  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null)
-  const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
-  const [lastSyncBooksResult, setLastSyncBooksResult] = useState<SyncResult | null>(null)
-  const [lastDownloadFilesResult, setLastDownloadFilesResult] = useState<SyncResult | null>(null)
-  const [lastDownloadFilesReport, setLastDownloadFilesReport] = useState<string | null>(null) // Добавляем состояние для отчета
-  const [error, setError] = useState<string | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [user, setUser] = useState<User | null>(null) // Fix: Replace any with User | null
-  
-  // Добавляем новые состояния для управления "Книжным Червем"
+  // Состояния только для Книжного червя
   const [bookWormRunning, setBookWormRunning] = useState(false)
   const [bookWormMode, setBookWormMode] = useState<'full' | 'update' | 'settings' | null>(null)
   const [bookWormInterval, setBookWormInterval] = useState(30)
@@ -106,83 +56,11 @@ export default function AdminPage() {
     message: '',
     progress: 0
   });
+  const [lastBookWormReport, setLastBookWormReport] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [user, setUser] = useState<User | null>(null)
 
-  // Добавляем состояние для быстрого обновления индекса
-  const [quickIndexUpdating, setQuickIndexUpdating] = useState(false);
-
-  // Функция для установки отчета об обновлении статистики
-  const setStatsUpdateReport = useCallback((report: string) => {
-    setLastDownloadFilesReport(report);
-  }, []);
-
-  const loadSyncStatus = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
-
-      // Add timeout to the fetch request
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-
-      const response = await fetch('/api/admin/sync', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-
-      if (response.ok) {
-        const data = await response.json()
-        setSyncHistory(data.syncHistory || [])
-        setStats(data.stats || { totalBooks: 0, totalSeries: 0 })
-      } else if (response.status === 403) {
-        setError('У вас нет прав доступа к админ панели')
-      }
-    } catch (error: unknown) { // Fix: Replace any with unknown
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('Error loading sync status:', error)
-        setError('Ошибка загрузки статуса синхронизации')
-      }
-    }
-  }, [supabase, router])
-
-  const loadSyncProgress = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        return
-      }
-
-      // Add timeout to the fetch request
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-
-      const response = await fetch('/api/admin/sync-progress', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-
-      if (response.ok) {
-        const data = await response.json()
-        setSyncProgress(data.stats || null)
-      }
-    } catch (error: unknown) { // Fix: Replace any with unknown
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('Error loading sync progress:', error)
-      }
-    }
-  }, [supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -224,8 +102,6 @@ export default function AdminPage() {
         }
 
         setUserProfile(profile)
-        await loadSyncStatus()
-        await loadSyncProgress()
       } catch (error) {
         console.error('Error checking auth:', error)
         router.push('/auth/login')
@@ -248,504 +124,11 @@ export default function AdminPage() {
         delete window.setStatsUpdateReport;
       }
     };
-  }, [supabase, router, loadSyncStatus, loadSyncProgress, setStatsUpdateReport])
+  }, [supabase, router])
 
-  const handleSync = async () => {
-    setSyncing(true)
-    setError(null)
-    setLastSyncResult(null)
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
 
-      const response = await fetch('/api/admin/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          limit: syncLimit,
-          channelType: 'metadata',
-        }),
-      })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        setLastSyncResult(data.results)
-        await loadSyncStatus()
-        await loadSyncProgress()
-      } else {
-        setError(data.error || 'Ошибка синхронизации')
-      }
-    } catch (error) {
-      console.error('Sync error:', error)
-      setError('Ошибка при выполнении синхронизации')
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  const handleSyncBooks = async () => {
-    setSyncBooks(true)
-    setError(null)
-    setLastSyncBooksResult(null)
-    setLastDownloadFilesReport(null) // Используем для отображения прогресса синхронизации
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
-
-      // Отладочный вывод
-      console.log(`🔍 Запуск индексации сообщений Telegram`);
-
-      // Запускаем индексацию сообщений Telegram
-      const startResponse = await fetch('/api/admin/index-posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ limit: 100 }), // Фиксированный лимит 100
-      })
-
-      const startData = await startResponse.json()
-
-      if (!startResponse.ok) {
-        setError(startData.error || 'Ошибка запуска индексации сообщений')
-        return
-      }
-
-      // Получаем ID операции
-      const { operationId } = startData
-
-      // Периодически проверяем статус операции
-      let isCompleted = false
-      let lastProgressReport = ''
-      
-      // Начальный отчет
-      let progressReport = `🚀 Индексация сообщений Telegram  taskId: ${operationId}\n\n📥 Получение сообщений для индексации...\n`
-      setLastDownloadFilesReport(progressReport)
-      lastProgressReport = progressReport
-
-      while (!isCompleted) {
-        // Ждем 1.5 секунды перед следующей проверкой
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        
-        // Проверяем статус операции
-        const statusResponse = await fetch(`/api/admin/index-posts?operationId=${operationId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        })
-
-        // Проверяем, существует ли ответ
-        if (!statusResponse) {
-          setError('Не удалось получить статус операции')
-          isCompleted = true
-          break
-        }
-
-        const statusData = await statusResponse.json()
-
-        if (!statusResponse.ok) {
-          setError(statusData.error || 'Ошибка получения статуса операции')
-          isCompleted = true
-          break
-        }
-
-        // Формируем отчет с прогрессом
-        let currentProgressReport = `🚀 Индексация сообщений Telegram  taskId: ${operationId}\n\n`
-        currentProgressReport += `${statusData.message || ''}\n`
-        
-        // Добавляем статус и прогресс
-        if (!statusData.message?.includes('🏁')) {
-          currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
-        }
-        
-        // Обновляем отчет только если он изменился
-        if (currentProgressReport !== lastProgressReport) {
-          setLastDownloadFilesReport(currentProgressReport)
-          lastProgressReport = currentProgressReport
-        }
-
-        // Проверяем, завершена ли операция
-        if (statusData.status === 'completed' || statusData.status === 'failed') {
-          isCompleted = true
-          
-          if (statusData.status === 'completed') {
-            setLastSyncBooksResult({
-              success: statusData.result?.indexedCount || 0,
-              failed: statusData.result?.errorCount || 0,
-              errors: [],
-              actions: []
-            })
-            
-            // Финальный отчет
-            let finalReport = `🚀 Результаты индексации сообщений Telegram\n\n`
-            finalReport += `📊 Статистика:\n`
-            finalReport += `  ✅ Проиндексировано: ${statusData.result?.indexedCount || 0}\n`
-            finalReport += `  ❌ Ошибки: ${statusData.result?.errorCount || 0}\n`
-            setLastDownloadFilesReport(finalReport)
-          } else {
-            setError(statusData.message || 'Операция завершена с ошибкой')
-            
-            // Отчет об ошибке
-            let errorReport = `🚀 Индексация сообщений Telegram  taskId: ${operationId}\n\n`
-            errorReport += `❌ Статус: ${statusData.status}\n`
-            errorReport += `💬 Ошибка: ${statusData.message}\n`
-            setLastDownloadFilesReport(errorReport)
-          }
-        }
-      }
-      
-      await loadSyncStatus()
-      await loadSyncProgress()
-      // Обновляем статистику после синхронизации
-      // @ts-ignore
-      if (typeof window.refreshSyncStats === 'function') {
-        // @ts-ignore
-        window.refreshSyncStats()
-      }
-    } catch (error: unknown) {
-      console.error('Index posts error:', error)
-      setError('Ошибка при выполнении индексации сообщений')
-      
-      // Отчет об ошибке
-      let errorReport = `🚀 Индексация сообщений Telegram\n`
-      errorReport += `❌ Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n`
-      setLastDownloadFilesReport(errorReport)
-    } finally {
-      setSyncBooks(false)
-    }
-  }
-
-  // Функция для быстрого обновления индекса
-  const handleQuickIndexUpdate = async () => {
-    setQuickIndexUpdating(true)
-    setError(null)
-    setLastDownloadFilesReport(null)
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
-
-      console.log(`🔍 Запуск быстрого обновления индекса сообщений Telegram`);
-
-      // Запускаем быстрое обновление индекса
-      const startResponse = await fetch('/api/admin/quick-index-update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      })
-
-      const startData = await startResponse.json()
-
-      if (!startResponse.ok) {
-        setError(startData.error || 'Ошибка запуска быстрого обновления индекса')
-        return
-      }
-
-      // Получаем ID операции
-      const { operationId } = startData
-
-      // Периодически проверяем статус операции
-      let isCompleted = false
-      let lastProgressReport = ''
-      
-      // Начальный отчет
-      let progressReport = `🚀 Быстрое обновление индекса Telegram  taskId: ${operationId}\n\n🔍 Проверка наличия новых сообщений...\n`
-      setLastDownloadFilesReport(progressReport)
-      lastProgressReport = progressReport
-
-      while (!isCompleted) {
-        // Ждем 1.5 секунды перед следующей проверкой
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        
-        // Проверяем статус операции
-        const statusResponse = await fetch(`/api/admin/quick-index-update?operationId=${operationId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        })
-
-        // Проверяем, существует ли ответ
-        if (!statusResponse) {
-          setError('Не удалось получить статус операции')
-          isCompleted = true
-          break
-        }
-
-        const statusData = await statusResponse.json()
-
-        if (!statusResponse.ok) {
-          setError(statusData.error || 'Ошибка получения статуса операции')
-          isCompleted = true
-          break
-        }
-
-        // Формируем отчет с прогрессом
-        let currentProgressReport = `🚀 Быстрое обновление индекса Telegram  taskId: ${operationId}\n\n`
-        currentProgressReport += `${statusData.message || ''}\n`
-        
-        // Добавляем статус и прогресс
-        if (!statusData.message?.includes('🏁')) {
-          currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
-        }
-        
-        // Обновляем отчет только если он изменился
-        if (currentProgressReport !== lastProgressReport) {
-          setLastDownloadFilesReport(currentProgressReport)
-          lastProgressReport = currentProgressReport
-        }
-
-        // Проверяем, завершена ли операция
-        if (statusData.status === 'completed' || statusData.status === 'failed') {
-          isCompleted = true
-          
-          if (statusData.status === 'completed') {
-            // Финальный отчет
-            let finalReport = `🚀 Результаты быстрого обновления индекса Telegram\n\n`
-            if (statusData.result?.newMessagesFound) {
-              finalReport += `✅ Найдено и проиндексировано новых сообщений: ${statusData.result.indexedCount}\n`
-            } else {
-              finalReport += `✅ Новых сообщений не найдено\n`
-            }
-            finalReport += `❌ Ошибок: ${statusData.result?.errorCount || 0}\n`
-            setLastDownloadFilesReport(finalReport)
-          } else {
-            setError(statusData.message || 'Операция завершена с ошибкой')
-            
-            // Отчет об ошибке
-            let errorReport = `🚀 Быстрое обновление индекса Telegram  taskId: ${operationId}\n\n`
-            errorReport += `❌ Статус: ${statusData.status}\n`
-            errorReport += `💬 Ошибка: ${statusData.message}\n`
-            setLastDownloadFilesReport(errorReport)
-          }
-        }
-      }
-      
-      await loadSyncStatus()
-      await loadSyncProgress()
-    } catch (error: unknown) {
-      console.error('Quick index update error:', error)
-      setError('Ошибка при выполнении быстрого обновления индекса')
-      
-      // Отчет об ошибке
-      let errorReport = `🚀 Быстрое обновление индекса Telegram\n`
-      errorReport += `❌ Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n`
-      setLastDownloadFilesReport(errorReport)
-    } finally {
-      setQuickIndexUpdating(false)
-    }
-  }
-
-  const handleDownloadFiles = async () => {
-    setDownloadFiles(true)
-    setError(null)
-    setLastDownloadFilesResult(null)
-    setLastDownloadFilesReport(null) // Очищаем предыдущий отчет
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
-
-      // Запускаем асинхронную загрузку файлов
-      const startResponse = await fetch('/api/admin/download-files', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ limit: syncLimit }), // Передаем лимит из поля ввода
-      })
-
-      const startData = await startResponse.json()
-
-      if (!startResponse.ok) {
-        setError(startData.error || 'Ошибка запуска загрузки файлов')
-        return
-      }
-
-      // Получаем ID операции
-      const { operationId } = startData
-
-      // Периодически проверяем статус операции
-      let isCompleted = false
-      let lastProgressReport = ''
-      
-      // Начальный отчет
-      let progressReport = `🚀 Загрузка файлов (лимит: ${syncLimit})  taskId: ${operationId}\n\n📥 Получение списка файлов для загрузки...\n`
-      setLastDownloadFilesReport(progressReport)
-      lastProgressReport = progressReport
-
-      while (!isCompleted) {
-        // Ждем 1.5 секунды перед следующей проверкой
-        await new Promise(resolve => setTimeout(resolve, 1500))
-        
-        // Проверяем статус операции
-        const statusResponse = await fetch(`/api/admin/download-files?operationId=${operationId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        })
-
-        // Проверяем, существует ли ответ
-        if (!statusResponse) {
-          setError('Не удалось получить статус операции')
-          isCompleted = true
-          break
-        }
-
-        const statusData = await statusResponse.json()
-
-        if (!statusResponse.ok) {
-          // Если операция не найдена, продолжаем polling
-          if (statusResponse.status === 404 && statusData.error === 'Operation not found') {
-            // Просто продолжаем polling, задача может еще не быть зарегистрирована
-            continue
-          }
-          
-          setError(statusData.error || 'Ошибка получения статуса операции')
-          isCompleted = true
-          break
-        }
-
-        // Формируем отчет с прогрессом
-        let currentProgressReport = `🚀 Загрузка файлов (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
-        
-        // Разбираем сообщение на строки для правильного отображения
-        const messageLines = statusData.message ? statusData.message.split('\n') : []
-        if (messageLines.length > 0) {
-          // Обрабатываем строки с обработанными файлами
-          let inHistorySection = false
-          for (let i = 0; i < messageLines.length; i++) {
-            const line = messageLines[i]
-            if (line.includes('✅') || line.includes('❌') || line.includes('⚠️')) {
-              // Это строка с обработанным файлом
-              currentProgressReport += `${line}\n`
-              inHistorySection = true
-            } else if (inHistorySection && line.trim() === '') {
-              // Пропускаем пустую строку после истории
-              continue
-            } else if (inHistorySection && (line.includes('📊 Прогресс:') || line.includes('🏁 Завершено:'))) {
-              // Это строка с прогрессом или финальным сообщением
-              currentProgressReport += `\n${line}\n`
-              inHistorySection = false
-            } else if (!inHistorySection && line.trim() !== '') {
-              // Это другая строка (например, текущий файл)
-              currentProgressReport += `${line}\n`
-            }
-          }
-        } else {
-          currentProgressReport += `${statusData.message || ''}\n`
-        }
-        
-        // Добавляем статус и прогресс
-        if (!statusData.message?.includes('📊 Прогресс:') && !statusData.message?.includes('🏁 Завершено:')) {
-          currentProgressReport += `\n📊 Статус: ${statusData.status}  📈 Прогресс: ${statusData.progress}%\n`
-        }
-        
-        // Обновляем отчет только если он изменился
-        if (currentProgressReport !== lastProgressReport) {
-          setLastDownloadFilesReport(currentProgressReport)
-          lastProgressReport = currentProgressReport
-        }
-
-        // Проверяем, завершена ли операция
-        if (statusData.status === 'completed' || statusData.status === 'failed') {
-          isCompleted = true
-          
-          if (statusData.status === 'completed') {
-            setLastDownloadFilesResult(statusData.results)
-            
-            // Финальный отчет
-            let finalReport = `🚀 Загрузка файлов завершена (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
-            
-            if (statusData.report) {
-              // Используем предоставленный отчет
-              finalReport += statusData.report
-            } else if (statusData.result && statusData.result.results) {
-              // Формируем финальный отчет из результата
-              finalReport += `📊 Статистика:\n`
-              finalReport += `  ✅ Успешно: ${statusData.result.successCount || 0}\n`
-              finalReport += `  ❌ Ошибки: ${statusData.result.failedCount || 0}\n`
-              finalReport += `  ⚠️  Пропущено: ${statusData.result.skippedCount || 0}\n`
-              finalReport += `  📚 Всего: ${statusData.result.totalFiles || statusData.result.results.length}\n\n`
-              
-              // Добавляем историю обработанных файлов
-              const messageLines = statusData.message ? statusData.message.split('\n') : []
-              for (const line of messageLines) {
-                if (line.includes('✅') || line.includes('❌') || line.includes('⚠️')) {
-                  finalReport += `${line}\n`
-                }
-              }
-            }
-            
-            setLastDownloadFilesReport(finalReport)
-          } else {
-            setError(statusData.message || 'Операция завершена с ошибкой')
-            
-            // Отчет об ошибке
-            let errorReport = `🚀 Загрузка файлов (лимит: ${syncLimit})  taskId: ${operationId}\n\n`
-            errorReport += `❌ Статус: ${statusData.status}\n`
-            errorReport += `💬 Ошибка: ${statusData.message}\n`
-            setLastDownloadFilesReport(errorReport)
-          }
-        }
-      }
-      
-      await loadSyncStatus()
-      
-      // Обновляем статистику после загрузки файлов
-      // @ts-ignore
-      if (typeof window.refreshSyncStats === 'function') {
-        // @ts-ignore
-        window.refreshSyncStats()
-      }
-    } catch (error: unknown) {
-      console.error('Ошибка загрузки файлов:', error)
-      setError('Ошибка при выполнении загрузки файлов')
-      
-      // Отчет об ошибке
-      let errorReport = `🚀 Загрузка файлов (лимит: ${syncLimit})\n`
-      errorReport += `❌ Ошибка: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}\n`
-      setLastDownloadFilesReport(errorReport)
-    } finally {
-      setDownloadFiles(false)
-    }
-  }
-
-  const handleCheckProgress = async () => {
-    setCheckingProgress(true)
-    try {
-      await loadSyncProgress()
-    } catch (error) {
-      console.error('Check progress error:', error)
-      setError('Ошибка при проверке прогресса')
-    } finally {
-      setCheckingProgress(false)
-    }
-  }
 
   // Функция для переключения автоматического обновления
   const handleToggleAutoUpdate = () => {
@@ -767,7 +150,7 @@ export default function AdminPage() {
 
       // Создаем отчет о запуске
       const report = `🐋 Запуск Книжного Червя в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n`
-      setLastDownloadFilesReport(report)
+      setLastBookWormReport(report)
 
       // Вызываем API endpoint для запуска "Книжного Червя"
       const response = await fetch('/api/admin/book-worm', {
@@ -804,11 +187,11 @@ export default function AdminPage() {
             `   Успешных операций: ${data.result.metadata.added + data.result.metadata.updated + data.result.files.linked}\n` +
             `   Ошибок: ${data.result.metadata.errors + data.result.files.errors}`;
           
-          setLastDownloadFilesReport(detailedReport);
+          setLastBookWormReport(detailedReport);
         } else {
           // Для полной синхронизации или других случаев
           const finalReport = `${report}✅ Книжный Червь успешно запущен в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
-          setLastDownloadFilesReport(finalReport)
+          setLastBookWormReport(finalReport)
         }
         
         // Обновляем статус
@@ -824,7 +207,7 @@ export default function AdminPage() {
       console.error('Book Worm error:', error)
       setError(`Ошибка при выполнении Книжного Червя: ${(error as Error).message}`)
       const errorReport = `🐋 Запуск Книжного Червя в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n❌ Ошибка: ${(error as Error).message}`
-      setLastDownloadFilesReport(errorReport)
+      setLastBookWormReport(errorReport)
       
       // Обновляем статус
       setBookWormStatus({
@@ -888,7 +271,7 @@ export default function AdminPage() {
     )
   }
 
-  if (error && !syncing) {
+  if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="max-w-md">
@@ -993,106 +376,138 @@ export default function AdminPage() {
           <TelegramStatsSection />
         </div>
 
-        {/* Unified Sync Books and Download Files - модифицируем этот блок */}
+        {/* Книжный червь - упрощенный интерфейс */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Синхронизация</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-6 w-6 text-blue-500" />
+              Книжный червь
+            </CardTitle>
             <CardDescription>
-              Управление синхронизацией данных
+              Интеллектуальная синхронизация книг с Telegram каналом
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Левая половина - текущий функционал */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-6">
+              {/* Основные режимы работы */}
+              <div>
+                <h3 className="text-lg font-medium mb-4">Режимы синхронизации</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button
-                    onClick={handleSyncBooks}
-                    disabled={syncBooks}
-                    className="w-full flex items-center gap-2 h-9 text-sm"
+                    onClick={() => handleRunBookWorm('full')}
+                    disabled={bookWormRunning && bookWormMode === 'full'}
+                    className="w-full h-16 flex flex-col items-center gap-2 text-sm"
+                    size="lg"
                   >
-                    <RefreshCw className={`h-4 w-4 ${syncBooks ? 'animate-spin' : ''}`} />
-                    {syncBooks ? 'Полная индексация...' : 'Полная индексация'}
+                    <div className="flex items-center gap-2">
+                      <Play className={`h-5 w-5 ${bookWormRunning && bookWormMode === 'full' ? 'animate-pulse' : ''}`} />
+                      <span className="font-medium">Полная синхронизация</span>
+                    </div>
+                    <span className="text-xs opacity-80">
+                      {bookWormRunning && bookWormMode === 'full'
+                        ? 'Выполняется полная обработка...'
+                        : 'Обработка всех данных с самого начала'
+                      }
+                    </span>
                   </Button>
+
                   <Button
-                    onClick={handleDownloadFiles}
-                    disabled={downloadFiles}
-                    className="w-full flex items-center gap-2 h-9 text-sm"
+                    onClick={() => handleRunBookWorm('update')}
+                    disabled={bookWormRunning && bookWormMode === 'update'}
+                    className="w-full h-16 flex flex-col items-center gap-2 text-sm"
+                    size="lg"
+                    variant="outline"
                   >
-                    <RefreshCw className={`h-4 w-4 ${downloadFiles ? 'animate-spin' : ''}`} />
-                    {downloadFiles ? 'Загрузка файлов...' : 'Загрузить файлы'}
+                    <div className="flex items-center gap-2">
+                      <RotateCw className={`h-5 w-5 ${bookWormRunning && bookWormMode === 'update' ? 'animate-spin' : ''}`} />
+                      <span className="font-medium">Обновление</span>
+                    </div>
+                    <span className="text-xs opacity-80">
+                      {bookWormRunning && bookWormMode === 'update'
+                        ? 'Проверка новых данных...'
+                        : 'Проверка только новых сообщений'
+                      }
+                    </span>
                   </Button>
-                </div>
-                
-                {/* Новая группа кнопок для индексации метаданных */}
-                <div className="pt-4 border-t">
-                  <h3 className="text-lg font-medium mb-2">Индексация метаданных</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleSyncBooks}
-                      disabled={syncBooks}
-                      className="w-full flex items-center gap-2 h-9 text-sm"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${syncBooks ? 'animate-spin' : ''}`} />
-                      {syncBooks ? 'Полная...' : 'Полная'}
-                    </Button>
-                    <Button
-                      onClick={handleQuickIndexUpdate}
-                      disabled={quickIndexUpdating}
-                      className="w-full flex items-center gap-2 h-9 text-sm"
-                    >
-                      <RotateCw className={`h-4 w-4 ${quickIndexUpdating ? 'animate-spin' : ''}`} />
-                      {quickIndexUpdating ? 'Обновление...' : 'Обновить'}
-                    </Button>
-                  </div>
                 </div>
               </div>
 
-              {/* Правая половина - управление "Книжным Червем" */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Книжный червь</h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button
-                      onClick={() => handleRunBookWorm('full')}
-                      disabled={bookWormRunning && bookWormMode === 'full'}
-                      className="w-full flex items-center gap-2 h-9 text-sm"
-                    >
-                      <Play className="h-4 w-4" />
-                      {bookWormRunning && bookWormMode === 'full' ? 'Полная синхронизация...' : 'Полная синхронизация'}
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleRunBookWorm('update')}
-                      disabled={bookWormRunning && bookWormMode === 'update'}
-                      className="w-full flex items-center gap-2 h-9 text-sm"
-                    >
-                      <RotateCw className="h-4 w-4" />
-                      {bookWormRunning && bookWormMode === 'update' ? 'Обновление...' : 'Обновление'}
-                    </Button>
+              {/* Настройки автоматического обновления */}
+              <div className="pt-6 border-t">
+                <h3 className="text-lg font-medium mb-4">Автоматическое обновление</h3>
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <Label htmlFor="book-worm-interval" className="text-sm font-medium">
+                        Интервал проверки (минуты)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Минимальный интервал: 5 минут, максимальный: 24 часа
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="book-worm-interval"
+                        type="number"
+                        min="5"
+                        max="1440"
+                        value={bookWormInterval}
+                        onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
+                        className="w-20 h-9 text-sm"
+                      />
+                      <span className="text-sm text-muted-foreground">мин</span>
+                      <Button
+                        onClick={handleToggleAutoUpdate}
+                        variant={bookWormAutoUpdate ? "default" : "outline"}
+                        className="h-9 px-4 text-sm font-medium"
+                        size="sm"
+                      >
+                        {bookWormAutoUpdate ? '✅ Включено' : '❌ Выключено'}
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div className="flex items-center justify-between gap-2">
-                    <Label htmlFor="book-worm-interval" className="whitespace-nowrap">Интервал (минуты)</Label>
-                    <Input
-                      id="book-worm-interval"
-                      type="number"
-                      min="5"
-                      max="1440"
-                      value={bookWormInterval}
-                      onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
-                      className="w-24 h-8 text-sm"
-                    />
-                    <Button
-                      onClick={handleToggleAutoUpdate}
-                      variant={bookWormAutoUpdate ? "default" : "outline"}
-                      className="flex-1 h-8 text-sm"
-                    >
-                      {bookWormAutoUpdate ? 'Включено' : 'Выключено'}
-                    </Button>
-                  </div>
+
+                  {bookWormAutoUpdate && (
+                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        🔄 Автоматическое обновление активно: следующая проверка через {bookWormInterval} минут
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Статус Книжного червя */}
+              {bookWormStatus.status !== 'idle' && (
+                <div className="pt-4 border-t">
+                  <h3 className="text-sm font-medium mb-2">Статус операции</h3>
+                  <div className="bg-muted/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className={`w-2 h-2 rounded-full ${
+                        bookWormStatus.status === 'running' ? 'bg-blue-500 animate-pulse' :
+                        bookWormStatus.status === 'completed' ? 'bg-green-500' :
+                        bookWormStatus.status === 'error' ? 'bg-red-500' : 'bg-gray-400'
+                      }`} />
+                      <span className="font-medium">
+                        {bookWormStatus.status === 'running' ? 'Выполняется...' :
+                         bookWormStatus.status === 'completed' ? 'Завершено' :
+                         bookWormStatus.status === 'error' ? 'Ошибка' : 'Ожидание'}
+                      </span>
+                      {bookWormStatus.progress > 0 && (
+                        <span className="text-muted-foreground">
+                          ({bookWormStatus.progress}%)
+                        </span>
+                      )}
+                    </div>
+                    {bookWormStatus.message && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {bookWormStatus.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1106,41 +521,9 @@ export default function AdminPage() {
             <div className="border rounded-md p-2 bg-muted">
               <textarea
                 value={
-                  lastDownloadFilesReport ? 
-                  lastDownloadFilesReport : // Показываем отчет, если он есть
-                  lastDownloadFilesResult ? 
-                  `Загрузка файлов:\n` +
-                  `Успешно: ${lastDownloadFilesResult.success}\n` +
-                  `Ошибок: ${lastDownloadFilesResult.failed}` +
-                  (lastDownloadFilesResult.errors.length > 0 ? 
-                    `\n\nДетали ошибок:\n` + 
-                    lastDownloadFilesResult.errors.join('\n') : 
-                    '') +
-                  (lastDownloadFilesResult.actions && lastDownloadFilesResult.actions.length > 0 ?
-                    `\n\nВыполненные действия:\n` +
-                    lastDownloadFilesResult.actions.map((action, index) => `${index + 1}. ${action}`).join('\n') :
-                    '') : 
-                  lastSyncBooksResult ? 
-                  `Синхронизация книг:\n` +
-                  `Успешно: ${lastSyncBooksResult.success}\n` +
-                  `Ошибок: ${lastSyncBooksResult.failed}` +
-                  (lastSyncBooksResult.errors.length > 0 ? 
-                    `\n\nДетали ошибок:\n` + 
-                    lastSyncBooksResult.errors.join('\n') : 
-                    '') +
-                  (lastSyncBooksResult.actions && lastSyncBooksResult.actions.length > 0 ?
-                    `\n\nВыполненные действия:\n` +
-                    lastSyncBooksResult.actions.map((action, index) => `${index + 1}. ${action}`).join('\n') :
-                    '') : 
-                  lastSyncResult ? 
-                  `Обычная синхронизация:\n` +
-                  `Успешно: ${lastSyncResult.success}\n` +
-                  `Ошибок: ${lastSyncResult.failed}` +
-                  (lastSyncResult.errors.length > 0 ? 
-                    `\n\nДетали ошибок:\n` + 
-                    lastSyncResult.errors.join('\n') : 
-                    '') : 
-                  'Нет данных'}
+                  lastBookWormReport ?
+                  lastBookWormReport : // Показываем отчет Книжного червя
+                  'Нет данных о выполненных операциях Книжного червя'}
                 readOnly
                 className="w-full h-96 font-mono text-xs overflow-y-auto max-h-96 p-2 bg-background border rounded"
                 placeholder="Результаты последней операции..."
