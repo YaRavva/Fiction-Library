@@ -267,6 +267,8 @@ export function TelegramStatsSection() {
               (window as any).setStatsUpdateReport(finalReport);
             }
 
+            // Обновляем данные в карточках после завершения операции
+            await loadStats();
             setUpdating(false); // Разблокируем кнопку только после полного завершения
             return;
           }
@@ -286,6 +288,10 @@ export function TelegramStatsSection() {
     } catch (err: unknown) {
       console.error('Error updating Telegram stats:', err)
       setUpdating(false) // Разблокируем кнопку при ошибке
+
+      // Обновляем данные в карточках даже при ошибке, чтобы показать актуальную информацию
+      await loadStats();
+
       setError(`Ошибка при обновлении статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}`)
 
       // Показываем ошибку в результатах
