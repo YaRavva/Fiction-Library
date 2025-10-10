@@ -365,138 +365,63 @@ export default function AdminPage() {
           <TelegramStatsSection />
         </div>
 
-        {/* Книжный червь - упрощенный интерфейс */}
+        {/* Книжный червь - минималистичный дизайн */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-6 w-6 text-blue-500" />
-              Книжный червь
-            </CardTitle>
+            <CardTitle>Книжный червь</CardTitle>
             <CardDescription>
-              Интеллектуальная синхронизация книг с Telegram каналом
+              Управление синхронизацией
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {/* Основные режимы работы */}
-              <div>
-                <h3 className="text-lg font-medium mb-4">Режимы синхронизации</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button
-                    onClick={() => handleRunBookWorm('full')}
-                    disabled={bookWormRunning && bookWormMode === 'full'}
-                    className="w-full h-16 flex flex-col items-center gap-2 text-sm"
-                    size="lg"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Play className={`h-5 w-5 ${bookWormRunning && bookWormMode === 'full' ? 'animate-pulse' : ''}`} />
-                      <span className="font-medium">Полная синхронизация</span>
-                    </div>
-                    <span className="text-xs opacity-80">
-                      {bookWormRunning && bookWormMode === 'full'
-                        ? 'Выполняется полная обработка...'
-                        : 'Обработка всех данных с самого начала'
-                      }
-                    </span>
-                  </Button>
+            <div className="space-y-4">
+              {/* Режимы синхронизации */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => handleRunBookWorm('full')}
+                  disabled={bookWormRunning && bookWormMode === 'full'}
+                  className="h-10"
+                >
+                  Полная синхронизация
+                </Button>
 
-                  <Button
-                    onClick={() => handleRunBookWorm('update')}
-                    disabled={bookWormRunning && bookWormMode === 'update'}
-                    className="w-full h-16 flex flex-col items-center gap-2 text-sm"
-                    size="lg"
-                    variant="outline"
-                  >
-                    <div className="flex items-center gap-2">
-                      <RotateCw className={`h-5 w-5 ${bookWormRunning && bookWormMode === 'update' ? 'animate-spin' : ''}`} />
-                      <span className="font-medium">Обновление</span>
-                    </div>
-                    <span className="text-xs opacity-80">
-                      {bookWormRunning && bookWormMode === 'update'
-                        ? 'Проверка новых данных...'
-                        : 'Проверка только новых сообщений'
-                      }
-                    </span>
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => handleRunBookWorm('update')}
+                  disabled={bookWormRunning && bookWormMode === 'update'}
+                  variant="outline"
+                  className="h-10"
+                >
+                  Обновление
+                </Button>
               </div>
 
-              {/* Настройки автоматического обновления */}
-              <div className="pt-6 border-t">
-                <h3 className="text-lg font-medium mb-4">Автоматическое обновление</h3>
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <Label htmlFor="book-worm-interval" className="text-sm font-medium">
-                        Интервал проверки (минуты)
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Минимальный интервал: 5 минут, максимальный: 24 часа
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Input
-                        id="book-worm-interval"
-                        type="number"
-                        min="5"
-                        max="1440"
-                        value={bookWormInterval}
-                        onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
-                        className="w-20 h-9 text-sm"
-                      />
-                      <span className="text-sm text-muted-foreground">мин</span>
-                      <Button
-                        onClick={handleToggleAutoUpdate}
-                        variant={bookWormAutoUpdate ? "default" : "outline"}
-                        className="h-9 px-4 text-sm font-medium"
-                        size="sm"
-                      >
-                        {bookWormAutoUpdate ? '✅ Включено' : '❌ Выключено'}
-                      </Button>
-                    </div>
+              {/* Настройки таймера */}
+              <div className="pt-4 border-t space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="book-worm-interval" className="text-sm">
+                    Интервал (минуты)
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="book-worm-interval"
+                      type="number"
+                      min="5"
+                      max="1440"
+                      value={bookWormInterval}
+                      onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
+                      className="w-20 h-8 text-sm"
+                    />
+                    <Button
+                      onClick={handleToggleAutoUpdate}
+                      variant={bookWormAutoUpdate ? "default" : "outline"}
+                      size="sm"
+                      className="h-8"
+                    >
+                      {bookWormAutoUpdate ? 'Включено' : 'Выключено'}
+                    </Button>
                   </div>
-
-                  {bookWormAutoUpdate && (
-                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
-                      <p className="text-xs text-blue-700 dark:text-blue-300">
-                        🔄 Автоматическое обновление активно: следующая проверка через {bookWormInterval} минут
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
-
-              {/* Статус Книжного червя */}
-              {bookWormStatus.status !== 'idle' && (
-                <div className="pt-4 border-t">
-                  <h3 className="text-sm font-medium mb-2">Статус операции</h3>
-                  <div className="bg-muted/30 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className={`w-2 h-2 rounded-full ${
-                        bookWormStatus.status === 'running' ? 'bg-blue-500 animate-pulse' :
-                        bookWormStatus.status === 'completed' ? 'bg-green-500' :
-                        bookWormStatus.status === 'error' ? 'bg-red-500' : 'bg-gray-400'
-                      }`} />
-                      <span className="font-medium">
-                        {bookWormStatus.status === 'running' ? 'Выполняется...' :
-                         bookWormStatus.status === 'completed' ? 'Завершено' :
-                         bookWormStatus.status === 'error' ? 'Ошибка' : 'Ожидание'}
-                      </span>
-                      {bookWormStatus.progress > 0 && (
-                        <span className="text-muted-foreground">
-                          ({bookWormStatus.progress}%)
-                        </span>
-                      )}
-                    </div>
-                    {bookWormStatus.message && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {bookWormStatus.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
