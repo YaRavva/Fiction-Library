@@ -103,7 +103,7 @@ export interface Book {
   genres: string[]
   series_order?: number
   telegram_file_id?: string
-  telegram_post_id?: string // Добавляем поле для связи с публикацией в Telegram
+  telegram_post_id?: number // Изменено на number
   downloads_count: number
   views_count: number
   created_at: string
