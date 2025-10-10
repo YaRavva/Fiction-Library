@@ -115,40 +115,23 @@ export async function POST(request: NextRequest) {
         // Создаем экземпляр сервиса
         const bookWorm = new BookWormService();
         
-        // Выполняем синхронизацию в режиме обновления
-        const result = await bookWorm.runUpdateSync();
-        
-        // Формируем подробный отчет
-        const reportLines = [
-          '🐋 Результаты работы Книжного Червя в режиме ОБНОВЛЕНИЯ:',
-          '=====================================================',
-          '',
-          '📚 Метаданные:',
-          `   ✅ Обработано: ${result.metadata.processed}`,
-          `   ➕ Добавлено: ${result.metadata.added}`,
-          `   🔄 Обновлено: ${result.metadata.updated}`,
-          `   ⚠️  Пропущено: ${result.metadata.skipped}`,
-          `   ❌ Ошибок: ${result.metadata.errors}`,
-          '',
-          '📁 Файлы:',
-          `   ✅ Обработано: ${result.files.processed}`,
-          `   🔗 Привязано: ${result.files.linked}`,
-          `   ⚠️  Пропущено: ${result.files.skipped}`,
-          `   ❌ Ошибок: ${result.files.errors}`,
-          '',
-          '📊 Сводка:',
-          `   Всего обработано элементов: ${result.metadata.processed + result.files.processed}`,
-          `   Успешных операций: ${result.metadata.added + result.metadata.updated + result.files.linked}`,
-          `   Ошибок: ${result.metadata.errors + result.files.errors}`
-        ];
-        
-        return NextResponse.json({ 
-          success: true, 
-          message: 'Book Worm update sync completed',
+        // Выполняем синхронизацию асинхронно без ожидания
+        bookWorm.runUpdateSync()
+          .then((result) => {
+            console.log('Book Worm update sync completed successfully:', result);
+          })
+          .catch((error) => {
+            console.error('Book Worm update sync failed:', error);
+          });
+
+        // Возвращаем ответ сразу, не ожидая завершения операции
+        return NextResponse.json({
+          success: true,
+          message: 'Book Worm update sync started',
           mode,
-          result,
-          report: reportLines.join('\n')
+          status: 'processing'
         });
+        
       } catch (syncError: unknown) {
         console.error('Book Worm sync error:', syncError);
         const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown sync error occurred';
