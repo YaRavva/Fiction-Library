@@ -112,18 +112,7 @@ export default function AdminPage() {
 
     checkAuth()
 
-    // Регистрируем функцию для обновления отчетов статистики
-    // @ts-ignore
-    window.setStatsUpdateReport = setStatsUpdateReport;
-
-    // Очищаем при размонтировании
-    return () => {
-      // @ts-ignore
-      if (typeof window.setStatsUpdateReport === 'function') {
-        // @ts-ignore
-        delete window.setStatsUpdateReport;
-      }
-    };
+    // Код для регистрации глобальных функций удален после упрощения интерфейса
   }, [supabase, router])
 
 
