@@ -21,28 +21,102 @@ if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_
 }
 
 import { TelegramSyncService } from '../lib/telegram/sync.js';
+import { TelegramFileService } from '../lib/telegram/file-service.js';
 import { createClient } from '@supabase/supabase-js';
+import { serverSupabase } from '../lib/serverSupabase.js';
 
-async function processTelegramFilesWithCheck() {
-  console.log('🚀 Запускаем обработку файлов из Telegram с проверкой наличия...\n');
+/**
+ * Конфигурация для разных режимов
+ */
+interface ProcessConfig {
+  limit: number;
+  startFromLastId: boolean;
+  description: string;
+}
+
+/**
+ * Получает конфигурацию для указанного режима работы
+ */
+function getModeConfig(mode: ProcessMode): ProcessConfig {
+  switch (mode) {
+    case 'full':
+      return {
+        limit: 1000, // Обрабатываем много файлов в полном режиме
+        startFromLastId: false,
+        description: 'Полная обработка всех файлов из канала'
+      };
+    case 'update':
+      return {
+        limit: 50, // Обрабатываем только новые файлы
+        startFromLastId: true,
+        description: 'Обработка только новых файлов с последнего обработанного ID'
+      };
+    case 'auto':
+    default:
+      return {
+        limit: 20, // Автоматический режим - небольшое количество
+        startFromLastId: true,
+        description: 'Автоматический режим - обработка новых файлов'
+      };
+  }
+}
+
+/**
+ * Режимы работы сервиса загрузки файлов
+ */
+type ProcessMode = 'full' | 'update' | 'auto';
+
+async function processTelegramFilesWithCheck(mode: ProcessMode = 'update') {
+  console.log(`🚀 Запускаем обработку файлов из Telegram в режиме: ${mode.toUpperCase()}...`);
 
   let syncService: TelegramSyncService | null = null;
-  
+
   try {
     // Создаем клиент Supabase
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    
+
     // Создаем экземпляр TelegramSyncService
     syncService = await TelegramSyncService.getInstance();
-    
+
     console.log('✅ Telegram клиент инициализирован');
-    
-    // Получаем список файлов из Telegram (ограничиваем до 5 для теста)
-    console.log('📥 Получаем список файлов из Telegram...');
-    const files = await syncService.downloadAndProcessFilesDirectly(5);
+
+    // Получаем конфигурацию для выбранного режима
+    const config = getModeConfig(mode);
+    console.log(`📋 Режим: ${config.description}`);
+
+    // Получаем ID последнего загруженного файла в зависимости от режима
+    let lastFileId: number | undefined = undefined;
+    if (config.startFromLastId) {
+      console.log('🔍 Получаем ID последнего загруженного файла...');
+
+      // Получаем последний обработанный файл из telegram_processed_messages
+      const result: { data: any | null; error: any } = await serverSupabase
+        .from('telegram_processed_messages')
+        .select('telegram_file_id')
+        .not('telegram_file_id', 'is', null)
+        .order('processed_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const { data: lastProcessed, error: lastProcessedError } = result;
+
+      if (lastProcessed && lastProcessed.telegram_file_id) {
+        // Если есть последний обработанный файл, начинаем с него
+        lastFileId = parseInt(lastProcessed.telegram_file_id, 10);
+        console.log(`  📌 Начинаем с файла ID: ${lastFileId}`);
+      } else {
+        console.log('  🆕 Начинаем с самых новых файлов');
+      }
+    } else {
+      console.log('🔄 Полный режим - начинаем с самых новых файлов');
+    }
+
+    // Получаем список файлов из Telegram в соответствии с режимом
+    console.log(`📥 Получаем файлы из Telegram (${config.limit} файлов)...`);
+    const files = await syncService.downloadAndProcessFilesDirectly(config.limit);
     
     console.log(`\n📊 Найдено файлов: ${files.length}`);
     
@@ -53,12 +127,26 @@ async function processTelegramFilesWithCheck() {
         console.log(`  Размер: ${file.fileSize} байт`);
         
         // Извлекаем метаданные из имени файла
-        const { author, title } = TelegramSyncService.extractMetadataFromFilename(file.filename);
+        const { author, title } = TelegramFileService.extractMetadataFromFilename(file.filename as string);
         console.log(`  Автор: ${author}`);
         console.log(`  Название: ${title}`);
-        
+
+        // Демонстрируем нормализацию Unicode
+        const filename = file.filename as string;
+        console.log(`  🔧 Проверка нормализации Unicode:`);
+        console.log(`    Оригинал: "${filename}" (длина: ${filename.length})`);
+
+        const normalized = filename.normalize('NFC');
+        console.log(`    NFC форма: "${normalized}" (длина: ${normalized.length})`);
+
+        if (filename !== normalized) {
+            console.log(`    ✅ Нормализация изменила строку!`);
+        } else {
+            console.log(`    ✅ Строка уже в NFC форме`);
+        }
+
         // Формируем имя файла в бакете
-        const ext = path.extname(file.filename) || '.fb2';
+        const ext = path.extname(file.filename as string) || '.fb2';
         const storageFileName = `${file.messageId}${ext}`;
         console.log(`  Имя файла в бакете: ${storageFileName}`);
         
@@ -99,8 +187,8 @@ async function processTelegramFilesWithCheck() {
         console.log('  🔍 Ищем книгу в базе данных с релевантностью...');
         
         // Разбиваем автора и название на слова для поиска
-        const titleWords = (title || '').split(/\s+/).filter(word => word.length > 2);
-        const authorWords = (author || '').split(/\s+/).filter(word => word.length > 2);
+        const titleWords = (title || '').split(/\s+/).filter((word: string) => word.length > 2);
+        const authorWords = (author || '').split(/\s+/).filter((word: string) => word.length > 2);
         const allSearchWords = [...titleWords, ...authorWords].filter(word => word.length > 0);
         
         console.log(`    Слова для поиска: [${allSearchWords.join(', ')}]`);
@@ -145,17 +233,17 @@ async function processTelegramFilesWithCheck() {
           
           // Сортируем по релевантности (по количеству совпадений)
           const matchesWithScores = uniqueMatches.map(bookItem => {
-            const bookTitleWords = bookItem.title.toLowerCase().split(/\s+/);
-            const bookAuthorWords = bookItem.author.toLowerCase().split(/\s+/);
+            const bookTitleWords = bookItem.title.normalize('NFC').toLowerCase().split(/\s+/);
+            const bookAuthorWords = bookItem.author.normalize('NFC').toLowerCase().split(/\s+/);
             const allBookWords = [...bookTitleWords, ...bookAuthorWords];
-            
+
             // Считаем количество совпадений поисковых слов с словами в книге
             let score = 0;
             for (const searchWord of allSearchWords) {
-              const normalizedSearchWord = searchWord.toLowerCase();
+              const normalizedSearchWord = searchWord.normalize('NFC').toLowerCase();
               let found = false;
               for (const bookWord of allBookWords) {
-                const normalizedBookWord = bookWord.toLowerCase();
+                const normalizedBookWord = bookWord.normalize('NFC').toLowerCase();
                 // Проверяем точное совпадение или частичное включение
                 if (normalizedBookWord.includes(normalizedSearchWord) || normalizedSearchWord.includes(normalizedBookWord)) {
                   score++;
@@ -235,6 +323,19 @@ async function processTelegramFilesWithCheck() {
       }
     }
     
+    // Показываем итоговую статистику
+    const processed = files.filter(f => f.success).length;
+    const errors = files.filter(f => !f.success).length;
+    const attached = files.filter(f => f.success && f.bookId).length;
+
+    console.log('\n📊 ИТОГОВАЯ СТАТИСТИКА ОБРАБОТКИ ФАЙЛОВ:');
+    console.log('=============================================');
+    console.log(`📁 Всего файлов обработано: ${files.length}`);
+    console.log(`✅ Успешно обработано: ${processed}`);
+    console.log(`❌ Ошибок: ${errors}`);
+    console.log(`📎 Привязано к книгам: ${attached}`);
+    console.log(`⏭️  Пропущено: ${files.length - processed - errors}`);
+
     console.log('\n✅ Обработка файлов завершена');
     
   } catch (error) {
@@ -259,5 +360,28 @@ async function processTelegramFilesWithCheck() {
   }
 }
 
-// Запускаем скрипт
-processTelegramFilesWithCheck();
+// Парсим аргументы командной строки
+async function main() {
+  const args = process.argv.slice(2);
+  let mode: ProcessMode = 'update'; // Режим по умолчанию
+
+  for (const arg of args) {
+    if (arg.startsWith('--mode=')) {
+      const modeValue = arg.split('=')[1] as ProcessMode;
+      if (['full', 'update', 'auto'].includes(modeValue)) {
+        mode = modeValue;
+      }
+    }
+  }
+
+  console.log(`🚀 Запуск сервиса загрузки файлов в режиме: ${mode.toUpperCase()}`);
+  console.log(`🔧 Аргументы командной строки: ${args.join(', ')}`);
+
+  await processTelegramFilesWithCheck(mode);
+}
+
+// Запускаем сервис
+main().catch((error) => {
+  console.error('❌ Необработанная ошибка:', error);
+  process.exit(1);
+});

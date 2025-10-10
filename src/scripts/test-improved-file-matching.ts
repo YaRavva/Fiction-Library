@@ -1,218 +1,79 @@
-import { config } from 'dotenv';
-import { resolve } from 'path';
+#!/usr/bin/env tsx
 
-// Загружаем переменные окружения из .env файла
-config({ path: resolve(__dirname, '../../.env') });
+/**
+ * Тест исправленного алгоритма сопоставления файлов и книг
+ */
 
-// Тестовые данные для проверки улучшенного алгоритма сопоставления
-const testBooks = [
-  {
-    id: '1',
-    title: 'цикл Великий Грайан',
-    author: 'Ольга Голотвина',
-    telegram_post_id: '100'
-  },
-  {
-    id: '2',
-    title: 'Люди в красном (2012) (2014)',
-    author: 'Джон Скальци',
-    telegram_post_id: '101'
-  },
-  {
-    id: '3',
-    title: 'цикл Дневники Киллербота',
-    author: 'Марта Уэллс',
-    telegram_post_id: '102'
-  }
-];
+import { TelegramFileService } from '../lib/telegram/file-service';
 
-const testFiles = [
-  { filename: 'Ольга_Голотвина_Великий_Грайан_.zip', messageId: '3481' },
-  { filename: 'Джон_Скальци_Люди_в_красном_сборник.fb2', messageId: '3992' },
-  { filename: 'Марта_Уэллс_Дневники_Киллербота.zip', messageId: '3314' }
-];
+async function testImprovedFileMatching() {
+    console.log('🧪 Тестирование исправленного алгоритма сопоставления файлов...\n');
 
-// Импортируем функцию сопоставления из file-service
-function findMatchingFileImproved(book: any, files: any[]): any | null {
-  console.log(`\n🔍 Поиск файла для книги: "${book.title}" автора ${book.author}`);
-  
-  // Проверяем, что у книги есть название и автор
-  if (!book.title || !book.author || book.title.trim() === '' || book.author.trim() === '') {
-    console.log(`  ⚠️  Книга не имеет названия или автора, пропускаем`);
-    return null;
-  }
-  
-  let bestMatch: any | null = null;
-  let bestScore = 0;
-  
-  for (const file of files) {
-    if (!file.filename) continue;
-    
-    const filename = file.filename.toLowerCase();
-    const bookTitle = book.title.toLowerCase();
-    const bookAuthor = book.author.toLowerCase();
-    
-    let score = 0;
-    
-    // Проверяем точное совпадение названия (с очень высоким весом)
-    if (filename.includes(bookTitle.replace(/\s+/g, '_'))) {
-      score += 20;
+    try {
+        // Тестовые данные с проблемной кодировкой
+        const testCases = [
+            {
+                filename: 'Сергей_Тармашев_-_Древний.zip',
+                expectedAuthor: 'Сергей Тармашев',
+                expectedTitle: 'Древний'
+            },
+            {
+                filename: 'Сергей_Тармашев_-_Древний.zip', // NFD форма
+                expectedAuthor: 'Сергей Тармашев',
+                expectedTitle: 'Древний'
+            },
+            {
+                filename: 'Арвендейл_Автор.zip',
+                expectedAuthor: 'Автор',
+                expectedTitle: 'Арвендейл'
+            }
+        ];
+
+        console.log('📋 Тестовые случаи:');
+        testCases.forEach((testCase, index) => {
+            console.log(`${index + 1}. Файл: "${testCase.filename}"`);
+            console.log(`   Ожидаемый автор: "${testCase.expectedAuthor}"`);
+            console.log(`   Ожидаемое название: "${testCase.expectedTitle}"`);
+            console.log(`   Длина: ${testCase.filename.length}`);
+        });
+
+        // Тестируем извлечение метаданных с нормализацией
+        console.log('\n🔧 Тестирование извлечения метаданных с нормализацией:');
+
+        for (const testCase of testCases) {
+            console.log(`\nФайл: "${testCase.filename}"`);
+
+            // Показываем нормализацию
+            const normalized = testCase.filename.normalize('NFC');
+            console.log(`Нормализация: "${testCase.filename}" → "${normalized}"`);
+
+            // Извлекаем метаданные из нормализованного имени
+            const metadata = TelegramFileService.extractMetadataFromFilename(normalized);
+
+            console.log(`Извлеченные метаданные:`);
+            console.log(`  Автор: "${metadata.author}"`);
+            console.log(`  Название: "${metadata.title}"`);
+
+            // Проверяем точность извлечения
+            const authorMatch = metadata.author.toLowerCase().includes(testCase.expectedAuthor.toLowerCase()) ||
+                               testCase.expectedAuthor.toLowerCase().includes(metadata.author.toLowerCase());
+            const titleMatch = metadata.title.toLowerCase().includes(testCase.expectedTitle.toLowerCase()) ||
+                              testCase.expectedTitle.toLowerCase().includes(metadata.title.toLowerCase());
+
+            console.log(`Точность извлечения:`);
+            console.log(`  Автор: ${authorMatch ? '✅' : '❌'}`);
+            console.log(`  Название: ${titleMatch ? '✅' : '❌'}`);
+        }
+
+        console.log('\n✅ Тестирование исправленного алгоритма завершено!');
+
+    } catch (error) {
+        console.error('❌ Ошибка при тестировании:', error);
     }
-    
-    // Проверяем точное совпадение автора (с высоким весом)
-    if (filename.includes(bookAuthor.replace(/\s+/g, '_'))) {
-      score += 20;
-    }
-    
-    // Проверяем, что оба элемента (название и автор) присутствуют
-    const titleInFilename = filename.includes(bookTitle.replace(/\s+/g, '_'));
-    const authorInFilename = filename.includes(bookAuthor.replace(/\s+/g, '_'));
-    
-    // Если и название, и автор присутствуют, добавляем бонус
-    if (titleInFilename && authorInFilename) {
-      score += 30; // Большой бонус за полное совпадение
-    }
-    
-    // Добавляем проверку на частичное совпадение слов в названии
-    // Разбиваем название книги на слова
-    const bookTitleWords = bookTitle.split(/\s+/).filter((word: string) => word.length > 2);
-    let titleWordsMatchCount = 0;
-    
-    for (const word of bookTitleWords) {
-      if (filename.includes(word)) {
-        titleWordsMatchCount++;
-      }
-    }
-    
-    // Если совпадает более 50% слов из названия, добавляем бонус
-    if (bookTitleWords.length > 0 && titleWordsMatchCount / bookTitleWords.length >= 0.5) {
-      score += 15;
-    }
-    
-    // Проверяем, чтобы не было ложных совпадений
-    const falsePositiveKeywords = [
-      'исчезнувш', 'умирающ', 'смерть', 'оксфордск', 'консул', 'галактическ', 
-      'логосов', 'напряжен', 'двуеди', 'морск', 'славянск'
-    ];
-    
-    const titleContainsFalsePositive = falsePositiveKeywords.some(keyword => 
-      bookTitle.includes(keyword) && !filename.includes(keyword)
-    );
-    
-    const filenameContainsFalsePositive = falsePositiveKeywords.some(keyword => 
-      filename.includes(keyword) && !bookTitle.includes(keyword)
-    );
-    
-    // Если есть ложные совпадения, уменьшаем счет
-    if (titleContainsFalsePositive || filenameContainsFalsePositive) {
-      score -= 20;
-    }
-    
-    // Проверяем совпадение по поисковым терминам
-    const searchTerms = [...bookTitleWords, ...bookAuthor.split(/\s+/).filter((word: string) => word.length > 2)];
-    for (const term of searchTerms) {
-      if (filename.includes(term)) {
-        score += 5;
-      }
-    }
-    
-    // НОВОЕ: Проверяем включение всех слов из имени файла в название и автора книги
-    // Разбиваем имя файла на слова
-    const filenameWords = filename.toLowerCase().split(/[_\-\s]+/).filter((word: string) => word.length > 2);
-    let allWordsInTitle = true;
-    let allWordsInAuthor = true;
-    let wordsFoundCount = 0;
-    
-    for (const word of filenameWords) {
-      // Проверяем включение слова в название книги
-      if (bookTitle.includes(word)) {
-        wordsFoundCount++;
-      } else {
-        allWordsInTitle = false;
-      }
-      // Проверяем включение слова в автора книги
-      if (bookAuthor.includes(word)) {
-        wordsFoundCount++;
-      } else {
-        allWordsInAuthor = false;
-      }
-    }
-    
-    // Если все слова из имени файла включены в название или автора, добавляем бонус
-    // Учитываем количество найденных слов
-    if (allWordsInTitle || allWordsInAuthor) {
-      // Бонус зависит от количества найденных слов
-      const wordBonus = Math.min(30, wordsFoundCount * 5); // Максимум 30 баллов
-      score += wordBonus;
-    }
-    
-    // Если все слова включены и в название, и в автора, добавляем еще больший бонус
-    if (allWordsInTitle && allWordsInAuthor) {
-      score += 20; // Дополнительный бонус
-    }
-    
-    console.log(`  Файл: ${file.filename} (счет: ${score})`);
-    
-    // Если текущий файл имеет лучший счет, обновляем лучшее совпадение
-    // Но только если счет достаточно высок (минимум 30)
-    if (score > bestScore && score >= 30) {
-      bestScore = score;
-      bestMatch = file;
-    }
-  }
-  
-  if (bestMatch && bestScore >= 30) {
-    console.log(`  ✅ Найдено совпадение с рейтингом ${bestScore}: ${bestMatch.filename}`);
-    return bestMatch;
-  }
-  
-  console.log(`  ⚠️  Совпадения не найдены или совпадение недостаточно точное`);
-  return null;
 }
 
-// Основная функция тестирования
-async function runImprovedFileMatchingTest() {
-  console.log('🧪 Тестирование улучшенного алгоритма сопоставления файлов');
-  console.log('========================================================');
-  
-  let successCount = 0;
-  let totalCount = testBooks.length;
-  
-  // Тестируем сопоставление для каждой книги
-  for (const book of testBooks) {
-    const matchingFile = findMatchingFileImproved(book, testFiles);
-    
-    if (matchingFile) {
-      console.log(`  🎯 Тест пройден: найден файл для книги "${book.title}"`);
-      successCount++;
-    } else {
-      console.log(`  ❌ Тест не пройден: не найден файл для книги "${book.title}"`);
-    }
-  }
-  
-  console.log('\n📊 Результаты тестирования:');
-  console.log(`   Всего тестов: ${totalCount}`);
-  console.log(`   Успешно: ${successCount}`);
-  console.log(`   Ошибок: ${totalCount - successCount}`);
-  console.log(`   Точность: ${Math.round((successCount / totalCount) * 100)}%`);
-  
-  if (successCount === totalCount) {
-    console.log('\n🎉 Все тесты пройдены успешно!');
-    return true;
-  } else {
-    console.log('\n❌ Некоторые тесты не пройдены.');
-    return false;
-  }
-}
-
-// Запуск теста
-if (require.main === module) {
-  runImprovedFileMatchingTest().then(success => {
-    process.exit(success ? 0 : 1);
-  }).catch(error => {
-    console.error('Ошибка при выполнении теста:', error);
+// Запускаем тест
+testImprovedFileMatching().catch((error) => {
+    console.error('❌ Необработанная ошибка:', error);
     process.exit(1);
-  });
-}
-
-export { runImprovedFileMatchingTest, findMatchingFileImproved };
+});

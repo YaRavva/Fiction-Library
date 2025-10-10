@@ -5,12 +5,14 @@ import { TelegramService } from './client';
 import { uploadFileToStorage } from '../supabase';
 import { MetadataParser, BookMetadata } from './parser';
 
-interface Book {
+// Используем типы Supabase вместо локального интерфейса
+type Book = {
     id: string;
     title: string;
     author: string;
     telegram_post_id: number | null;
-}
+    [key: string]: unknown;
+};
 
 export class SyncService {
     private metadataService: TelegramMetadataService;
@@ -154,7 +156,7 @@ export class SyncService {
                         
                         const { error: updateError } = await serverSupabase
                             .from('books')
-                            .update({ telegram_post_id: anyMsg.id as number } as Partial<Book>)
+                            .update({ telegram_post_id: anyMsg.id as number })
                             .eq('id', existingBook.id);
 
                         if (updateError) {
@@ -477,9 +479,9 @@ export class SyncService {
         for (const file of files) {
             if (!file.filename) continue;
             
-            const filename = file.filename.toLowerCase();
-            const bookTitle = book.title.toLowerCase();
-            const bookAuthor = book.author.toLowerCase();
+            const filename = file.filename.normalize('NFC').toLowerCase();
+            const bookTitle = book.title.normalize('NFC').toLowerCase();
+            const bookAuthor = book.author.normalize('NFC').toLowerCase();
             
             let score = 0;
             

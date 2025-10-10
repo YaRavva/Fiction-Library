@@ -293,17 +293,17 @@ export async function upsertBookRecord(book: Partial<Book>) {
       // Сортируем по релевантности (по количеству совпадений)
       const matchesWithScores = uniqueMatches.map(bookItem => {
         const typedBookItem = bookItem as { id: string; title: string; author: string };
-        const bookTitleWords = typedBookItem.title.toLowerCase().split(/\s+/);
-        const bookAuthorWords = typedBookItem.author.toLowerCase().split(/\s+/);
+        const bookTitleWords = typedBookItem.title.normalize('NFC').toLowerCase().split(/\s+/);
+        const bookAuthorWords = typedBookItem.author.normalize('NFC').toLowerCase().split(/\s+/);
         const allBookWords = [...bookTitleWords, ...bookAuthorWords];
         
         // Считаем количество совпадений поисковых слов с словами в книге
         let score = 0;
         for (const searchWord of allSearchWords) {
-          const normalizedSearchWord = searchWord.toLowerCase();
+          const normalizedSearchWord = searchWord.normalize('NFC').toLowerCase();
           let found = false;
           for (const bookWord of allBookWords) {
-            const normalizedBookWord = bookWord.toLowerCase();
+            const normalizedBookWord = bookWord.normalize('NFC').toLowerCase();
             // Проверяем точное совпадение или частичное включение
             if (normalizedBookWord.includes(normalizedSearchWord) || normalizedSearchWord.includes(normalizedBookWord)) {
               score++;

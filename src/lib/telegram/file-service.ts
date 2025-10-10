@@ -49,20 +49,20 @@ export class TelegramFileService {
             }
             
             // Особая обработка для случая, когда в названии есть слово "мицелий"
-            if (title.toLowerCase().includes('мицелий')) {
+            if (title.normalize('NFC').toLowerCase().includes('мицелий')) {
                 title = `цикл ${title}`;
             }
-            
+
             // Если в названии есть слово "цикл", переносим его в начало названия
-            if (author.toLowerCase().includes('цикл ')) {
+            if (author.normalize('NFC').toLowerCase().includes('цикл ')) {
                 title = `${author} ${title}`;
                 author = author.replace(/цикл\s+/i, '').trim();
-            } else if (title.toLowerCase().includes('цикл ')) {
+            } else if (title.normalize('NFC').toLowerCase().includes('цикл ')) {
                 title = `цикл ${title.replace(/цикл\s+/i, '').trim()}`;
             }
-            
+
             // Особая обработка для "Оксфордский цикл"
-            if (title.toLowerCase().includes('оксфордский')) {
+            if (title.normalize('NFC').toLowerCase().includes('оксфордский')) {
                 title = `цикл ${title}`;
             }
             
@@ -78,7 +78,7 @@ export class TelegramFileService {
                 const titlePart = parts[1].replace(/_/g, ' ').trim();
                 
                 let title = titlePart;
-                if (title.toLowerCase().includes('мицелий')) {
+                if (title.normalize('NFC').toLowerCase().includes('мицелий')) {
                     title = `цикл ${title}`;
                 }
                 
@@ -102,7 +102,7 @@ export class TelegramFileService {
                 const titlePart = parts[1].replace(/_/g, ' ').trim();
                 
                 let title = titlePart;
-                if (title.toLowerCase().includes('мицелий')) {
+                if (title.normalize('NFC').toLowerCase().includes('мицелий')) {
                     title = `цикл ${title}`;
                 }
                 
@@ -160,7 +160,7 @@ export class TelegramFileService {
         let titleStartIndex = words.length; // По умолчанию всё название
         
         for (let i = 0; i < words.length; i++) {
-            const word = words[i].toLowerCase();
+            const word = words[i].normalize('NFC').toLowerCase();
             if (titleIndicators.some(indicator => word.includes(indicator))) {
                 titleStartIndex = i;
                 break;
@@ -173,12 +173,12 @@ export class TelegramFileService {
             let title = words.slice(titleStartIndex).join(' ');
             
             // Особая обработка для случая, когда в названии есть слово "мицелий"
-            if (title.toLowerCase().includes('мицелий')) {
+            if (title.normalize('NFC').toLowerCase().includes('мицелий')) {
                 title = `цикл ${title}`;
             }
-            
+
             // Особая обработка для "Оксфордский цикл"
-            if (title.toLowerCase().includes('оксфордский')) {
+            if (title.normalize('NFC').toLowerCase().includes('оксфордский')) {
                 title = `цикл ${title}`;
             }
             
@@ -206,10 +206,10 @@ export class TelegramFileService {
                 
                 // Если потенциальное название содержит ключевые слова, характерные для названий
                 const titleKeywords = ['цикл', ' saga', ' series', 'оксфордский', 'великий', 'мир', 'война', 'приключения'];
-                if (titleKeywords.some(keyword => potentialTitle.toLowerCase().includes(keyword))) {
-                    return { 
-                        author: potentialAuthor, 
-                        title: potentialTitle 
+                if (titleKeywords.some(keyword => potentialTitle.normalize('NFC').toLowerCase().includes(keyword))) {
+                    return {
+                        author: potentialAuthor,
+                        title: potentialTitle
                     };
                 }
             }
@@ -219,11 +219,11 @@ export class TelegramFileService {
         let title = nameWithoutExt;
         
         // Особая обработка для случая, когда в названии есть слово "мицелий"
-        if (nameWithoutExt.toLowerCase().includes('мицелий')) {
+        if (nameWithoutExt.normalize('NFC').toLowerCase().includes('мицелий')) {
             title = `цикл ${nameWithoutExt}`;
         } else if (nameWithoutExt.includes('цикл')) {
             title = `цикл ${nameWithoutExt.replace(/цикл\s*/i, '')}`;
-        } else if (nameWithoutExt.toLowerCase().includes('оксфордский')) {
+        } else if (nameWithoutExt.normalize('NFC').toLowerCase().includes('оксфордский')) {
             title = `цикл ${nameWithoutExt}`;
         }
         
@@ -485,23 +485,23 @@ export class TelegramFileService {
     }
 
     /**
-     * Скачивает и обрабатывает один файл напрямую с правильной логикой:
-     * 1. Получается имя файла из приватного канала
-     * 2. Сразу используется релевантный поиск
-     * 3. Если книга найдена с высокой степенью релевантности, то файл скачивается, загружается в бакет, 
-     *    заносится в telegram_file_id в таблице telegram_processed_messages и привязывается к книге
-     * 4. Если книга не найдена или для книги есть запись о файле в telegram_file_id в таблице telegram_processed_messages, 
-     *    то файл пропускается даже без скачивания
-     * @param message Сообщение Telegram с файлом
-     */
-    private async downloadAndProcessSingleFile(message: {[key: string]: unknown}): Promise<{[key: string]: unknown}> {
+      * Скачивает и обрабатывает один файл напрямую с исправленной логикой:
+      * 1. Получается имя файла из приватного канала
+      * 2. Сразу используется релевантный поиск по оригинальному имени файла
+      * 3. Если книга найдена с высокой степенью релевантности, то файл скачивается, загружается в бакет,
+      *    заносится в telegram_file_id в таблице telegram_processed_messages и привязывается к книге
+      * 4. Если книга не найдена или для книги есть запись о файле в telegram_file_id в таблице telegram_processed_messages,
+      *    то файл пропускается даже без скачивания
+      * @param message Сообщение Telegram с файлом
+      */
+     private async downloadAndProcessSingleFile(message: {[key: string]: unknown}): Promise<{[key: string]: unknown}> {
         const anyMsg = message as unknown as {[key: string]: unknown};
         console.log(`📥 Обработка файла из сообщения ${anyMsg.id}...`);
         
         try {
-            // Извлекаем имя файла для поиска книги без скачивания
-            let filenameCandidate = `book_${anyMsg.id}.fb2`;
-            
+            // ИЗМЕНЕНИЕ: Получаем ОРИГИНАЛЬНОЕ имя файла из Telegram сообщения для анализа
+            let originalFilename = `book_${anyMsg.id}.fb2`;
+
             // Попробуем получить имя файла из разных источников
             if (anyMsg.document && (anyMsg.document as {[key: string]: unknown}).attributes) {
                 const attributes = (anyMsg.document as {[key: string]: unknown}).attributes as unknown[];
@@ -510,22 +510,37 @@ export class TelegramFileService {
                     return attrObj.className === 'DocumentAttributeFilename';
                 }) as {[key: string]: unknown} | undefined;
                 if (attrFileName && attrFileName.fileName) {
-                    filenameCandidate = attrFileName.fileName as string;
+                    originalFilename = attrFileName.fileName as string;
                 }
             } else if (anyMsg.document && (anyMsg.document as {[key: string]: unknown}).fileName) {
                 // Альтернативный способ получения имени файла
-                filenameCandidate = (anyMsg.document as {[key: string]: unknown}).fileName as string;
+                originalFilename = (anyMsg.document as {[key: string]: unknown}).fileName as string;
             } else if (anyMsg.fileName) {
                 // Еще один способ получения имени файла
-                filenameCandidate = anyMsg.fileName as string;
+                originalFilename = anyMsg.fileName as string;
             }
 
-            // Извлекаем метаданные из имени файла для поиска книги
-            const { author, title } = TelegramFileService.extractMetadataFromFilename(filenameCandidate);
-            console.log(`  📊 Извлеченные метаданные из имени файла: author="${author}", title="${title}"`);
-            
-            // Разбиваем имя файла на слова для более точного поиска
-            const searchTerms = this.extractSearchTerms(filenameCandidate);
+            console.log(`  📄 Оригинальное имя файла из Telegram: "${originalFilename}"`);
+
+            // Демонстрируем нормализацию Unicode для оригинального имени файла
+            console.log(`  🔧 Проверка нормализации Unicode:`);
+            console.log(`    Оригинал: "${originalFilename}" (длина: ${originalFilename.length})`);
+
+            const normalizedFilename = originalFilename.normalize('NFC');
+            console.log(`    NFC форма: "${normalizedFilename}" (длина: ${normalizedFilename.length})`);
+
+            if (originalFilename !== normalizedFilename) {
+                console.log(`    ✅ Нормализация изменила строку!`);
+            } else {
+                console.log(`    ✅ Строка уже в NFC форме`);
+            }
+
+            // Извлекаем метаданные из НОРМАЛИЗОВАННОГО имени файла для поиска книги
+            const { author, title } = TelegramFileService.extractMetadataFromFilename(normalizedFilename);
+            console.log(`  📊 Извлеченные метаданные из нормализованного имени файла: author="${author}", title="${title}"`);
+
+            // Разбиваем нормализованное имя файла на слова для более точного поиска
+            const searchTerms = this.extractSearchTerms(normalizedFilename);
             console.log(`  🔍 Поисковые термины: ${searchTerms.join(', ')}`);
             
             // Сначала ищем книгу по релевантности без скачивания файла
@@ -615,10 +630,10 @@ export class TelegramFileService {
             
             // Если книги не найдены, пропускаем файл
             if (uniqueMatches.length === 0) {
-                console.log(`  ⚠️  Книга не найдена по релевантности. Файл пропущен: ${filenameCandidate}`);
+                console.log(`  ⚠️  Книга не найдена по релевантности. Файл пропущен: ${originalFilename}`);
                 return {
                     messageId: anyMsg.id,
-                    filename: filenameCandidate,
+                    filename: originalFilename,
                     success: true,
                     skipped: true,
                     reason: 'book_not_found',
@@ -635,10 +650,10 @@ export class TelegramFileService {
             
             // Проверяем, что нашли подходящую книгу
             if (!bestMatch) {
-                console.log(`  ⚠️  Подходящая книга не найдена по релевантности. Файл пропущен: ${filenameCandidate}`);
+                console.log(`  ⚠️  Подходящая книга не найдена по релевантности. Файл пропущен: ${originalFilename}`);
                 return {
                     messageId: anyMsg.id,
-                    filename: filenameCandidate,
+                    filename: originalFilename,
                     success: true,
                     skipped: true,
                     reason: 'no_matching_book',
@@ -669,7 +684,7 @@ export class TelegramFileService {
                 console.log(`  ⚠️  Запись в telegram_processed_messages не найдена для book_id: ${book.id}. Книга не импортирована, файл пропущен.`);
                 return {
                     messageId: anyMsg.id,
-                    filename: filenameCandidate,
+                    filename: originalFilename,
                     success: true,
                     skipped: true,
                     reason: 'book_not_imported',
@@ -692,10 +707,10 @@ export class TelegramFileService {
                     console.warn(`  ⚠️  Ошибка при проверке существования файла в telegram_processed_messages:`, selectFileError);
                 } else if (existingFileRecords && existingFileRecords.length > 0) {
                     // Если запись с таким telegram_file_id уже существует, файл уже был загружен
-                    console.log(`  ⚠️  Файл уже был загружен ранее, пропускаем: ${filenameCandidate}`);
+                    console.log(`  ⚠️  Файл уже был загружен ранее, пропускаем: ${originalFilename}`);
                     return {
                         messageId: anyMsg.id,
-                        filename: filenameCandidate,
+                        filename: originalFilename,
                         success: true,
                         skipped: true,
                         reason: 'already_processed',
@@ -711,7 +726,7 @@ export class TelegramFileService {
                     console.warn(`  ⚠️  Не удалось получить book_id из существующих записей`);
                     return {
                         messageId: anyMsg.id,
-                        filename: filenameCandidate,
+                        filename: originalFilename,
                         success: true,
                         skipped: true,
                         reason: 'book_not_imported',
@@ -735,10 +750,10 @@ export class TelegramFileService {
                     console.warn(`  ⚠️  Ошибка при проверке существования записи книги в telegram_processed_messages:`, selectBookError);
                 } else if (filteredRecords && filteredRecords.length > 0) {
                     // Если для этой книги уже есть запись с telegram_file_id, файл уже был загружен
-                    console.log(`  ⚠️  Для книги уже загружен файл, пропускаем: ${filenameCandidate}`);
+                    console.log(`  ⚠️  Для книги уже загружен файл, пропускаем: ${originalFilename}`);
                     return {
                         messageId: anyMsg.id,
-                        filename: filenameCandidate,
+                        filename: originalFilename,
                         success: true,
                         skipped: true,
                         reason: 'book_already_has_file', // Книга уже имеет загруженный файл
@@ -770,10 +785,10 @@ export class TelegramFileService {
                     const bookRecord = bookFileRecords[0] as { telegram_file_id: string | null };
                     if (bookRecord.telegram_file_id && bookRecord.telegram_file_id !== null) {
                         // Если для этой книги в таблице books уже заполнено telegram_file_id, файл уже был привязан
-                        console.log(`  ⚠️  Для книги уже привязан файл в таблице books, пропускаем: ${filenameCandidate}`);
+                        console.log(`  ⚠️  Для книги уже привязан файл в таблице books, пропускаем: ${originalFilename}`);
                         return {
                             messageId: anyMsg.id,
-                            filename: filenameCandidate,
+                            filename: originalFilename,
                             success: true,
                             skipped: true,
                             reason: 'book_already_has_file_in_books_table', // Книга уже имеет файл в таблице books
@@ -813,8 +828,8 @@ export class TelegramFileService {
                     return attrObj.className === 'DocumentAttributeFilename';
                 }) as {[key: string]: unknown} | undefined;
                 if (attrFileName && attrFileName.fileName) {
-                    filenameCandidate = attrFileName.fileName as string;
-                    ext = path.extname(filenameCandidate) || '.fb2';
+                    originalFilename = attrFileName.fileName as string;
+                    ext = path.extname(originalFilename) || '.fb2';
                 }
             }
 
@@ -830,8 +845,8 @@ export class TelegramFileService {
                 '.zip': 'zip',
             };
             
-            mime = mimeTypes[ext.toLowerCase()] || 'application/octet-stream';
-            fileFormat = allowedFormats[ext.toLowerCase()] || 'fb2';
+            mime = mimeTypes[ext.normalize('NFC').toLowerCase()] || 'application/octet-stream';
+            fileFormat = allowedFormats[ext.normalize('NFC').toLowerCase()] || 'fb2';
 
             // Санитизируем имя файла для использования в Storage (удаляем недопустимые символы)
             const sanitizeFilename = (str: string) => {
@@ -844,7 +859,7 @@ export class TelegramFileService {
             
             // Формируем имя файла для хранения в формате: MessageID.zip (как раньше)
             const storageKey = sanitizeFilename(`${anyMsg.id}${ext}`);
-            const displayName = filenameCandidate; // Оригинальное имя файла для отображения
+            const displayName = originalFilename; // Оригинальное имя файла для отображения
 
             // Загружаем в Supabase Storage (bucket 'books')
             console.log(`  ☁️  Загружаем файл в Supabase Storage: ${storageKey}`);
@@ -925,11 +940,11 @@ export class TelegramFileService {
                 console.warn(`  ⚠️  Ошибка при обновении telegram_processed_messages:`, updateMessageError);
             }
 
-            console.log(`  ✅ Файл успешно обработан и привязан к книге: ${filenameCandidate}`);
-            
+            console.log(`  ✅ Файл успешно обработан и привязан к книге: ${originalFilename}`);
+
             return {
                 messageId: anyMsg.id,
-                filename: filenameCandidate,
+                filename: originalFilename,
                 fileSize: buffer.length,
                 fileUrl,
                 success: true,
@@ -967,14 +982,15 @@ export class TelegramFileService {
     }
 
     /**
-     * Выбирает наиболее релевантную книгу из найденных совпадений
-     * @param matches Найденные совпадения
-     * @param searchTerms Поисковые термины
-     * @param title Извлеченное название
-     * @param author Извлеченный автор
-     * @returns Наиболее релевантная книга
-     */
-    private selectBestMatch(matches: unknown[], searchTerms: string[], title: string, author: string): unknown {
+      * Выбирает наиболее релевантную книгу из найденных совпадений
+      * Исправленный алгоритм: учитывает, что файлы в хранилище названы только по ID
+      * @param matches Найденные совпадения
+      * @param searchTerms Поисковые термины
+      * @param title Извлеченное название
+      * @param author Извлеченный автор
+      * @returns Наиболее релевантная книга
+      */
+     private selectBestMatch(matches: unknown[], searchTerms: string[], title: string, author: string): unknown {
         if (matches.length === 0) {
             return null;
         }
@@ -983,15 +999,15 @@ export class TelegramFileService {
             return matches[0];
         }
         
-        // Нормализуем входные данные
-        const normalizedTitle = title.normalize('NFC');
-        const normalizedAuthor = author.normalize('NFC');
-        const normalizedSearchTerms = searchTerms.map(term => term.normalize('NFC'));
+        // НОРМАЛИЗАЦИЯ УЖЕ СДЕЛАНА ВЫШЕ - используем нормализованные данные
+        const normalizedTitle = title; // Уже нормализован
+        const normalizedAuthor = author; // Уже нормализован
+        const normalizedSearchTerms = searchTerms; // Уже нормализованы
         
         // Ранжируем совпадения по релевантности
         const rankedMatches = matches.map(book => {
             const bookItem = book as { title: string; author: string };
-            // Нормализуем данные книги
+            // Нормализуем данные книги для корректного сравнения
             const normalizedBookTitle = bookItem.title.normalize('NFC');
             const normalizedBookAuthor = bookItem.author.normalize('NFC');
             
