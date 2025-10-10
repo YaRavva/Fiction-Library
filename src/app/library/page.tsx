@@ -33,6 +33,7 @@ import { BookCardSmall } from '@/components/books/book-card-small'
 import { BooksTable } from '@/components/books/books-table'
 import { BookCardLarge } from '@/components/books/book-card-large'
 import { Book as SupabaseBook } from '@/lib/supabase'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 // Расширяем тип Book из supabase дополнительными полями
 interface Book extends SupabaseBook {
@@ -535,6 +536,8 @@ export default function LibraryPage() {
 
           <div className="ml-4 flex items-center">
             <nav className="flex items-center gap-2">
+              <ThemeToggle />
+
               {userProfile?.role === 'admin' && (
                 <Button
                   variant="ghost"
