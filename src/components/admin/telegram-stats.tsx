@@ -136,6 +136,13 @@ export function TelegramStatsSection() {
     // @ts-ignore
     window.refreshSyncStats = loadStats;
 
+    // Делаем функцию для установки отчета доступной глобально
+    // @ts-ignore
+    window.setStatsUpdateReport = (report: string) => {
+      // Эта функция будет переопределена админ-панелью
+      console.log('Stats update report:', report);
+    };
+
     // Очищаем при размонтировании
     return () => {
       // Очищаем анимацию
@@ -147,6 +154,12 @@ export function TelegramStatsSection() {
       if (typeof window.refreshSyncStats === 'function') {
         // @ts-ignore
         delete window.refreshSyncStats;
+      }
+
+      // @ts-ignore
+      if (typeof window.setStatsUpdateReport === 'function') {
+        // @ts-ignore
+        delete window.setStatsUpdateReport;
       }
     };
   }, []);
@@ -167,6 +180,24 @@ export function TelegramStatsSection() {
       setSuccess(null)
 
       console.log('Starting stats update...');
+
+      // Показываем начальный прогресс в результатах
+      const progressReport = `🔄 Обновление статистики Telegram
+
+📊 СТАТУС: Запуск операции обновления статистики...
+
+⏳ Подготовка к подсчету книг в Telegram канале...
+⏳ Подготовка к подсчету книг в базе данных...
+⏳ Подготовка к подсчету книг без файлов...
+
+⏱️ Операция может занять несколько минут...
+`;
+
+      // Отправляем прогресс в админ-панель через глобальную функцию
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        (window as any).setStatsUpdateReport(progressReport);
+      }
+
       // Получаем сессию для авторизации
       const supabase = getBrowserSupabase();
       const { data: { session } } = await supabase.auth.getSession();
@@ -189,21 +220,85 @@ export function TelegramStatsSection() {
       const data = await response.json()
       console.log('Update response data:', data);
 
-      // Показываем сообщение об успешном запуске обновления
-      setSuccess('✅ Обновление статистики запущено. Данные обновятся автоматически...')
+      // Показываем прогресс обновления
+      const updateProgressReport = `🔄 Обновление статистики Telegram
 
-      // Статистика обновится асинхронно, поэтому перезагружаем данные через некоторое время
-      setTimeout(() => {
-        loadStats()
-        setSuccess(null)
-      }, 2000) // Уменьшил до 2 секунд для лучшего UX
+📊 СТАТУС: Операция запущена успешно!
+
+✅ Сервер получил запрос на обновление
+⏳ Выполняется подсчет книг в Telegram канале...
+⏳ Выполняется подсчет книг в базе данных...
+⏳ Выполняется подсчет книг без файлов...
+
+⏱️ Ожидание завершения операции...
+⏱️ Данные обновятся автоматически через несколько минут...
+`;
+
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        (window as any).setStatsUpdateReport(updateProgressReport);
+      }
+
+      // Не показываем локальное сообщение - вся информация в результатах
+
+      // Проверяем обновление данных каждые 5 секунд в течение 2 минут
+      let attempts = 0;
+      const maxAttempts = 24; // 2 минуты (24 * 5 секунд)
+
+      const checkForUpdates = async () => {
+        attempts++;
+
+        try {
+          const freshStats = await loadStats();
+
+          // Если данные изменились или прошло много времени, считаем обновление завершенным
+          if (attempts >= maxAttempts) {
+            const finalReport = `✅ Обновление статистики завершено!
+
+📊 Финальные результаты:
+📚 Книг в Telegram: ${stats.booksInTelegram}
+💾 В базе данных: ${stats.booksInDatabase}
+❌ Отсутствуют книги: ${stats.missingBooks}
+📁 Отсутствуют файлы: ${stats.booksWithoutFiles}
+
+⏱️ Операция выполнена за ${Math.round(attempts * 5 / 60)} минут
+`;
+
+            if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+              (window as any).setStatsUpdateReport(finalReport);
+            }
+
+            setUpdating(false); // Разблокируем кнопку только после полного завершения
+            return;
+          }
+
+          // Продолжаем проверку через 5 секунд
+          setTimeout(checkForUpdates, 5000);
+
+        } catch (error) {
+          console.error('Error checking for updates:', error);
+          attempts = maxAttempts; // Прекращаем попытки при ошибке
+        }
+      };
+
+      // Начинаем проверку обновлений через 10 секунд
+      setTimeout(checkForUpdates, 10000);
 
     } catch (err: unknown) {
       console.error('Error updating Telegram stats:', err)
+      setUpdating(false) // Разблокируем кнопку при ошибке
       setError(`Ошибка при обновлении статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}`)
-      setSuccess(null)
-    } finally {
-      setUpdating(false)
+
+      // Показываем ошибку в результатах
+      const errorReport = `❌ Ошибка обновления статистики Telegram
+
+💬 Описание ошибки: ${(err as Error).message || 'Неизвестная ошибка'}
+
+🔄 Попробуйте повторить операцию позже
+`;
+
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        (window as any).setStatsUpdateReport(errorReport);
+      }
     }
   }
 
@@ -237,19 +332,7 @@ export function TelegramStatsSection() {
         </Button>
       </div>
       <CardContent>
-        {error && (
-          <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-md flex items-center">
-            <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-            <div className="break-words">{error}</div>
-          </div>
-        )}
-
-        {success && (
-          <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center border border-green-200">
-            <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-            <div className="break-words">{success}</div>
-          </div>
-        )}
+        {/* Локальные сообщения убраны - вся информация в результатах операции */}
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">

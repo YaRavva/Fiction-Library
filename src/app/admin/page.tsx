@@ -110,6 +110,11 @@ export default function AdminPage() {
   // Добавляем состояние для быстрого обновления индекса
   const [quickIndexUpdating, setQuickIndexUpdating] = useState(false);
 
+  // Функция для установки отчета об обновлении статистики
+  const setStatsUpdateReport = useCallback((report: string) => {
+    setLastDownloadFilesReport(report);
+  }, []);
+
   const loadSyncStatus = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -230,7 +235,20 @@ export default function AdminPage() {
     }
 
     checkAuth()
-  }, [supabase, router, loadSyncStatus, loadSyncProgress])
+
+    // Регистрируем функцию для обновления отчетов статистики
+    // @ts-ignore
+    window.setStatsUpdateReport = setStatsUpdateReport;
+
+    // Очищаем при размонтировании
+    return () => {
+      // @ts-ignore
+      if (typeof window.setStatsUpdateReport === 'function') {
+        // @ts-ignore
+        delete window.setStatsUpdateReport;
+      }
+    };
+  }, [supabase, router, loadSyncStatus, loadSyncProgress, setStatsUpdateReport])
 
   const handleSync = async () => {
     setSyncing(true)
