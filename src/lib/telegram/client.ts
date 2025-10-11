@@ -88,8 +88,8 @@ export class TelegramService {
         // Используем прямой доступ к каналу по ID вместо invite link
         const logMessage = '📚 Получаем доступ к каналу "Архив для фантастики" по ID...';
         console.log(logMessage);
-        if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-          (window as any).setStatsUpdateReport(logMessage + '\n');
+        if (typeof window !== 'undefined' && (window as any).updateFileSearchResults) {
+          (window as any).updateFileSearchResults(logMessage + '\n');
         }
         const channelId = 1515159552; // ID канала "Архив для фантастики"
 
@@ -131,15 +131,15 @@ export class TelegramService {
     /**
      * Получает все сообщения из канала с постраничной загрузкой
      * @param chatId ID чата или канала
-     * @param batchSize Размер пакета для загрузки (по умолчанию 1000)
+     * @param batchSize Размер пакета для загрузки (по умолчанию 300)
      * @returns Массив всех сообщений из канала
      */
-    public async getAllMessages(chatId: any, batchSize: number = 1000): Promise<unknown[]> {
+    public async getAllMessages(chatId: any, batchSize: number = 300): Promise<unknown[]> {
         try {
             const logMessage = `📥 Получение всех сообщений из канала (пакетами по ${batchSize})...`;
             console.log(logMessage);
-            if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-              (window as any).setStatsUpdateReport(logMessage + '\n');
+            if (typeof window !== 'undefined' && (window as any).updateFileSearchResults) {
+              (window as any).updateFileSearchResults(logMessage + '\n');
             }
 
             const allMessages: unknown[] = [];
@@ -150,8 +150,8 @@ export class TelegramService {
                 batchCount++;
                 const batchLogMessage = `   Загрузка пакета ${batchCount} сообщений (offsetId: ${offsetId || 'начало'})...`;
                 console.log(batchLogMessage);
-                if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-                  (window as any).setStatsUpdateReport(batchLogMessage + '\n');
+                if (typeof window !== 'undefined' && (window as any).updateFileSearchResults) {
+                  (window as any).updateFileSearchResults(batchLogMessage + '\n');
                 }
 
                 // Получаем пакет сообщений
@@ -170,8 +170,8 @@ export class TelegramService {
                 allMessages.push(...messages);
                 const totalLogMessage = `   Получено ${messages.length} сообщений. Всего: ${allMessages.length}`;
                 console.log(totalLogMessage);
-                if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-                  (window as any).setStatsUpdateReport(totalLogMessage + '\n');
+                if (typeof window !== 'undefined' && (window as any).updateFileSearchResults) {
+                  (window as any).updateFileSearchResults(totalLogMessage + '\n');
                 }
 
                 // Устанавливаем offsetId для следующего запроса
@@ -183,14 +183,14 @@ export class TelegramService {
                     break;
                 }
 
-                // Пауза в 2 секунды между запросами, чтобы не перегружать Telegram API
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Пауза в 500 мс между запросами, чтобы не перегружать Telegram API
+                await new Promise(resolve => setTimeout(resolve, 500));
             }
 
             const finalLogMessage = `✅ Всего получено сообщений: ${allMessages.length}`;
             console.log(finalLogMessage);
-            if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-              (window as any).setStatsUpdateReport(finalLogMessage + '\n');
+            if (typeof window !== 'undefined' && (window as any).updateFileSearchResults) {
+              (window as any).updateFileSearchResults(finalLogMessage + '\n');
             }
             return allMessages;
         } catch (error) {

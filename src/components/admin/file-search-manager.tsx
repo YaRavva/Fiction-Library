@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { FileSearch, Play, RotateCcw, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react';
 import { getBrowserSupabase } from '@/lib/browserSupabase';
-import { FileOption } from './file-selector'; // Используем FileOption из file-selector
+import { FileOption, FileSelector } from './file-selector'; // Импортируем FileSelector и FileOption
+import { Portal } from './portal'; // Импортируем Portal
 
 interface BookWithoutFile {
   id: string;
@@ -33,6 +34,7 @@ export function FileSearchManager() {
   const [currentBookFiles, setCurrentBookFiles] = useState<FileOption[]>([]);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [allTelegramFiles, setAllTelegramFiles] = useState<FileOption[]>([]);
+  const [showFileSelector, setShowFileSelector] = useState(false); // Состояние для отображения FileSelector
 
   // Функция для логирования в окно результатов
   const logToResults = (message: string) => {
@@ -42,58 +44,89 @@ export function FileSearchManager() {
     // Выводим в консоль для отладки
     console.log('FileSearchManager log:', message);
 
-    // Отправляем в глобальное окно результатов
-    if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+    // Проверяем, доступна ли родительская функция обновления результатов
+    if (typeof window !== 'undefined' && (window as any).updateFileSearchResults) {
       try {
-        (window as any).setStatsUpdateReport(logMessage);
-        console.log('Message sent to results window:', message);
+        (window as any).updateFileSearchResults(logMessage);
+        console.log('✅ Message sent to results window:', message);
       } catch (error) {
-        console.error('Error sending message to results window:', error);
+        console.error('❌ Error sending message to results window:', error);
+        console.error('Available window properties:', Object.keys(window || {}));
       }
     } else {
-      console.log('logToResults: setStatsUpdateReport not available, available window properties:', Object.keys(window || {}));
+      console.log('❌ updateFileSearchResults not available');
+      console.log('Available window properties:', Object.keys(window || {}));
     }
+  };
+
+  // Добавляем функцию для прямого логирования в консоль браузера
+  const logToConsole = (message: string) => {
+    console.log(`🔍 FileSearch: ${message}`);
   };
 
   // Получение токена авторизации
   const getAuthToken = async (): Promise<string> => {
     const supabase = getBrowserSupabase();
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || '';
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      throw new Error(`Ошибка получения сессии: ${error.message}`);
+    }
+    
+    if (!session || !session.access_token) {
+      throw new Error('Токен авторизации не найден');
+    }
+    
+    return session.access_token;
   };
 
-  // Загрузка книг без файлов (тестовый режим для одной книги)
+  // Загрузка книг без файлов (обработка всех книг без файлов)
   const loadBooksWithoutFiles = async (): Promise<BookWithoutFile[]> => {
-    logToResults('📚 Поиск конкретной книги для тестирования: "Цикл Иль-Рьен" Марты Уэллс...');
+    logToResults('📚 Поиск всех книг без файлов...');
 
     const supabase = getBrowserSupabase();
 
-    const { data, error: dbError } = await supabase
-      .from('books')
-      .select('id, title, author, publication_year')
-      .eq('title', 'цикл Иль-Рьен')
-      .eq('author', 'Марта Уэллс')
-      .is('file_url', null)
-      .limit(1);
+    try {
+      // Получаем все книги без файлов
+      const { data, error: dbError } = await supabase
+        .from('books')
+        .select('id, title, author, publication_year')
+        .is('file_url', null)
+        .order('author', { ascending: true })
+        .order('title', { ascending: true });
 
-    if (dbError) {
-      logToResults(`❌ Ошибка при запросе книги: ${dbError.message}`);
-      throw dbError;
+      if (dbError) {
+        logToResults(`❌ Ошибка при запросе книг: ${dbError.message}`);
+        throw new Error(`Ошибка базы данных: ${dbError.message}`);
+      }
+
+      logToResults(`📊 Найдено ${data?.length || 0} книг без файлов`);
+      
+      if (data && data.length > 0) {
+        return data;
+      } else {
+        logToResults('❌ В базе данных нет книг без файлов.');
+        return []; // Возвращаем пустой массив
+      }
+    } catch (err: any) {
+      // Более детальнаяльная обработка ошибок
+      console.error('Ошибка при загрузке книг без файлов:', err);
+      
+      // Попытка получить больше информации об ошибке
+      let errorMessage = 'Неизвестная ошибка при поиске книг';
+      if (err && typeof err === 'object') {
+        if (err.message) {
+          errorMessage = err.message;
+        } else if (Object.keys(err).length > 0) {
+          errorMessage = JSON.stringify(err);
+        }
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      logToResults(`❌ ${errorMessage}`);
+      throw new Error(errorMessage);
     }
-
-    const normalizedBooks = (data || []).map((book: any) => ({
-      ...book,
-      title: book.title.normalize('NFC'),
-      author: book.author.normalize('NFC')
-    }));
-
-    if (normalizedBooks.length > 0) {
-      logToResults(`✅ Тестовая книга найдена: "${normalizedBooks[0].title}" - ${normalizedBooks[0].author}`);
-    } else {
-      logToResults('❌ Тестовая книга не найдена или уже имеет файл.');
-    }
-
-    return normalizedBooks;
   };
 
   // Загрузка всех файлов из Telegram канала
@@ -101,55 +134,200 @@ export function FileSearchManager() {
     logToResults('📂 Загрузка списка файлов из Telegram канала (пакетами по 1000 с паузой 1с)...');
     const token = await getAuthToken();
 
-    const response = await fetch('/api/admin/telegram-files', {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
+    try {
+      const response = await fetch('/api/admin/telegram-files', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Не удалось загрузить файлы из Telegram');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || `HTTP ошибка: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      logToResults(`📁 Всего загружено ${data.files?.length || 0} файлов из Telegram`);
+      
+      return data.files || [];
+    } catch (err: any) {
+      // Более детальная обработка ошибок
+      console.error('Ошибка при загрузке файлов из Telegram:', err);
+      
+      // Попытка получить больше информации об ошибке
+      let errorMessage = 'Не удалось загрузить файлы из Telegram';
+      if (err && typeof err === 'object') {
+        if (err.message) {
+          errorMessage = err.message;
+        } else if (Object.keys(err).length > 0) {
+          errorMessage = JSON.stringify(err);
+        }
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      logToResults(`❌ ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Показать файлы для текущей книги
+  const showFilesForCurrentBook = useCallback(async (books: BookWithoutFile[], files: FileOption[] = []) => {
+    if (books.length === 0) {
+      logToResults('❌ Нет книг для обработки.');
+      setProcessingState({ status: 'idle', message: 'Нет книг для обработки. Попробуйте обновить список книг.' });
+      return;
     }
 
-    const data = await response.json();
-    logToResults(`📁 Всего загружено ${data.files?.length || 0} файлов из Telegram`);
-    return data.files || [];
-  };
+    if (currentBookIndex < 0 || currentBookIndex >= books.length) {
+      logToResults(`❌ Ошибка: индекс ${currentBookIndex} вне границ массива (0-${books.length - 1}).`);
+      setProcessingState({ status: 'error', message: 'Ошибка: индекс книги вне границ массива.' });
+      return;
+    }
+
+    const currentBook = books[currentBookIndex];
+    
+    if (!currentBook) {
+      logToResults(`❌ Ошибка: книга с индексом ${currentBookIndex} равна null/undefined.`);
+      setProcessingState({ status: 'error', message: 'Ошибка: книга не найдена.' });
+      return;
+    }
+
+    logToResults(`📚 Текущая книга: Название: ${currentBook.title} Автор: ${currentBook.author}`);
+    
+    // Используем переданные файлы, если они есть, иначе используем состояние
+    const filesToUse = files.length > 0 ? files : allTelegramFiles;
+    
+    const matchingFiles = findMatchingFiles(currentBook, filesToUse);
+    
+    // Устанавливаем новые файлы
+    setCurrentBookFiles(matchingFiles);
+    setSelectedFileIndex(0); // Выбираем первый файл по умолчанию
+
+    if (matchingFiles.length === 0) {
+      logToResults('❌ Подходящих файлов не найдено. Автоматический переход к следующей книге через 2 секунды...');
+      // Переходим к следующей книге, если нет подходящих файлов
+      setTimeout(() => {
+        // Вызываем processNextBook через функцию состояния
+        setCurrentBookIndex(prevIndex => {
+          const nextIndex = prevIndex + 1;
+          if (nextIndex >= booksWithoutFiles.length) {
+            logToResults('🎉 Обработка завершена! Книга успешно обработана.');
+            setProcessingState({ status: 'completed', message: 'Обработка завершена.' });
+            setShowFileSelector(false); // Скрываем FileSelector при завершении
+            return prevIndex;
+          }
+          // Показываем файлы для следующей книги
+          setTimeout(() => {
+            showFilesForCurrentBook(booksWithoutFiles, allTelegramFiles);
+          }, 0);
+          return nextIndex;
+        });
+      }, 2000);
+    } else {
+      // Показываем FileSelector для выбора файла
+      setShowFileSelector(true);
+    }
+
+    setProcessingState({ status: 'searching', message: 'Ожидание выбора пользователя...' });
+
+  }, [currentBookIndex, allTelegramFiles, booksWithoutFiles, setSelectedFileIndex, setCurrentBookFiles, setShowFileSelector, setProcessingState, logToResults]);
+
+  // Обработка следующей книги
+  const processNextBook = useCallback(async () => {
+    const nextIndex = currentBookIndex + 1;
+    if (nextIndex >= booksWithoutFiles.length) {
+      logToResults('🎉 Обработка завершена! Книга успешно обработана.');
+      setProcessingState({ status: 'completed', message: 'Обработка завершена.' });
+      return;
+    }
+    
+    // Сначала скрываем FileSelector
+    setShowFileSelector(false);
+    
+    // Обновляем индекс книги
+    setCurrentBookIndex(nextIndex);
+    setSelectedFileIndex(0); // Сброс выбранного файла для новой книги
+    
+    // Ждем следующего рендера
+    setTimeout(() => {
+      showFilesForCurrentBook(booksWithoutFiles, allTelegramFiles);
+    }, 0);
+  }, [booksWithoutFiles, currentBookIndex, showFilesForCurrentBook, allTelegramFiles, setSelectedFileIndex, setShowFileSelector, logToResults, setProcessingState]);
 
   // Поиск подходящих файлов для книги
   const findMatchingFiles = (book: BookWithoutFile, files: FileOption[]): FileOption[] => {
+    // Нормализуем только имена файлов, а не названия и авторов книг
     const normalizeString = (str: string) => str.normalize('NFC').toLowerCase();
 
-    const bookTitle = normalizeString(book.title);
-    const bookAuthor = normalizeString(book.author);
+    // Для названий и авторов книг используем обычное приведение к нижнему регистру
+    const bookTitle = book.title.toLowerCase();
+    const bookAuthor = book.author.toLowerCase();
 
-    logToResults(`🔍 Поиск файлов для книги: "${book.title}" автора: "${book.author}"`);
-    logToResults(`📝 Нормализованное название (NFC): "${bookTitle}"`);
-    logToResults(`👤 Нормализованный автор (NFC): "${bookAuthor}"`);
+    // Улучшенное разбиение на слова с учетом различных разделителей и специальных символов
+    const extractWords = (str: string): string[] => {
+      // Разбиваем по различным разделителям: пробелы, дефисы, скобки, точки и т.д.
+      return str
+        .split(/[\s\-_\(\)\[\]\{\}\/\\\.]+/)
+        .filter(word => word.length > 1) // Игнорируем слова короче 2 символов
+        .map(word => word.trim())
+        .filter(word => word.length > 0);
+    };
 
-    const matchingFiles = files
+    // Извлекаем слова из названия и автора книги
+    const titleWords = extractWords(bookTitle);
+    const authorWords = extractWords(bookAuthor);
+    
+    // Добавляем специальные слова для поиска
+    const specialTitleWords = [...titleWords];
+    const specialAuthorWords = [...authorWords];
+    
+    // Обрабатываем специальные случаи
+    if (bookTitle.includes('иль-рьен')) {
+      specialTitleWords.push('иль', 'рьен', 'иль-рьен');
+    }
+    
+    if (bookAuthor.includes('марта')) {
+      specialAuthorWords.push('марта', 'уэллс');
+    }
+
+    let matchingFiles = files
       .map(file => {
+        // Нормализуем только имя файла
         const filename = normalizeString(file.file_name || '');
         let score = 0;
-
-        const titleWords = bookTitle.split(/\s+/).filter(word => word.length > 2);
-        const authorWords = bookAuthor.split(/\s+/).filter(word => word.length > 2);
 
         let hasTitleMatch = false;
         let hasAuthorMatch = false;
 
-        for (const word of titleWords) {
-          if (filename.includes(word)) {
+        // Проверяем совпадения по названию
+        for (const word of specialTitleWords) {
+          // Используем регулярное выражение для более гибкого поиска
+          const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          if (regex.test(filename)) {
             hasTitleMatch = true;
             score += 10;
-            break;
+          } else {
+            // Проверяем частичное совпадение
+            if (filename.includes(word)) {
+              hasTitleMatch = true;
+              score += 5;
+            }
           }
         }
 
-        for (const word of authorWords) {
-          if (filename.includes(word)) {
+        // Проверяем совпадения по автору
+        for (const word of specialAuthorWords) {
+          // Используем регулярное выражение для более гибкого поиска
+          const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          if (regex.test(filename)) {
             hasAuthorMatch = true;
             score += 10;
-            break;
+          } else {
+            // Проверяем частичное совпадение
+            if (filename.includes(word)) {
+              hasAuthorMatch = true;
+              score += 5;
+            }
           }
         }
 
@@ -157,82 +335,20 @@ export function FileSearchManager() {
           return null;
         }
 
-
         return { ...file, relevance_score: score };
       })
       .filter((file): file is FileOption & { relevance_score: number } => file !== null)
       .sort((a, b) => b.relevance_score - a.relevance_score)
-      .slice(0, 20);
-
-    logToResults(`📊 Найдено ${matchingFiles.length} подходящих файлов для выбора.`);
-    if (matchingFiles.length > 0) {
-      matchingFiles.slice(0, 3).forEach((file, index) => {
-        logToResults(`  ${index + 1}. "${file.file_name}" (релевантность: ${file.relevance_score})`);
-      });
-      if (matchingFiles.length > 3) {
-        logToResults(`  ... и еще ${matchingFiles.length - 3} файлов`);
-      }
-    }
+      .slice(0, 10); // Ограничиваем до 10 самых релевантных файлов
 
     return matchingFiles;
   };
 
-  // Показать файлы для текущей книги
-  const showFilesForCurrentBook = useCallback(async () => {
-    if (booksWithoutFiles.length === 0) {
-      logToResults('❌ Нет книг для обработки.');
-      setProcessingState({ status: 'idle', message: 'Нет книг для обработки.' });
-      return;
-    }
-
-    if (currentBookIndex < 0 || currentBookIndex >= booksWithoutFiles.length) {
-      logToResults(`❌ Ошибка: индекс ${currentBookIndex} вне границ массива (0-${booksWithoutFiles.length - 1}).`);
-      setProcessingState({ status: 'error', message: 'Ошибка: индекс книги вне границ массива.' });
-      return;
-    }
-
-    const currentBook = booksWithoutFiles[currentBookIndex];
-    if (!currentBook) {
-      logToResults(`❌ Ошибка: книга с индексом ${currentBookIndex} равна null/undefined.`);
-      setProcessingState({ status: 'error', message: 'Ошибка: книга не найдена.' });
-      return;
-    }
-
-    logToResults(`\n📖 Книга ${currentBookIndex + 1}/${booksWithoutFiles.length}: "${currentBook.title}" - ${currentBook.author}`);
-    const matchingFiles = findMatchingFiles(currentBook, allTelegramFiles);
-    setCurrentBookFiles(matchingFiles);
-    setSelectedFileIndex(0); // Выбираем первый файл по умолчанию
-
-    if (matchingFiles.length === 0) {
-      logToResults('❌ Подходящих файлов не найдено. Нажмите Enter для перехода к следующей книге.');
-    } else {
-      logToResults(`📁 Найдено ${matchingFiles.length} подходящих файлов:`);
-      matchingFiles.forEach((file, index) => {
-        const marker = index === selectedFileIndex ? '▶️' : '   ';
-        logToResults(`${marker} ${index + 1}. ${file.file_name} (релевантность: ${file.relevance_score})`);
-      });
-    }
-
-    logToResults('\n🎮 Управление: ↑↓ - навигация, Enter - выбрать, Esc - пропустить.');
-    setProcessingState({ status: 'searching', message: 'Ожидание выбора пользователя...' });
-
-  }, [booksWithoutFiles, currentBookIndex, allTelegramFiles, selectedFileIndex]); // Добавлен selectedFileIndex в зависимости
-
-  // Обработка следующей книги (в тестовом режиме не используется, но сохранена для полной версии)
-  const processNextBook = useCallback(async () => {
-    const nextIndex = currentBookIndex + 1;
-    if (nextIndex >= booksWithoutFiles.length) {
-      logToResults(`🎉 Обработка завершена! Обработано ${booksWithoutFiles.length} книг.`);
-      setProcessingState({ status: 'completed', message: 'Обработка завершена.' });
-      return;
-    }
-    setCurrentBookIndex(nextIndex);
-    setSelectedFileIndex(0); // Сброс выбранного файла для новой книги
-    await showFilesForCurrentBook();
-  }, [booksWithoutFiles, currentBookIndex, showFilesForCurrentBook]);
-
   // Обработка выбора файла
   const handleFileSelect = useCallback(async (fileToSelect: FileOption | null) => {
+    // Скрываем FileSelector
+    setShowFileSelector(false);
+    
     logToResults(`🎯 Выбор файла: ${fileToSelect ? fileToSelect.file_name : 'ПРОПУСК'}`);
 
     if (!fileToSelect) {
@@ -253,6 +369,7 @@ export function FileSearchManager() {
 
     try {
       const token = await getAuthToken();
+      
       const response = await fetch('/api/admin/file-link', {
         method: 'POST',
         headers: {
@@ -267,91 +384,119 @@ export function FileSearchManager() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Ошибка при загрузке файла');
+        const errorMessage = errorData.error || `HTTP ошибка: ${response.status} ${response.statusText}`;
+        
+        // Если файл уже существует, пробуем привязать существующий файл
+        if (errorMessage.includes('The resource already exists')) {
+          logToResults(`ℹ️ Файл уже существует в хранилище, пробуем привязать существующий файл к книге "${currentBook.author}: ${currentBook.title}"...`);
+          
+          // Делаем запрос для привязки существующего файла
+          const linkResponse = await fetch('/api/admin/file-link-existing', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              bookId: currentBook.id,
+              fileMessageId: fileToSelect.message_id,
+            }),
+          });
+          
+          if (!linkResponse.ok) {
+            const linkErrorData = await linkResponse.json().catch(() => ({}));
+            const linkErrorMessage = linkErrorData.error || `HTTP ошибка: ${linkResponse.status} ${linkResponse.statusText}`;
+            
+            // Если файл не соответствует ожиданиям, загружаем новый
+            if (linkErrorMessage === 'FILE_MISMATCH_NEEDS_REUPLOAD' || linkResponse.status === 422) {
+              logToResults(`⚠️ Файл не соответствует ожиданиям, загружаем новый файл для книги "${currentBook.author}: ${currentBook.title}"...`);
+              
+              // Повторно вызываем оригинальный endpoint для загрузки нового файла
+              const retryResponse = await fetch('/api/admin/file-link', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  bookId: currentBook.id,
+                  fileMessageId: fileToSelect.message_id,
+                }),
+              });
+              
+              if (!retryResponse.ok) {
+                const retryErrorData = await retryResponse.json().catch(() => ({}));
+                const retryErrorMessage = retryErrorData.error || `HTTP ошибка: ${retryResponse.status} ${retryResponse.statusText}`;
+                throw new Error(retryErrorMessage);
+              }
+              
+              const result = await retryResponse.json();
+              logToResults(`✅ Новый файл успешно загружен и привязан к книге "${currentBook.author}: ${currentBook.title}"!`);
+            } else {
+              throw new Error(linkErrorMessage);
+            }
+          } else {
+            const result = await linkResponse.json();
+            logToResults(`✅ Существующий файл успешно привязан к книге "${currentBook.author}: ${currentBook.title}"!`);
+          }
+        } else {
+          logToResults(`❌ Ошибка при привязке файла: ${errorMessage}`);
+          throw new Error(errorMessage);
+        }
+      } else {
+        const result = await response.json();
+        logToResults(`✅ Файл успешно привязан к книге "${currentBook.author}: ${currentBook.title}"!`);
       }
+      
+      // Переходим к следующей книге
+      await processNextBook();
 
-      logToResults(`✅ Файл успешно привязан к книге "${currentBook.title}"!`);
-      // Для тестового режима, завершаем после одной книги
-      logToResults('🎉 Тестовая обработка завершена! Книга успешно обработана.');
-      setProcessingState({ status: 'completed', message: 'Тестовая обработка завершена.' });
-
-    } catch (error: any) {
-      logToResults(`❌ Ошибка при привязке файла: ${error.message}`);
-      setProcessingState({ status: 'error', message: `Ошибка: ${error.message}` });
-      // Для тестового режима, завершаем после одной книги
-      logToResults('🎉 Тестовая обработка завершена с ошибкой.');
+    } catch (err: any) {
+      // Более детальная обработка ошибок
+      console.error('Ошибка при привязке файла:', err);
+      
+      // Попытка получить больше информации об ошибке
+      let errorMessage = 'Неизвестная ошибка при привязке файла';
+      if (err && typeof err === 'object') {
+        if (err.message) {
+          errorMessage = err.message;
+        } else if (Object.keys(err).length > 0) {
+          errorMessage = JSON.stringify(err);
+        }
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      logToResults(`❌ Ошибка при привязке файла: ${errorMessage}`);
+      setProcessingState({ status: 'error', message: `Ошибка: ${errorMessage}` });
+      // Переходим к следующей книге
+      await processNextBook();
     }
   }, [booksWithoutFiles, currentBookIndex, getAuthToken, processNextBook, setProcessingState, showFilesForCurrentBook]);
 
   // Пропуск книги
   const handleSkipBook = useCallback(async () => {
+    // Скрываем FileSelector
+    setShowFileSelector(false);
+    
+    logToResults('⏭️ Пользователь выбрал пропустить книгу');
+    
     const currentBook = booksWithoutFiles[currentBookIndex];
     if (currentBook) {
       logToResults(`⏭️ Книга "${currentBook.title}" пропущена пользователем.`);
     } else {
       logToResults('⏭️ Книга пропущена (не найдена).');
     }
-    logToResults('🎉 Тестовая обработка завершена (книга пропущена).');
-    setProcessingState({ status: 'completed', message: 'Тестовая обработка завершена.' });
-  }, [booksWithoutFiles, currentBookIndex, setProcessingState, processNextBook]);
-
-
-  // Обработчик клавиш
-  const handleKeyDown = useCallback(async (event: KeyboardEvent) => {
-    if (processingState.status !== 'searching') return;
-
-    switch (event.key) {
-      case 'ArrowUp':
-        event.preventDefault();
-        setSelectedFileIndex(prev => {
-          const newIndex = Math.max(0, prev - 1);
-          logToResults(`↑ Выбран файл: ${currentBookFiles[newIndex]?.file_name}`);
-          return newIndex;
-        });
-        await showFilesForCurrentBook(); // Обновляем отображение маркера
-        break;
-
-      case 'ArrowDown':
-        event.preventDefault();
-        setSelectedFileIndex(prev => {
-          const newIndex = Math.min(currentBookFiles.length - 1, prev + 1);
-          logToResults(`↓ Выбран файл: ${currentBookFiles[newIndex]?.file_name}`);
-          return newIndex;
-        });
-        await showFilesForCurrentBook(); // Обновляем отображение маркера
-        break;
-
-      case 'Enter':
-        event.preventDefault();
-        if (currentBookFiles.length > 0) {
-          await handleFileSelect(currentBookFiles[selectedFileIndex]);
-        } else {
-          // Если файлов нет, завершаем тестовую обработку
-          logToResults('❌ Подходящих файлов не найдено. Тестовая обработка завершена.');
-          setProcessingState({ status: 'completed', message: 'Тестовая обработка завершена.' });
-        }
-        break;
-
-      case 'Escape':
-        event.preventDefault();
-        await handleSkipBook();
-        break;
-    }
-  }, [processingState.status, currentBookFiles, selectedFileIndex, handleFileSelect, handleSkipBook, showFilesForCurrentBook]);
-
-  // Навешиваем обработчик клавиш при активации поиска
-  useEffect(() => {
-    if (processingState.status === 'searching') {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-    return () => {};
-  }, [processingState.status, handleKeyDown]);
-
+    
+    // Переходим к следующей книге
+    await processNextBook();
+  }, [booksWithoutFiles, currentBookIndex, processNextBook]);
 
   // Запуск интерактивного поиска
   const startInteractiveFileSearch = async () => {
-    if (processingState.status !== 'idle' && processingState.status !== 'completed' && processingState.status !== 'error') return;
+    if (processingState.status !== 'idle' && processingState.status !== 'completed' && processingState.status !== 'error') {
+      return;
+    }
 
     logToResults('🚀 Запуск интерактивного поиска файлов...');
     setProcessingState({ status: 'loading', message: 'Загрузка книг без файлов...' });
@@ -363,27 +508,44 @@ export function FileSearchManager() {
       setBooksWithoutFiles(books);
 
       if (books.length === 0) {
-        logToResults('✅ Все книги уже имеют файлы или тестовая книга не найдена.');
-        setProcessingState({ status: 'idle', message: 'Нет книг для обработки.' });
+        setProcessingState({ status: 'idle', message: 'Нет книг для обработки. Попробуйте обновить список книг.' });
         return;
       }
 
       // Шаг 2: Загружаем полный список файлов из Telegram
-      setProcessingState({ status: 'searching', message: 'Загрузка списка файлов из Telegram...' });
+      setProcessingState({ status: 'loading', message: 'Загрузка списка файлов из Telegram...' });
       const telegramFiles = await loadTelegramFiles();
       setAllTelegramFiles(telegramFiles);
 
+      // Проверяем, что файлы были загружены
+      if (telegramFiles.length === 0) {
+        setProcessingState({ status: 'error', message: 'Не удалось загрузить файлы из Telegram.' });
+        return;
+      }
+
       // Шаг 3: Начинаем обработку первой книги
-      logToResults('🎯 Шаг 3: Начало интерактивной обработки книги...');
       setCurrentBookIndex(0);
       setSelectedFileIndex(0);
-      await showFilesForCurrentBook();
+      await showFilesForCurrentBook(books, telegramFiles); // Передаем книги и файлы напрямую
 
     } catch (err: any) {
+      // Более детальная обработка ошибок
       console.error('Ошибка интерактивного поиска:', err);
-      logToResults(`❌ Ошибка запуска: ${err.message}`);
-      setError(`Ошибка: ${err.message}`);
-      setProcessingState({ status: 'error', message: `Ошибка: ${err.message}` });
+      
+      // Попытка получить больше информации об ошибке
+      let errorMessage = 'Неизвестная ошибка';
+      if (err && typeof err === 'object') {
+        if (err.message) {
+          errorMessage = err.message;
+        } else if (Object.keys(err).length > 0) {
+          errorMessage = JSON.stringify(err);
+        }
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      setError(`Ошибка: ${errorMessage}`);
+      setProcessingState({ status: 'error', message: `Ошибка: ${errorMessage}` });
     }
   };
 
@@ -398,6 +560,7 @@ export function FileSearchManager() {
     setCurrentBookFiles([]);
     setSelectedFileIndex(0);
     setAllTelegramFiles([]);
+    setShowFileSelector(false); // Скрываем FileSelector при сбросе
     logToResults('✅ Состояние сброшено.');
   }, []);
 
@@ -409,7 +572,7 @@ export function FileSearchManager() {
           Полуавтоматический поиск файлов
         </CardTitle>
         <CardDescription>
-          ТЕСТОВЫЙ РЕЖИМ: Обработка только книги "Цикл Иль-Рьен" Марты Уэллс
+          Обработка всех книг без файлов
         </CardDescription>
       </CardHeader>
 
@@ -437,6 +600,29 @@ export function FileSearchManager() {
             Сброс
           </Button>
         </div>
+
+        {/* Модальное окно для FileSelector через портал */}
+        {showFileSelector && booksWithoutFiles.length > 0 && currentBookIndex < booksWithoutFiles.length && (
+          <Portal>
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+                <FileSelector
+                  key={`${currentBookIndex}-${booksWithoutFiles[currentBookIndex].id}-${currentBookFiles.length}`}
+                  book={{
+                    id: booksWithoutFiles[currentBookIndex].id,
+                    title: booksWithoutFiles[currentBookIndex].title,
+                    author: booksWithoutFiles[currentBookIndex].author,
+                    publication_year: booksWithoutFiles[currentBookIndex].publication_year,
+                  }}
+                  files={currentBookFiles}
+                  onSelect={handleFileSelect}
+                  onSkip={handleSkipBook}
+                  isVisible={showFileSelector}
+                />
+              </div>
+            </div>
+          </Portal>
+        )}
 
         {/* Здесь не будет выводиться никаких сообщений, только кнопки */}
         {/* Все сообщения будут выводиться в глобальное окно "Результаты" */}

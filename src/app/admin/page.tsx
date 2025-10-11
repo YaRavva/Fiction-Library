@@ -49,11 +49,17 @@ export default function AdminPage() {
     message: '',
     progress: 0
   });
-  const [lastBookWormReport, setLastBookWormReport] = useState<string | null>(null)
+  const [lastBookWormReport, setLastBookWormReport] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [user, setUser] = useState<User | null>(null)
-
+  const [interactiveSearchState, setInteractiveSearchState] = useState<{
+    status: 'idle' | 'loading' | 'searching' | 'processing' | 'completed' | 'error';
+    message: string;
+  }>({
+    status: 'idle',
+    message: ''
+  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -105,10 +111,18 @@ export default function AdminPage() {
 
     checkAuth()
 
-    // Регистрируем глобальную функцию для логирования в окно результатов
+    // Регистрируем глобальные функции для логирования в окно результатов
     if (typeof window !== 'undefined') {
+      // Функция для Книжного червя
       (window as any).setStatsUpdateReport = (report: string) => {
-        // Обновляем состояние lastBookWormReport для отображения в окне результатов
+        setLastBookWormReport(prev => {
+          const newReport = prev ? prev + report : report;
+          return newReport;
+        });
+      };
+
+      // Функция для поиска файлов
+      (window as any).updateFileSearchResults = (report: string) => {
         setLastBookWormReport(prev => {
           const newReport = prev ? prev + report : report;
           return newReport;
@@ -116,10 +130,18 @@ export default function AdminPage() {
       };
     }
 
-    // Очищаем функцию при размонтировании компонента
+    // Инициализируем окно результатов пустым сообщением
+    setLastBookWormReport('');
+
+    // Очищаем функции при размонтировании компонента
     return () => {
-      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-        delete (window as any).setStatsUpdateReport;
+      if (typeof window !== 'undefined') {
+        if ((window as any).setStatsUpdateReport) {
+          delete (window as any).setStatsUpdateReport;
+        }
+        if ((window as any).updateFileSearchResults) {
+          delete (window as any).updateFileSearchResults;
+        }
       }
     };
   }, [supabase, router])
@@ -130,6 +152,17 @@ export default function AdminPage() {
   // Функция для переключения автоматического обновления
   const handleToggleAutoUpdate = () => {
     setBookWormAutoUpdate(!bookWormAutoUpdate);
+  };
+
+  // Функции для интерактивного поиска файлов
+  const handleStartInteractiveSearch = () => {
+    // Здесь будет логика запуска интерактивного поиска
+    console.log('Начать интерактивный поиск');
+  };
+
+  const handleResetInteractiveSearch = () => {
+    // Здесь будет логика сброса интерактивного поиска
+    console.log('Сброс интерактивного поиска');
   };
 
   // Функция для запуска "Книжного Червя"
@@ -360,14 +393,6 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <div className="container py-6">
-        {/* Заголовок перемещен в навбар */}
-        <div className="mb-6">
-          {/* <h1 className="text-3xl font-bold">Админ панель</h1>
-          <p className="text-muted-foreground">
-            Управление синхронизацией с Telegram
-          </p> */}
-        </div>
-        
         {/* Telegram Stats - перемещен в самый верх */}
         <div className="mb-6">
           <TelegramStatsSection />
@@ -401,6 +426,9 @@ export default function AdminPage() {
                 >
                   Обновление
                 </Button>
+                
+                {/* Интерактивный поиск файлов */}
+                <FileSearchManager />
               </div>
 
               {/* Настройки таймера */}
@@ -431,11 +459,6 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        {/* Полуавтоматический поиск файлов */}
-        <div className="mb-6">
-          <FileSearchManager />
-        </div>
-
         {/* Результаты последней операции с расширенной информацией */}
         <Card className="mb-6">
           <CardHeader>
@@ -446,19 +469,17 @@ export default function AdminPage() {
               <textarea
                 id="results-textarea"
                 value={
-                  lastBookWormReport ?
-                  lastBookWormReport : // Показываем отчет Книжного червя
-                  'Нет данных о выполненных операциях Книжного червя'}
+                  lastBookWormReport && lastBookWormReport.trim() ?
+                  lastBookWormReport : // Показываем отчет Книжного червя или поиска файлов
+                  ''}
                 readOnly
-                className="w-full h-96 font-mono text-xs overflow-y-auto max-h-96 p-2 bg-background border rounded"
+                className="w-full h-[1000px] font-mono text-xs overflow-y-auto max-h-[1000px] p-2 bg-background border rounded"
                 placeholder="Результаты последней операции..."
               />
             </div>
           </CardContent>
         </Card>
 
-        {/* Удаляем блок TimerSettings */}
-        
         {/* Back to Library */}
         <div className="flex justify-center">
           <Button variant="outline" onClick={() => router.push('/library')}>

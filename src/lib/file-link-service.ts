@@ -71,16 +71,25 @@ export class FileLinkService {
       }
 
       // Определяем имя файла и MIME тип
-      const msg = message as any;
-      let fileName = `book_${book.id}_${messageId}`;
+      // Используем подход, аналогичный file-service.ts: messageId + extension
+      let fileName = `${messageId}`;
+      let fileExtension = '.fb2'; // По умолчанию
 
+      const msg = message as any;
       if (msg.media && msg.media.document) {
         const document = msg.media.document;
+        // Получаем расширение из оригинального имени файла
         const docFileName = document.attributes?.find((attr: any) => attr.fileName)?.fileName;
         if (docFileName) {
-          fileName = this.sanitizeFileName(docFileName);
+          const ext = docFileName.split('.').pop();
+          if (ext) {
+            fileExtension = `.${ext}`;
+          }
         }
       }
+
+      // Формируем имя файла как messageId + extension
+      fileName = `${messageId}${fileExtension}`;
 
       const mimeType = this.detectMimeType(fileName);
 
@@ -98,6 +107,59 @@ export class FileLinkService {
   }
 
   /**
+   * Получает информацию о файле из Telegram без загрузки
+   */
+  public async getFileInfo(
+    messageId: number,
+    channelId: number
+  ): Promise<{ fileName: string; mimeType: string }> {
+    try {
+      console.log(`🔍 Получение информации о файле ${messageId} из канала ${channelId}...`);
+
+      // Получаем сообщение с файлом
+      const channelEntity = await this.telegramService.getChannelEntityById(channelId);
+      const message = await this.telegramService.getMessageById(channelEntity, messageId);
+
+      if (!message) {
+        throw new Error(`Сообщение ${messageId} не найдено`);
+      }
+
+      // Определяем имя файла и MIME тип
+      // Используем подход, аналогичный file-service.ts: messageId + extension
+      let fileName = `${messageId}`;
+      let fileExtension = '.fb2'; // По умолчанию
+
+      const msg = message as any;
+      if (msg.media && msg.media.document) {
+        const document = msg.media.document;
+        // Получаем расширение из оригинального имени файла
+        const docFileName = document.attributes?.find((attr: any) => attr.fileName)?.fileName;
+        if (docFileName) {
+          const ext = docFileName.split('.').pop();
+          if (ext) {
+            fileExtension = `.${ext}`;
+          }
+        }
+      }
+
+      // Формируем имя файла как messageId + extension
+      fileName = `${messageId}${fileExtension}`;
+
+      const mimeType = this.detectMimeType(fileName);
+
+      console.log(`✅ Информация о файле получена: ${fileName}`);
+
+      return {
+        fileName,
+        mimeType
+      };
+    } catch (error) {
+      console.error('Ошибка при получении информации о файле:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Сохраняет файл в Supabase Storage
    */
   public async uploadToStorage(
@@ -108,9 +170,9 @@ export class FileLinkService {
     try {
       console.log(`☁️ Загрузка файла в storage: ${fileName}...`);
 
-      // Генерируем уникальное имя файла
-      const uniqueFileName = `${Date.now()}_${fileName}`;
-      const storagePath = `books/${uniqueFileName}`;
+      // Используем имя файла как есть, без добавления временных меток
+      // Это соответствует подходу в file-service.ts
+      const storagePath = `books/${fileName}`;
 
       // Загружаем файл в storage
       const { data, error } = await supabaseAdmin.storage
@@ -189,6 +251,134 @@ export class FileLinkService {
       };
     } catch (error) {
       console.error('Ошибка при привязке файла к книге:', error);
+
+      return {
+        success: false,
+        bookId,
+        error: error instanceof Error ? error.message : 'Неизвестная ошибка'
+      };
+    }
+  }
+
+  /**
+   * Привязывает уже существующий файл в storage к книге
+   */
+  public async linkExistingFileToBook(
+    bookId: string,
+    storagePath: string,
+    fileName: string,
+    mimeType: string,
+    // Добавляем параметры для проверки соответствия
+    expectedFileSize?: number,
+    expectedFileExtension?: string
+  ): Promise<FileLinkResult> {
+    try {
+      console.log(`🔗 Привязка существующего файла к книге ${bookId}...`);
+
+      // Получаем информацию о файле из storage
+      const { data: fileInfo, error: infoError } = await supabaseAdmin.storage
+        .from('books')
+        .list('books', {
+          search: fileName
+        });
+
+      if (infoError || !fileInfo || fileInfo.length === 0) {
+        throw new Error('Файл не найден в storage');
+      }
+
+      const file = fileInfo[0];
+      const fileSize = file.metadata?.size || 0;
+
+      // Предварительная проверка типа файла и размера
+      const fileExtension = fileName.toLowerCase().split('.').pop();
+      
+      // Проверка допустимых форматов файлов
+      const allowedFormats = ['fb2', 'zip'];
+      if (!fileExtension || !allowedFormats.includes(fileExtension)) {
+        // Если формат файла недопустимый, удаляем существующий файл и возвращаем ошибку
+        await supabaseAdmin.storage.from('books').remove([storagePath]);
+        throw new Error(`Недопустимый формат файла: ${fileExtension}. Разрешены только: fb2, zip`);
+      }
+
+      // Проверка размера файла (минимальный размер для fb2 - 100 байт, для zip - 1000 байт)
+      let sizeCheckFailed = false;
+      let sizeCheckError = '';
+      
+      if (fileExtension === 'fb2' && fileSize < 100) {
+        sizeCheckFailed = true;
+        sizeCheckError = `Файл fb2 слишком маленький: ${fileSize} байт. Минимальный размер: 100 байт`;
+      }
+      
+      if (fileExtension === 'zip' && fileSize < 1000) {
+        sizeCheckFailed = true;
+        sizeCheckError = `Файл zip слишком маленький: ${fileSize} байт. Минимальный размер: 1000 байт`;
+      }
+
+      // Если проверка размера не пройдена, удаляем существующий файл и возвращаем ошибку
+      if (sizeCheckFailed) {
+        await supabaseAdmin.storage.from('books').remove([storagePath]);
+        throw new Error(sizeCheckError);
+      }
+
+      // Проверка соответствия ожидаемого размера и типа (если переданы)
+      if (expectedFileSize && expectedFileExtension) {
+        const actualFileExtension = fileName.toLowerCase().split('.').pop();
+        if (actualFileExtension !== expectedFileExtension || fileSize !== expectedFileSize) {
+          console.log(`⚠️ Файл не соответствует ожиданиям. Ожидаемый тип: ${expectedFileExtension}, фактический: ${actualFileExtension}. Ожидаемый размер: ${expectedFileSize}, фактический: ${fileSize}`);
+          
+          // Удаляем существующий файл
+          const { error: removeError } = await supabaseAdmin.storage.from('books').remove([storagePath]);
+          if (removeError) {
+            console.error('Ошибка при удалении существующего файла:', removeError);
+          } else {
+            console.log('✅ Существующий файл удален');
+          }
+          
+          // Возвращаем специальную ошибку, чтобы вызывающая сторона знала, что нужно загрузить новый файл
+          return {
+            success: false,
+            bookId,
+            error: 'FILE_MISMATCH_NEEDS_REUPLOAD'
+          };
+        }
+      }
+
+      // Получаем публичный URL файла
+      const { data: urlData } = supabaseAdmin.storage
+        .from('books')
+        .getPublicUrl(storagePath);
+
+      // Определяем формат файла
+      const fileFormat = this.detectFileFormat(fileName);
+
+      // Обновляем запись книги
+      const { data, error } = await supabaseAdmin
+        .from('books')
+        .update({
+          file_url: urlData.publicUrl,
+          storage_path: storagePath,
+          file_size: fileSize,
+          file_format: fileFormat,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', bookId)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Ошибка обновления книги: ${error.message}`);
+      }
+
+      console.log(`✅ Существующий файл успешно привязан к книге ${bookId}`);
+
+      return {
+        success: true,
+        bookId,
+        fileUrl: urlData.publicUrl,
+        storagePath
+      };
+    } catch (error) {
+      console.error('Ошибка при привязке существующего файла к книге:', error);
 
       return {
         success: false,

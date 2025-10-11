@@ -9,6 +9,55 @@ if (!supabaseUrl || !serviceRoleKey) {
 }
 
 /**
+ * Извлекает оригинальное имя файла из сообщения Telegram
+ * @param message Сообщение Telegram
+ * @returns Оригинальное имя файла
+ */
+function getOriginalFilename(message: any): string {
+  let originalFilename = `file_${message.id}`;
+
+  try {
+    // Попробуем получить имя файла из разных источников
+    if (message.document) {
+      // Проверяем атрибуты документа
+      if (message.document.attributes) {
+        const attributes = message.document.attributes;
+        for (const attr of attributes) {
+          if (attr && attr.className === 'DocumentAttributeFilename' && attr.fileName) {
+            originalFilename = attr.fileName;
+            break;
+          }
+        }
+      }
+      
+      // Если не нашли в атрибутах, проверяем напрямую в document
+      if (originalFilename === `file_${message.id}` && message.document.fileName) {
+        originalFilename = message.document.fileName;
+      }
+    }
+    
+    // Проверяем в корне сообщения
+    if (originalFilename === `file_${message.id}` && message.fileName) {
+      originalFilename = message.fileName;
+    }
+    
+    // Если все еще не нашли, проверяем media
+    if (originalFilename === `file_${message.id}` && message.media) {
+      const media = message.media.document || message.media.photo;
+      if (media && media.fileName) {
+        originalFilename = media.fileName;
+      } else if (media && media.filename) {
+        originalFilename = media.filename;
+      }
+    }
+  } catch (error) {
+    console.warn(`Ошибка при извлечении имени файла для сообщения ${message.id}:`, error);
+  }
+
+  return originalFilename;
+}
+
+/**
  * GET /api/admin/telegram-files
  * Получает список всех файлов из приватного Telegram канала
  */
@@ -72,11 +121,14 @@ export async function GET(request: NextRequest) {
       const files = messages
         .filter((msg: any) => msg.media && (msg.media.document || msg.media.photo))
         .map((msg: any) => {
-          const media = msg.media.document || msg.media.photo;
-          const rawFileName = media?.fileName || media?.filename || `file_${msg.id}`;
+          // Используем улучшенную логику для извлечения имени файла
+          const rawFileName = getOriginalFilename(msg);
 
           // Нормализуем имя файла в NFC форму для консистентности
           const normalizedFileName = rawFileName.normalize('NFC');
+
+          // Получаем media объект
+          const media = msg.media.document || msg.media.photo;
 
           return {
             message_id: msg.id,

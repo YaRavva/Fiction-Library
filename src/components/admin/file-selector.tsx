@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileText, SkipForward, Check } from 'lucide-react';
 
 export interface FileOption {
@@ -38,10 +37,11 @@ export function FileSelector({ book, files, onSelect, onSkip, isVisible }: FileS
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Сброс выбранного индекса при смене книги или файлов
+  // Сброс выбранного индекса и состояния при изменении файлов
   useEffect(() => {
     setSelectedIndex(0);
-  }, [book.id, files.length]);
+    setIsProcessing(false);
+  }, [files]);
 
   // Обработчик клавиш
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
@@ -68,7 +68,7 @@ export function FileSelector({ book, files, onSelect, onSkip, isVisible }: FileS
         handleSkip();
         break;
     }
-  }, [isVisible, isProcessing, files.length, selectedIndex]);
+  }, [isVisible, isProcessing, files.length]);
 
   // Навешиваем обработчик клавиш
   useEffect(() => {
@@ -111,6 +111,15 @@ export function FileSelector({ book, files, onSelect, onSkip, isVisible }: FileS
     });
   };
 
+  // Обновляем selectedIndex при изменении длины files
+  useEffect(() => {
+    if (selectedIndex >= files.length && files.length > 0) {
+      setSelectedIndex(0);
+    } else if (files.length === 0) {
+      setSelectedIndex(0);
+    }
+  }, [files.length, selectedIndex]);
+
   if (!isVisible || files.length === 0) {
     return null;
   }
@@ -119,39 +128,29 @@ export function FileSelector({ book, files, onSelect, onSkip, isVisible }: FileS
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
-          Выбор файла для книги
-        </CardTitle>
-        <CardDescription>
-          {book.title} - {book.author}
-          {book.publication_year && ` (${book.publication_year})`}
-          {book.series_title && ` • ${book.series_title}`}
+      <CardHeader className="py-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileText className="h-4 w-4" />
+            Выбор файла для книги
+          </CardTitle>
+          <Badge variant="outline" className="text-sm">
+            {selectedIndex + 1} из {files.length}
+          </Badge>
+        </div>
+        <CardDescription className="flex items-center gap-4 text-sm">
+          <span><strong>Название:</strong> {book.title}</span>
+          <span><strong>Автор:</strong> {book.author}</span>
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Управление */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-4">
-            <span>↑↓ Навигация</span>
-            <span>Enter - Выбрать</span>
-            <span>Esc - Пропустить</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">
-              {selectedIndex + 1} из {files.length}
-            </Badge>
-          </div>
-        </div>
-
+      <CardContent className="space-y-4 py-3">
         {/* Список файлов */}
-        <ScrollArea className="h-96 border rounded-md">
+        <div className="border rounded-md">
           <div className="p-2 space-y-1">
             {files.map((file, index) => (
               <div
-                key={file.message_id}
+                key={`${file.message_id}-${index}`}
                 className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                   index === selectedIndex
                     ? 'bg-primary/10 border-primary'
@@ -167,9 +166,12 @@ export function FileSelector({ book, files, onSelect, onSkip, isVisible }: FileS
                       </span>
                       {file.relevance_score && (
                         <Badge variant="secondary" className="text-xs">
-                          {file.relevance_score} баллов
+                          Релевантность: {file.relevance_score}
                         </Badge>
                       )}
+                      <Badge variant="outline" className="text-xs">
+                        ID: {file.message_id}
+                      </Badge>
                     </div>
 
                     <div className="text-xs text-muted-foreground space-y-1">
@@ -197,7 +199,7 @@ export function FileSelector({ book, files, onSelect, onSkip, isVisible }: FileS
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Действия */}
         <div className="flex items-center justify-between pt-4 border-t">
@@ -235,11 +237,6 @@ export function FileSelector({ book, files, onSelect, onSkip, isVisible }: FileS
               )}
             </Button>
           </div>
-        </div>
-
-        {/* Подсказка */}
-        <div className="text-xs text-muted-foreground text-center">
-          Используйте стрелки ↑↓ для навигации, Enter для выбора файла, Esc для пропуска книги
         </div>
       </CardContent>
     </Card>
