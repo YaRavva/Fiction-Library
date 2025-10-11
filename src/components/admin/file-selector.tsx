@@ -49,8 +49,8 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
 
   // Обновляем отображаемые файлы при изменении входных файлов или книги
   useEffect(() => {
-    // Ограничиваем количество отображаемых файлов до 10
-    const limitedFiles = files.slice(0, 10);
+    // Увеличиваем количество отображаемых файлов до 15
+    const limitedFiles = files.slice(0, 15);
     setDisplayedFiles(limitedFiles);
     setSelectedIndex(0); // Сбрасываем выбор при обновлении файлов
     setIsProcessing(false);
@@ -113,38 +113,37 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
 
   return (
     <Card className="w-full max-w-4xl mx-auto h-full flex flex-col">
-      <CardHeader className="py-2 flex-shrink-0">
+      <CardHeader className="py-1 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
+          <CardTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4" />
             Выбор файла для книги
           </CardTitle>
-          <Badge variant="outline" className="text-sm">
+          <Badge variant="outline" className="text-xs">
             {selectedIndex + 1} из {displayedFiles.length}
           </Badge>
         </div>
-        <CardDescription className="flex flex-col gap-1 text-sm py-1">
-          <span><strong>Название:</strong> {book.title}</span>
-          <span><strong>Автор:</strong> {book.author}</span>
+        <CardDescription className="text-sm py-1">
+          <span><strong>Название:</strong> {book.title} | <strong>Автор:</strong> {book.author}</span>
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex-grow overflow-hidden flex flex-col py-3">
+      <CardContent className="flex-grow overflow-hidden flex flex-col py-2">
         {/* Список файлов */}
         <div className="border rounded-md flex-grow overflow-hidden flex flex-col">
           <div className="overflow-y-auto flex-grow">
-            <div className="p-2 space-y-2">
+            <div className="p-1 space-y-1">
               {displayedFiles.map((file, index) => (
                 <div
                   key={`${book.id}-${file.message_id}-${index}`}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                  className={`p-2 rounded-lg border cursor-pointer transition-colors ${
                     index === selectedIndex
                       ? 'bg-primary/10 border-primary'
                       : 'bg-muted/50 hover:bg-muted'
                   }`}
                   onClick={() => setSelectedIndex(index)}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm truncate">
@@ -167,7 +166,7 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
                         </div>
 
                         {file.caption && (
-                          <div className="mt-2 p-2 bg-muted rounded text-xs truncate">
+                          <div className="mt-1 p-1 bg-muted rounded text-xs truncate">
                             {file.caption}
                           </div>
                         )}
@@ -189,7 +188,7 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
         </div>
 
         {/* Действия */}
-        <div className="flex items-center justify-between pt-4 border-t mt-4">
+        <div className="flex items-center justify-between pt-2 border-t mt-2">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

@@ -317,7 +317,13 @@ export function FileSearchManager() {
   // Поиск подходящих файлов для книги
   const findMatchingFiles = (book: BookWithoutFile, files: FileOption[]): FileOption[] => {
     // Нормализуем строки для корректного сравнения
-    const normalizeString = (str: string) => str.normalize('NFC').toLowerCase();
+    const normalizeString = (str: string) => {
+      // Нормализуем в NFC форму и приводим к нижнему регистру
+      let normalized = str.normalize('NFC').toLowerCase();
+      // Заменяем "ё" на "е" для улучшенного поиска
+      normalized = normalized.replace(/ё/g, 'е');
+      return normalized;
+    };
 
     // Нормализуем название и автора книги
     const bookTitle = normalizeString(book.title);
@@ -403,7 +409,7 @@ export function FileSearchManager() {
       })
       .filter((file): file is FileOption & { relevance_score: number } => file !== null)
       .sort((a, b) => b.relevance_score - a.relevance_score)
-      .slice(0, 20); // Ограничиваем до 20 самых релевантных файлов
+      .slice(0, 15); // Увеличиваем до 15 самых релевантных файлов
 
     return matchingFiles;
   };
