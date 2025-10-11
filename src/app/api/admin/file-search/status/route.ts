@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 // Используем service role key для админских операций
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -9,22 +8,11 @@ if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
-// Заглушка для универсальной синхронизации
-async function universalSync() {
-  return {
-    success: true,
-    message: 'Universal sync completed successfully',
-    actions: ['sync_completed']
-  };
-}
-
 /**
- * POST /api/admin/universal-sync
- * Запускает универсальную синхронизацию одной публикации из Telegram канала
+ * GET /api/admin/file-search/status
+ * Получает статус поиска файлов
  */
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     // Проверяем авторизацию
     const authHeader = request.headers.get('authorization');
@@ -35,12 +23,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Получаем токен из заголовка
     const token = authHeader.replace('Bearer ', '');
-    
-    // Проверяем пользователя через Supabase
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    
+
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -49,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Проверяем, что пользователь - админ
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('role')
       .eq('id', user.id)
@@ -62,22 +51,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Запускаем универсальную синхронизацию
-    const result = await universalSync();
-    
+    // Получаем статистику по книгам без файлов
+    const { count: booksWithoutFiles } = await supabase
+      .from('books')
+      .select('*', { count: 'exact', head: true })
+      .is('file_url', null);
+
+    // Получаем статистику по всем книгам
+    const { count: totalBooks } = await supabase
+      .from('books')
+      .select('*', { count: 'exact', head: true });
+
     return NextResponse.json({
-      message: 'Universal sync completed',
-      results: {
-        success: result.success ? 1 : 0,
-        failed: result.success ? 0 : 1,
-        errors: result.success ? [] : [result.message],
-        actions: result.actions
+      stats: {
+        booksWithoutFiles: booksWithoutFiles || 0,
+        totalBooks: totalBooks || 0,
+        coveragePercentage: totalBooks ? Math.round(((totalBooks - (booksWithoutFiles || 0)) / totalBooks) * 100) : 0
       }
     });
   } catch (error) {
-    console.error('Universal sync error:', error);
+    console.error('Error getting file search status:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

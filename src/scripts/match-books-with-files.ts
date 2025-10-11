@@ -63,48 +63,67 @@ function calculateSimilarity(str1: string, str2: string): number {
   return score >= 0.5 ? score : 0;
 }
 
-// Function to find the best match for a book among file titles
+// Function to find matching files for a book (same algorithm as in the component)
+function findMatchingFiles(bookTitle: string, bookAuthor: string, files: any[]): any[] {
+  // Normalize strings in NFC form for correct comparison
+  const normalizeString = (str: string) => str.normalize('NFC').toLowerCase();
+
+  const bookTitleNormalized = normalizeString(bookTitle);
+  const bookAuthorNormalized = normalizeString(bookAuthor);
+
+  console.log(`🔍 Поиск файлов для книги: "${bookTitle}" автора: "${bookAuthor}"`);
+  console.log(`📝 Нормализованное название: "${bookTitleNormalized}"`);
+  console.log(`👤 Нормализованный автор: "${bookAuthorNormalized}"`);
+
+  const matchingFiles = files
+    .map(file => {
+      const filename = normalizeString(file.filename || file.file_name || '');
+
+      // Check for minimum one word match
+      const titleWords = bookTitleNormalized.split(/\s+/).filter(word => word.length > 2);
+      const authorWords = bookAuthorNormalized.split(/\s+/).filter(word => word.length > 2);
+
+      let hasTitleMatch = false;
+      let hasAuthorMatch = false;
+      const matchedTitleWords: string[] = [];
+      const matchedAuthorWords: string[] = [];
+
+      for (const word of titleWords) {
+        if (filename.includes(word)) {
+          hasTitleMatch = true;
+          matchedTitleWords.push(word);
+          break; // Enough one match
+        }
+      }
+
+      for (const word of authorWords) {
+        if (filename.includes(word)) {
+          hasAuthorMatch = true;
+          matchedAuthorWords.push(word);
+          break; // Enough one match
+        }
+      }
+
+      // Only files with minimum one match
+      if (!hasTitleMatch && !hasAuthorMatch) {
+        return null;
+      }
+
+      return { ...file, relevance_score: 10 };
+    })
+    .filter((file): file is any => file !== null)
+    .sort((a, b) => b.relevance_score - a.relevance_score)
+    .slice(0, 20); // Limit to 20 best matches
+
+  console.log(`📊 Всего найдено подходящих файлов: ${matchingFiles.length}`);
+
+  return matchingFiles;
+}
+
+// Function to find the best match for a book among file titles (legacy function for compatibility)
 function findBestMatch(bookTitle: string, bookAuthor: string, files: any[]): any | null {
-  let bestMatch: any | null = null;
-  let bestScore = 0;
-  
-  // Clean up the book title (remove "цикл" prefix if present)
-  const cleanTitle = bookTitle.replace(/цикл\s*/gi, '').trim();
-  
-  console.log(`  Looking for matches for: "${cleanTitle}" by ${bookAuthor}`);
-  
-  for (const file of files) {
-    // Try to extract title and author from filename
-    const filename = file.filename || file.name || '';
-    
-    // Skip files that are clearly not books
-    if (filename.toLowerCase().includes('сборник') || 
-        filename.toLowerCase().includes('collection') ||
-        filename.toLowerCase().includes('anthology')) {
-      continue; // Skip collection files
-    }
-    
-    // Try different matching strategies
-    const titleMatch = calculateSimilarity(cleanTitle, filename);
-    const authorMatch = calculateSimilarity(bookAuthor, filename);
-    
-    // Combined score (title match is more important)
-    const score = titleMatch * 0.8 + authorMatch * 0.2;
-    
-    if (score > bestScore && score > 0.3) { // Higher threshold for matching
-      bestScore = score;
-      bestMatch = file;
-      console.log(`    Potential match: ${filename} (score: ${score.toFixed(2)})`);
-    }
-  }
-  
-  // Only return match if score is high enough
-  if (bestMatch && bestScore > 0.4) {
-    console.log(`    Best match: ${bestMatch.filename} (score: ${bestScore.toFixed(2)})`);
-    return bestMatch;
-  }
-  
-  return null;
+  const matchingFiles = findMatchingFiles(bookTitle, bookAuthor, files);
+  return matchingFiles.length > 0 ? matchingFiles[0] : null;
 }
 
 async function matchBooksWithFiles() {
@@ -143,8 +162,7 @@ async function matchBooksWithFiles() {
     const { data: books, error: booksError } = await supabase
       .from('books')
       .select('*')
-      .is('file_url', null)
-      .limit(100); // Limit for testing
+      .is('file_url', null);
     
     if (booksError) {
       throw new Error(`Error fetching books: ${booksError.message}`);
@@ -158,30 +176,36 @@ async function matchBooksWithFiles() {
     // @ts-ignore
     console.log(`✅ Channel: ${channel.title}`);
     
-    // Get messages (files) from the channel
+    // Get messages (files) from the channel using new method with pagination
     console.log('Getting files from channel...');
-    const messages = await telegramClient.getMessages(channel, 100); // Get more files for matching
+    const channelId = typeof channel.id === 'object' && channel.id !== null ?
+      (channel.id as { toString: () => string }).toString() :
+      String(channel.id);
+    const messages = await telegramClient.getAllMessages(channelId, 1000); // Get files by 1000 with 1 second pause
     console.log(`Found ${messages.length} messages`);
     
-    // Extract file information
+    // Extract file information (same format as API endpoint)
     const files: any[] = [];
     for (const msg of messages) {
       // @ts-ignore
-      if (msg.media && msg.media.className === 'MessageMediaDocument') {
+      if (msg.media && (msg.media.document || msg.media.photo)) {
         // @ts-ignore
-        const document = msg.media.document;
-        if (document) {
+        const media = msg.media.document || msg.media.photo;
+        if (media) {
           // @ts-ignore
-          const filenameAttr = document.attributes?.find((attr: any) => attr.className === 'DocumentAttributeFilename');
+          const rawFileName = media.fileName || media.filename || `file_${msg.id}`;
+
+          // Normalize filename in NFC form for consistency
+          const normalizedFileName = rawFileName.normalize('NFC');
+
           files.push({
-            // @ts-ignore
-            id: msg.id,
-            filename: filenameAttr?.fileName || `book_${msg.id}`,
-            // @ts-ignore
-            mimeType: document.mimeType,
-            // @ts-ignore
-            size: document.size,
-            // @ts-ignore
+            message_id: msg.id,
+            file_name: normalizedFileName,
+            file_size: media.size || 0,
+            mime_type: media.mimeType || media.mime_type,
+            caption: msg.message || '',
+            date: msg.date || Date.now() / 1000,
+            // Keep original message for downloading
             message: msg
           });
         }
@@ -198,25 +222,25 @@ async function matchBooksWithFiles() {
       console.log(`\nChecking book: "${book.title}" by ${book.author}`);
       
       // @ts-ignore
-      const bestMatch = findBestMatch(book.title, book.author, files);
-      
-      if (bestMatch) {
-        // @ts-ignore
-        console.log(`  📎 Found match: ${bestMatch.filename} (score: ${calculateSimilarity(book.title.replace(/цикл\s*/gi, '').trim(), bestMatch.filename).toFixed(2)})`);
-        
+      const matchingFiles = findMatchingFiles(book.title, book.author, files);
+
+      if (matchingFiles.length > 0) {
+        const bestMatch = matchingFiles[0];
+        console.log(`  📎 Found match: ${bestMatch.file_name}`);
+
         // Download the file
         console.log('  ⬇️  Downloading file...');
         const buffer = await telegramClient.downloadMedia(bestMatch.message);
-        
+
         if (buffer instanceof Buffer) {
           // Upload to Supabase Storage
-          const ext = bestMatch.filename.includes('.') 
-            ? bestMatch.filename.split('.').pop() 
+          const ext = bestMatch.file_name.includes('.')
+            ? bestMatch.file_name.split('.').pop()
             : 'fb2';
           // @ts-ignore
           const key = `books/${book.id}.${ext}`;
-          const mime = bestMatch.mimeType || 'application/octet-stream';
-          
+          const mime = bestMatch.mime_type || 'application/octet-stream';
+
           console.log('  ☁️  Uploading to Supabase Storage...');
           const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
             .from('books')
@@ -224,16 +248,16 @@ async function matchBooksWithFiles() {
               contentType: mime,
               upsert: true
             });
-          
+
           if (uploadError) {
             console.error(`  ❌ Error uploading file: ${uploadError.message}`);
             continue;
           }
-          
+
           // Update book record
           const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${key}`;
           console.log('  📝 Updating book record...');
-          
+
           // @ts-ignore
           const { data: updatedBook, error: updateError } = await supabase
             .from('books')
@@ -242,18 +266,18 @@ async function matchBooksWithFiles() {
               file_url: fileUrl,
               file_size: buffer.length,
               file_format: ext,
-              telegram_file_id: String(bestMatch.id)
+              telegram_file_id: String(bestMatch.message_id)
             })
             // @ts-ignore
             .eq('id', book.id)
             .select()
             .single();
-          
+
           if (updateError) {
             console.error(`  ❌ Error updating book: ${updateError.message}`);
             continue;
           }
-          
+
           console.log(`  ✅ Successfully linked book with file`);
           matchCount++;
         } else {

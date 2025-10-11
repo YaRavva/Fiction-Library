@@ -25,7 +25,7 @@ async function maintainProcessedMessages() {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Статистика
-    let stats = {
+    const stats = {
       totalRecords: 0,
       duplicateGroups: 0,
       deletedDuplicates: 0,

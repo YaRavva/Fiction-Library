@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 // Глобальная переменная для хранения экземпляра воркера
 // Отключаем воркер
 // let workerInstance: DownloadWorker | null = null;
-let workerInstance: null = null;
+const workerInstance: null = null;
 
 /**
  * POST /api/admin/worker

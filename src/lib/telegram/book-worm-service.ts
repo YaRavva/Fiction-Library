@@ -472,7 +472,7 @@ export class BookWormService {
             // Получаем все файлы из приватного канала
             const batchSize = 100;
             let totalProcessed = 0;
-            let totalSkipped = 0;
+            const totalSkipped = 0;
             let totalErrors = 0;
             let hasMoreFiles = true;
             let offsetId: number | undefined = undefined;
@@ -608,9 +608,9 @@ export class BookWormService {
             }
 
             // Фильтруем книги с пустыми названиями или авторами
-            const validBooks = booksWithoutFiles?.filter(book =>
-                (book as { title: string }).title && (book as { title: string }).title.trim() !== '' &&
-                (book as { author: string }).author && (book as { author: string }).author.trim() !== ''
+            const validBooks = booksWithoutFiles?.filter((book: any) =>
+                book.title && book.title.trim() !== '' &&
+                book.author && book.author.trim() !== ''
             ) || [];
 
             if (validBooks.length === 0) {
@@ -907,7 +907,10 @@ export class BookWormService {
 
                         const { error: updateError } = await serverSupabase
                             .from('books')
-                            .update({ telegram_post_id: anyMsg.id as number })
+                            .update({
+                                telegram_post_id: anyMsg.id as number,
+                                updated_at: new Date().toISOString()
+                            } as any)
                             .eq('id', existingBook.id);
 
                         if (updateError) {

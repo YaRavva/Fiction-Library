@@ -17,7 +17,7 @@ async function fullDownloadTest() {
     console.log(`✅ Создана задача: ${taskId}`);
     
     // Для хранения истории обработанных файлов
-    let processedFilesHistory = '';
+    const processedFilesHistory = '';
     
     // Регистрируем callback для прогресса
     taskManager.registerProgressCallback(taskId, (progress) => {

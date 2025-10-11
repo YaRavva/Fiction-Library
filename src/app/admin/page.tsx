@@ -3,25 +3,18 @@
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw, Database, BookOpen, Users, AlertCircle, CheckCircle, Clock, Library, LogOut, Settings, Shield, User, BarChart, TrendingUp, File, AlertTriangle, Play, RotateCw, Timer } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { AlertCircle, Library, LogOut, Settings, Play, RefreshCw, RotateCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 
-
-import { TelegramStatsSection } from '@/components/admin/telegram-stats'
-import { getValidSession } from '@/lib/auth-helpers'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
+import { TelegramStatsSection } from '@/components/admin/telegram-stats';
+import { FileSearchManager } from '@/components/admin/file-search-manager';
+import { getValidSession } from '@/lib/auth-helpers';
 
 
 interface UserProfile {
@@ -112,9 +105,24 @@ export default function AdminPage() {
 
     checkAuth()
 
-    // Код для регистрации глобальных функций удален после упрощения интерфейса
-  }, [supabase, router])
+    // Регистрируем глобальную функцию для логирования в окно результатов
+    if (typeof window !== 'undefined') {
+      (window as any).setStatsUpdateReport = (report: string) => {
+        // Обновляем состояние lastBookWormReport для отображения в окне результатов
+        setLastBookWormReport(prev => {
+          const newReport = prev ? prev + report : report;
+          return newReport;
+        });
+      };
+    }
 
+    // Очищаем функцию при размонтировании компонента
+    return () => {
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        delete (window as any).setStatsUpdateReport;
+      }
+    };
+  }, [supabase, router])
 
 
 
@@ -247,7 +255,7 @@ export default function AdminPage() {
     }, 5000) // Проверяем каждые 5 секунд
 
     return () => clearInterval(interval)
-  }, [bookWormRunning, bookWormStatus.status])
+  }, [bookWormRunning, bookWormStatus.status, checkBookWormStatus]) // Добавлен checkBookWormStatus в зависимости
 
   if (loading) {
     return (
@@ -423,14 +431,20 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
+        {/* Полуавтоматический поиск файлов */}
+        <div className="mb-6">
+          <FileSearchManager />
+        </div>
+
         {/* Результаты последней операции с расширенной информацией */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Результаты последней операции</CardTitle>
+            <CardTitle>Результаты</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="border rounded-md p-2 bg-muted">
               <textarea
+                id="results-textarea"
                 value={
                   lastBookWormReport ?
                   lastBookWormReport : // Показываем отчет Книжного червя

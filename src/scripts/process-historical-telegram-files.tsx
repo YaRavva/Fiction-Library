@@ -117,7 +117,7 @@ async function processHistoricalTelegramFiles() {
         // Получаем сообщения с пагинацией
         console.log('3. Получение исторических сообщений...');
         
-        let allMessages: any[] = [];
+        const allMessages: any[] = [];
         let offsetId: number | undefined = undefined;
         const batchSize = 50; // Размер батча
         let batchCount = 0;

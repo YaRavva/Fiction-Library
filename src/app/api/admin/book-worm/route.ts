@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         const bookWorm = new BookWormService();
         
         // Выполняем индексацию всех сообщений
-        const result = await bookWorm.indexAllMessages();
+        const result = await bookWorm.run('full');
         
         return NextResponse.json({ 
           success: true, 

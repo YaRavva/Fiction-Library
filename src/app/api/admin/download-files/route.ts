@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       // Добавляем историю обработанных файлов из сообщения
       const messageLines = taskStatus.message ? taskStatus.message.split('\n') : [];
       // Ищем строку с историей файлов (все строки до строки с "🏁 Завершено:")
-      let historyLines = [];
+      const historyLines = [];
       for (const line of messageLines) {
         if (line.startsWith('🏁 Завершено:')) {
           break;

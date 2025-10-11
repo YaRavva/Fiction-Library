@@ -4,7 +4,7 @@ import { syncBooks } from '../../../../scripts/sync-books';
 export const dynamic = 'force-dynamic';
 
 // Храним состояние синхронизации в памяти (в реальном приложении лучше использовать БД или Redis)
-let syncStatus = {
+const syncStatus = {
   isRunning: false,
   startTime: null as number | null,
   progress: 0,

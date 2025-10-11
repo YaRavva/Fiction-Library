@@ -90,7 +90,7 @@ export class SyncService {
         errors: number;
     }> {
         let processed = 0;
-        let added = 0;
+        const added = 0;
         let updated = 0;
         let skipped = 0;
         let errors = 0;
