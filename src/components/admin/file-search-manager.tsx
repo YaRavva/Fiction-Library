@@ -345,6 +345,13 @@ export function FileSearchManager() {
     };
 
     let matchingFiles = files
+      .filter(file => {
+        // Отсеиваем файлы с типом application/octet-stream, так как они могут иметь ошибочную кодировку
+        if (file.mime_type === 'application/octet-stream') {
+          return false;
+        }
+        return true;
+      })
       .map(file => {
         // Нормализуем имя файла
         const filename = normalizeString(file.file_name || '');
