@@ -27,11 +27,22 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // Логируем cookies для отладки
+  console.log('Middleware cookies:', request.cookies.getAll().map(c => ({ name: c.name, value: c.value ? '[SET]' : '[EMPTY]' })))
+
   // Проверяем аутентификацию пользователя
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser()
+
+  // Логируем для отладки
+  console.log('Middleware auth check:', {
+    hasUser: !!user,
+    hasError: !!error,
+    pathname: request.nextUrl.pathname,
+    userId: user?.id
+  })
 
   // Защищенные маршруты (требуют аутентификации)
   const protectedPaths = ['/library', '/profile', '/admin', '/reader']
@@ -47,11 +58,16 @@ export async function middleware(request: NextRequest) {
 
   // Если пользователь не авторизован и пытается попасть на защищенную страницу
   if ((!user || error) && isProtectedPath) {
-    // Для путей, начинающихся с /auth, не перенаправляем на логин, чтобы избежать зацикливания
+    // Для путей аутентификации не перенаправляем, чтобы избежать зацикливания
     if (request.nextUrl.pathname.startsWith('/auth')) {
       return supabaseResponse
     }
-    
+
+    // Проверяем, является ли это OAuth колбэк
+    if (request.nextUrl.pathname === '/auth/callback') {
+      return supabaseResponse
+    }
+
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     url.searchParams.set('redirectTo', request.nextUrl.pathname)
@@ -73,17 +89,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Если пользователь авторизован и находится на главной странице, перенаправляем в библиотеку
-  if (user && !error && request.nextUrl.pathname === '/') {
+  // Перенаправляем с главной страницы в зависимости от статуса аутентификации
+  if (request.nextUrl.pathname === '/') {
     const url = request.nextUrl.clone()
-    url.pathname = '/library'
-    return NextResponse.redirect(url)
-  }
-
-  // Если пользователь НЕ авторизован и находится на главной странице, перенаправляем на логин
-  if ((!user || error) && request.nextUrl.pathname === '/') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
+    if (user && !error) {
+      url.pathname = '/library'
+    } else {
+      url.pathname = '/auth/login'
+    }
     return NextResponse.redirect(url)
   }
 

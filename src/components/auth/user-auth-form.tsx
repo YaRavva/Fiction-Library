@@ -28,6 +28,32 @@ export function UserAuthForm({
   const [toastMessage, setToastMessage] = React.useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string }>({})
 
+  const handleGitHubSignIn = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const client = getBrowserSupabase()
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/library`
+        }
+      })
+
+      if (error) {
+        setError(error.message)
+        setToastMessage(error.message)
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Ошибка GitHub аутентификации'
+      setError(errorMessage)
+      setToastMessage(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   async function onSubmit(event: React.SyntheticEvent) {
     event.preventDefault()
     setIsLoading(true)
@@ -178,7 +204,12 @@ export function UserAuthForm({
           </span>
         </div>
       </div>
-      <Button variant="outline" type="button" disabled={isLoading}>
+      <Button
+        variant="outline"
+        type="button"
+        disabled={isLoading}
+        onClick={handleGitHubSignIn}
+      >
         {isLoading ? (
           <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
         ) : (
