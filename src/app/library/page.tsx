@@ -478,6 +478,60 @@ export default function LibraryPage() {
     }
   }
 
+  const handleClearFile = async (bookId: string) => {
+    try {
+      // Очищаем привязку файла к книге
+      const { error } = await supabase
+        .from('books')
+        .update({
+          file_url: null,
+          storage_path: null,
+          file_size: null,
+          file_format: null,
+          telegram_file_id: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', bookId)
+
+      if (error) {
+        console.error('❌ Ошибка при очистке файла:', error)
+        alert('Ошибка при очистке файла')
+      } else {
+        // Обновляем локальное состояние
+        setBooks(books.map(book => 
+          book.id === bookId 
+            ? { 
+                ...book, 
+                file_url: undefined,
+                storage_path: undefined,
+                file_size: undefined,
+                file_format: undefined,
+                telegram_file_id: undefined
+              } as unknown as Book
+            : book
+        ))
+        alert('Файл успешно очищен!')
+      }
+    } catch (error) {
+      console.error('❌ Ошибка:', error)
+      alert('Произошла ошибка при очистке файла')
+    }
+  }
+
+  // Загружаем сохраненный режим отображения при монтировании компонента
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('libraryViewMode') as ViewMode | null
+    if (savedViewMode) {
+      setViewMode(savedViewMode)
+    }
+  }, [])
+
+  // Сохраняем режим отображения при его изменении
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode)
+    localStorage.setItem('libraryViewMode', mode)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -667,7 +721,7 @@ export default function LibraryPage() {
           
           {/* View Mode Toggle - Right aligned */}
           <div className="md:ml-auto">
-            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           </div>
         </div>
 
@@ -777,6 +831,8 @@ export default function LibraryPage() {
                       onDownload={handleDownload}
                       onRead={handleRead}
                       onTagClick={handleTagClick}
+                      userProfile={userProfile}
+                      onFileClear={handleClearFile}
                     />
                   ))}
                 </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, BookOpen, Database, File, RefreshCw, CheckCircle, Loader2 } from 'lucide-react'
+import { Spinner } from "@/components/ui/spinner"
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 
 interface TelegramStats {
@@ -81,7 +82,6 @@ export function TelegramStatsSection() {
     try {
       setError(null)
 
-      console.log('Fetching Telegram stats...');
       // Получаем сессию для авторизации
       const supabase = getBrowserSupabase();
       const { data: { session } } = await supabase.auth.getSession();
@@ -92,16 +92,12 @@ export function TelegramStatsSection() {
         }
       })
 
-      console.log('Response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.log('Error data:', errorData);
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('Stats data:', data);
 
       const newStats = {
         booksInDatabase: data.booksInDatabase || 0,
@@ -119,13 +115,31 @@ export function TelegramStatsSection() {
       }
 
       setStats(newStats)
+      
+      // Не отправляем сообщение об обновлении статистики в окно результатов при каждой загрузке
+      // Это будет сделано только один раз в конце операции обновления
+      
+      // Возвращаем новые статистические данные
+      return newStats;
     } catch (err: unknown) {
-      console.log('Error caught in loadStats:', err);
-      console.log('Error name:', (err as Error).name);
-      console.log('Error message:', (err as Error).message);
-
       console.error('Error loading Telegram stats:', err)
       setError(`Ошибка загрузки статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}`)
+      
+      // Отправляем сообщение об ошибке в окно результатов только при ошибке
+      const timestamp = new Date().toLocaleTimeString('ru-RU');
+      const errorReport = `[${timestamp}] ❌ Ошибка загрузки статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}\n`;
+      
+      // Используем правильную функцию для передачи логов в админ-панель
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(errorReport);
+        } catch (error) {
+          console.error('❌ Error sending message to results window:', error);
+        }
+      }
+      
+      // В случае ошибки возвращаем текущие данные
+      return stats;
     }
   }
 
@@ -135,13 +149,6 @@ export function TelegramStatsSection() {
 
     // @ts-ignore
     window.refreshSyncStats = loadStats;
-
-    // Делаем функцию для установки отчета доступной глобально
-    // @ts-ignore
-    window.setStatsUpdateReport = (report: string) => {
-      // Эта функция будет переопределена админ-панелью
-      console.log('Stats update report:', report);
-    };
 
     // Очищаем при размонтировании
     return () => {
@@ -155,23 +162,8 @@ export function TelegramStatsSection() {
         // @ts-ignore
         delete window.refreshSyncStats;
       }
-
-      // @ts-ignore
-      if (typeof window.setStatsUpdateReport === 'function') {
-        // @ts-ignore
-        delete window.setStatsUpdateReport;
-      }
     };
   }, []);
-
-  // Очищаем анимацию при обновлении состояния успеха/ошибки
-  useEffect(() => {
-    if (success || error) {
-      if (animationRef.current) {
-        clearTimeout(animationRef.current)
-      }
-    }
-  }, [success, error])
 
   const updateStats = async () => {
     try {
@@ -179,23 +171,17 @@ export function TelegramStatsSection() {
       setError(null)
       setSuccess(null)
 
-      console.log('Starting stats update...');
-
-      // Показываем начальный прогресс в результатах
-      const progressReport = `🔄 Обновление статистики Telegram
-
-📊 СТАТУС: Запуск операции обновления статистики...
-
-⏳ Подготовка к подсчету книг в Telegram канале...
-⏳ Подготовка к подсчету книг в базе данных...
-⏳ Подготовка к подсчету книг без файлов...
-
-⏱️ Операция может занять несколько минут...
-`;
-
-      // Отправляем прогресс в админ-панель через глобальную функцию
+      // Показываем начальный прогресс в результатах в формате приложения
+      const timestamp = new Date().toLocaleTimeString('ru-RU');
+      const progressReport = `[${timestamp}] 📊 Обновление статистики Telegram...\n`;
+      
+      // Используем правильную функцию для передачи логов в админ-панель
       if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-        (window as any).setStatsUpdateReport(progressReport);
+        try {
+          (window as any).setStatsUpdateReport(progressReport);
+        } catch (error) {
+          console.error('❌ Error sending message to results window:', error);
+        }
       }
 
       // Получаем сессию для авторизации
@@ -209,85 +195,96 @@ export function TelegramStatsSection() {
         }
       })
 
-      console.log('Update response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.log('Update error data:', errorData);
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log('Update response data:', data);
 
       // Показываем прогресс обновления
-      const updateProgressReport = `🔄 Обновление статистики Telegram
-
-📊 СТАТУС: Операция запущена успешно!
-
-✅ Сервер получил запрос на обновление
-⏳ Выполняется подсчет книг в Telegram канале...
-⏳ Выполняется подсчет книг в базе данных...
-⏳ Выполняется подсчет книг без файлов...
-
-⏱️ Ожидание завершения операции...
-⏱️ Данные обновятся автоматически через несколько минут...
-`;
-
+      const updateProgressReport = `[${timestamp}] 📊 Статус: Операция обновления запущена\n`;
+      
+      // Используем правильную функцию для передачи логов в админ-панель
       if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-        (window as any).setStatsUpdateReport(updateProgressReport);
+        try {
+          (window as any).setStatsUpdateReport(updateProgressReport);
+        } catch (error) {
+          console.error('❌ Error sending message to results window:', error);
+        }
       }
 
-      // Не показываем локальное сообщение - вся информация в результатах
-
-      // Проверяем обновление данных каждые 5 секунд в течение 2 минут
+      // Проверяем обновление данных каждые 2 секунды в течение 30 секунд
       let attempts = 0;
-      const maxAttempts = 24; // 2 минуты (24 * 5 секунд)
+      const maxAttempts = 15; // 30 секунд (15 * 2 секунды)
+      let updateCompleted = false;
 
       const checkForUpdates = async () => {
+        // Если операция уже завершена, не продолжаем
+        if (updateCompleted) {
+          return;
+        }
+        
         attempts++;
 
         try {
-          const freshStats = await loadStats();
+          const updatedStats = await loadStats();
 
-          // Если данные изменились или прошло много времени, считаем обновление завершенным
+          // Если прошло много времени, считаем обновление завершенным
           if (attempts >= maxAttempts) {
-            const finalReport = `✅ Обновление статистики завершено!
-
-📊 Финальные результаты:
-📚 Книг в Telegram: ${stats.booksInTelegram}
-💾 В базе данных: ${stats.booksInDatabase}
-❌ Отсутствуют книги: ${stats.missingBooks}
-📁 Отсутствуют файлы: ${stats.booksWithoutFiles}
-
-⏱️ Операция выполнена за ${Math.round(attempts * 5 / 60)} минут
-`;
-
+            updateCompleted = true;
+            
+            const finalTimestamp = new Date().toLocaleTimeString('ru-RU');
+            const finalReport = `[${finalTimestamp}] 📊 Статистика обновлена: 📚 Книг в Telegram: ${updatedStats.booksInTelegram} | 💾 В базе данных: ${updatedStats.booksInDatabase} | ❌ Отсутствуют книги: ${updatedStats.missingBooks} | 📁 Отсутствуют файлы: ${updatedStats.booksWithoutFiles}\n`;
+            
+            // Используем правильную функцию для передачи логов в админ-панель
             if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-              (window as any).setStatsUpdateReport(finalReport);
+              try {
+                (window as any).setStatsUpdateReport(finalReport);
+              } catch (error) {
+                console.error('❌ Error sending message to results window:', error);
+              }
             }
 
-            // Обновляем данные в карточках после завершения операции
-            await loadStats();
             setUpdating(false); // Разблокируем кнопку только после полного завершения
             return;
           }
 
-          // Продолжаем проверку через 5 секунд
-          setTimeout(checkForUpdates, 5000);
+          // Продолжаем проверку через 2 секунды
+          setTimeout(checkForUpdates, 2000);
 
         } catch (error) {
-          console.error('Error checking for updates:', error);
+          // Если уже завершено, не обрабатываем ошибку
+          if (updateCompleted) {
+            return;
+          }
+          
+          updateCompleted = true;
           attempts = maxAttempts; // Прекращаем попытки при ошибке
+          
+          // Показываем ошибку в результатах
+          const errorTimestamp = new Date().toLocaleTimeString('ru-RU');
+          const errorReport = `[${errorTimestamp}] ❌ Ошибка обновления статистики Telegram: ${(error as Error).message || 'Неизвестная ошибка'}\n`;
+          
+          // Используем правильную функцию для передачи логов в админ-панель
+          if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+            try {
+              (window as any).setStatsUpdateReport(errorReport);
+            } catch (error) {
+              console.error('❌ Error sending message to results window:', error);
+            }
+          }
+          
+          setUpdating(false); // Разблокируем кнопку при ошибке
         }
       };
 
-      // Начинаем проверку обновлений через 10 секунд
-      setTimeout(checkForUpdates, 10000);
+      // Начинаем проверку обновлений через 2 секунды
+      setTimeout(checkForUpdates, 2000);
 
     } catch (err: unknown) {
-      console.error('Error updating Telegram stats:', err)
-      setUpdating(false) // Разблокируем кнопку при ошибке
+      // ВАЖНО: Гарантируем разблокировку кнопки при любой ошибке
+      setUpdating(false);
 
       // Обновляем данные в карточках даже при ошибке, чтобы показать актуальную информацию
       await loadStats();
@@ -295,15 +292,16 @@ export function TelegramStatsSection() {
       setError(`Ошибка при обновлении статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}`)
 
       // Показываем ошибку в результатах
-      const errorReport = `❌ Ошибка обновления статистики Telegram
-
-💬 Описание ошибки: ${(err as Error).message || 'Неизвестная ошибка'}
-
-🔄 Попробуйте повторить операцию позже
-`;
-
+      const errorTimestamp = new Date().toLocaleTimeString('ru-RU');
+      const errorReport = `[${errorTimestamp}] ❌ Ошибка обновления статистики Telegram: ${(err as Error).message || 'Неизвестная ошибка'}\n`;
+      
+      // Используем правильную функцию для передачи логов в админ-панель
       if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-        (window as any).setStatsUpdateReport(errorReport);
+        try {
+          (window as any).setStatsUpdateReport(errorReport);
+        } catch (error) {
+          console.error('❌ Error sending message to results window:', error);
+        }
       }
     }
   }
@@ -326,12 +324,11 @@ export function TelegramStatsSection() {
         >
           {updating ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Spinner className="h-4 w-4 mr-2" />
               Обновление...
             </>
           ) : (
             <>
-              <RefreshCw className="h-4 w-4 mr-2" />
               Обновить
             </>
           )}
@@ -340,7 +337,7 @@ export function TelegramStatsSection() {
       <CardContent>
         {/* Локальные сообщения убраны - вся информация в результатах операции */}
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
             <div className="flex items-center">
               <BookOpen className="h-5 w-5 text-blue-500 mr-2" />
@@ -349,11 +346,6 @@ export function TelegramStatsSection() {
             <p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
               {animatedStats.booksInTelegram.toLocaleString()}
             </p>
-            {previousStats.booksInTelegram !== 0 && previousStats.booksInTelegram !== stats.booksInTelegram && (
-              <div className="text-xs text-muted-foreground mt-1">
-                Было: {previousStats.booksInTelegram.toLocaleString()}
-              </div>
-            )}
           </div>
 
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
@@ -364,11 +356,6 @@ export function TelegramStatsSection() {
             <p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
               {animatedStats.booksInDatabase.toLocaleString()}
             </p>
-            {previousStats.booksInDatabase !== 0 && previousStats.booksInDatabase !== stats.booksInDatabase && (
-              <div className="text-xs text-muted-foreground mt-1">
-                Было: {previousStats.booksInDatabase.toLocaleString()}
-              </div>
-            )}
           </div>
 
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
@@ -379,11 +366,6 @@ export function TelegramStatsSection() {
             <p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
               {animatedStats.missingBooks.toLocaleString()}
             </p>
-            {previousStats.missingBooks !== 0 && previousStats.missingBooks !== stats.missingBooks && (
-              <div className="text-xs text-muted-foreground mt-1">
-                Было: {previousStats.missingBooks.toLocaleString()}
-              </div>
-            )}
           </div>
 
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
@@ -394,11 +376,6 @@ export function TelegramStatsSection() {
             <p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
               {animatedStats.booksWithoutFiles.toLocaleString()}
             </p>
-            {previousStats.booksWithoutFiles !== 0 && previousStats.booksWithoutFiles !== stats.booksWithoutFiles && (
-              <div className="text-xs text-muted-foreground mt-1">
-                Было: {previousStats.booksWithoutFiles.toLocaleString()}
-              </div>
-            )}
           </div>
         </div>
       </CardContent>

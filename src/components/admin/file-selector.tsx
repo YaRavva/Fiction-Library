@@ -124,19 +124,19 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
           </Badge>
         </div>
         <CardDescription className="text-sm py-1">
-          <span><strong>Название:</strong> {book.title} | <strong>Автор:</strong> {book.author}</span>
+          <span><strong>Автор:</strong> {book.author} | <strong>Название:</strong> {book.title}</span>
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="flex-grow overflow-hidden flex flex-col py-2">
+      <CardContent className="flex-grow overflow-hidden flex flex-col py-1">
         {/* Список файлов */}
-        <div className="border rounded-md flex-grow overflow-hidden flex flex-col">
-          <div className="overflow-y-auto flex-grow">
-            <div className="p-1 space-y-1">
+        <div className="border-0 rounded-md flex-grow overflow-hidden flex flex-col">
+          <div className="overflow-y-hidden flex-grow">
+            <div className="p-1 space-y-0.5">
               {displayedFiles.map((file, index) => (
                 <div
                   key={`${book.id}-${file.message_id}-${index}`}
-                  className={`p-2 rounded-lg border cursor-pointer transition-colors ${
+                  className={`p-1.5 rounded-md border cursor-pointer transition-colors ${
                     index === selectedIndex
                       ? 'bg-primary/10 border-primary'
                       : 'bg-muted/50 hover:bg-muted'
@@ -145,7 +145,7 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-0.5">
                         <span className="font-medium text-sm truncate">
                           {file.file_name || `Файл ${file.message_id}`}
                         </span>
@@ -159,14 +159,14 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
                         </Badge>
                       </div>
 
-                      <div className="text-xs text-muted-foreground space-y-1">
+                      <div className="text-xs text-muted-foreground space-y-0.5">
                         <div className="flex items-center gap-4">
                           <span>Размер: {formatFileSize(file.file_size)}</span>
                           <span>Дата: {formatDate(file.date)}</span>
                         </div>
 
                         {file.caption && (
-                          <div className="mt-1 p-1 bg-muted rounded text-xs truncate">
+                          <div className="p-1 bg-muted rounded text-xs truncate">
                             {file.caption}
                           </div>
                         )}
@@ -188,7 +188,7 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
         </div>
 
         {/* Действия */}
-        <div className="flex items-center justify-between pt-2 border-t mt-2">
+        <div className="flex items-center justify-between pt-2 mt-2">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

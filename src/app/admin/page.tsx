@@ -2,7 +2,7 @@
 
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Library, LogOut, Settings, Play, RefreshCw, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { TelegramStatsSection } from '@/components/admin/telegram-stats';
 import { FileSearchManager } from '@/components/admin/file-search-manager';
 import { getValidSession } from '@/lib/auth-helpers';
-
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 interface UserProfile {
   id: string
@@ -60,6 +60,14 @@ export default function AdminPage() {
     status: 'idle',
     message: ''
   });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Эффект для автоматической прокрутки текстового поля результатов
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+    }
+  }, [lastBookWormReport]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -131,6 +139,7 @@ export default function AdminPage() {
     }
 
     // Инициализируем окно результатов пустым сообщением
+    console.log('🔍 Initializing lastBookWormReport with empty string');
     setLastBookWormReport('');
 
     // Очищаем функции при размонтировании компонента
@@ -348,6 +357,7 @@ export default function AdminPage() {
             </div>
 
             <nav className="flex items-center gap-2">
+              <ThemeToggle />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -475,6 +485,7 @@ export default function AdminPage() {
                 readOnly
                 className="w-full h-[1000px] font-mono text-xs overflow-y-auto max-h-[1000px] p-2 bg-background border rounded"
                 placeholder="Результаты последней операции..."
+                ref={textareaRef}
               />
             </div>
           </CardContent>

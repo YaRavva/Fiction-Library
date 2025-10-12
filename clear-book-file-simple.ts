@@ -1,9 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Загружаем переменные окружения
+import { config } from 'dotenv';
+config();
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  console.error('❌ Missing Supabase environment variables');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 async function clearBookFile(bookTitle: string, authorName: string) {
   try {
@@ -65,12 +74,75 @@ async function clearBookFile(bookTitle: string, authorName: string) {
   }
 }
 
+async function clearBookFileById(bookId: string) {
+  try {
+    console.log(`🔍 Поиск книги по ID: ${bookId}`);
+
+    // Find the book by ID
+    const { data: bookData, error: bookError } = await supabase
+      .from('books')
+      .select('id, title, author, file_url, storage_path')
+      .eq('id', bookId)
+      .single();
+
+    if (bookError || !bookData) {
+      console.error(`❌ Книга с ID "${bookId}" не найдена`);
+      return;
+    }
+
+    console.log(`✅ Найдена книга: "${bookData.title}" - ${bookData.author} (ID: ${bookData.id})`);
+
+    // Check if there's a file linked
+    if (!bookData.file_url && !bookData.storage_path) {
+      console.log(`⚠️ У книги уже нет привязанного файла`);
+      return;
+    }
+
+    console.log(`📁 Текущий файл: ${bookData.file_url || bookData.storage_path}`);
+
+    // Clear the file fields for the book without confirmation
+    const { error: updateError } = await supabase
+      .from('books')
+      .update({
+        file_url: null,
+        storage_path: null,
+        file_size: null,
+        file_format: null,
+        telegram_file_id: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookId);
+
+    if (updateError) {
+      console.error(`❌ Ошибка при очистке файла книги: ${updateError.message}`);
+      return;
+    }
+
+    console.log(`✅ Файл книги "${bookData.title}" успешно очищен!`);
+  } catch (error) {
+    console.error(`❌ Неожиданная ошибка: ${(error as Error).message}`);
+  }
+}
+
 // Get command line arguments
 const args = process.argv.slice(2);
-if (args.length !== 2) {
-  console.log('Использование: npx tsx clear-book-file-simple.ts "название книги" "имя автора"');
+if (args.length < 1) {
+  console.log('Использование:');
+  console.log('  По названию и автору: npx tsx clear-book-file-simple.ts "название книги" "имя автора"');
+  console.log('  По ID книги: npx tsx clear-book-file-simple.ts --id "ID книги"');
   process.exit(1);
 }
 
-const [bookTitle, authorName] = args;
-clearBookFile(bookTitle, authorName);
+if (args[0] === '--id' && args.length === 2) {
+  const bookId = args[1];
+  clearBookFileById(bookId);
+} else if (args.length === 2) {
+  const [bookTitle, authorName] = args;
+  clearBookFile(bookTitle, authorName);
+} else {
+  console.log('Неверные аргументы.');
+  console.log('Использование:');
+  console.log('  По названию и автору: npx tsx clear-book-file-simple.ts "название книги" "имя автора"');
+  console.log('  По ID книги: npx tsx clear-book-file-simple.ts --id "ID книги"');
+  process.exit(1);
+}

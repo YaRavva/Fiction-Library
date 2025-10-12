@@ -2,7 +2,14 @@ import { Book } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Image from 'next/image'
-import { BookOpen, Download } from 'lucide-react'
+import { BookOpen, Download, X } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { getBrowserSupabase } from '@/lib/browserSupabase'
 
 interface BookCardLargeProps {
   book: Book & {
@@ -17,12 +24,53 @@ interface BookCardLargeProps {
   onDownload: (bookId: string, fileUrl: string | undefined) => void
   onRead: (book: Book) => void
   onTagClick?: (tag: string) => void
+  userProfile?: {
+    id: string
+    role: string
+  } | null
+  onFileClear?: (bookId: string) => void
 }
 
-export function BookCardLarge({ book, onDownload, onRead, onTagClick }: BookCardLargeProps) {
+export function BookCardLarge({ book, onDownload, onRead, onTagClick, userProfile, onFileClear }: BookCardLargeProps) {
   const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null
   const seriesComposition = book.series?.series_composition
   const seriesCoverUrls = book.series?.cover_urls
+
+  const handleClearFile = async () => {
+    if (onFileClear) {
+      onFileClear(book.id)
+    } else {
+      // Если не передана функция onFileClear, реализуем логику здесь
+      try {
+        const supabase = getBrowserSupabase()
+        
+        // Очищаем привязку файла к книге
+        const { error } = await supabase
+          .from('books')
+          .update({
+            file_url: null,
+            storage_path: null,
+            file_size: null,
+            file_format: null,
+            telegram_file_id: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', book.id)
+
+        if (error) {
+          console.error('❌ Ошибка при очистке файла:', error)
+          alert('Ошибка при очистке файла')
+        } else {
+          alert('Файл успешно очищен!')
+          // Перезагружаем страницу или обновляем состояние
+          window.location.reload()
+        }
+      } catch (error) {
+        console.error('❌ Ошибка:', error)
+        alert('Произошла ошибка при очистке файла')
+      }
+    }
+  }
 
   return (
     // Replaced shadcn/ui Card with custom div for full layout control
@@ -44,30 +92,73 @@ export function BookCardLarge({ book, onDownload, onRead, onTagClick }: BookCard
           
           {/* Action buttons in top right corner */}
           <div className="flex gap-1 ml-2">
-            <Button 
-              size="icon" 
-              variant="outline" 
-              className="h-8 w-8 p-0"
-              disabled={!book.file_url}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRead(book);
-              }}
-            >
-              <BookOpen className="h-4 w-4" />
-            </Button>
-            <Button 
-              size="icon" 
-              variant="outline" 
-              className="h-8 w-8 p-0"
-              disabled={!book.file_url}
-              onClick={(e) => {
-                e.stopPropagation();
-                onDownload(book.id, book.file_url);
-              }}
-            >
-              <Download className="h-4 w-4" />
-            </Button>
+            {userProfile?.role === 'admin' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="icon" 
+                      variant="outline" 
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      disabled={!book.file_url}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Вы уверены, что хотите очистить файл для книги "${book.title}"?`)) {
+                          handleClearFile();
+                        }
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Удалить файл книги</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="icon" 
+                    variant="outline" 
+                    className="h-8 w-8 p-0"
+                    disabled={!book.file_url}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRead(book);
+                    }}
+                  >
+                    <BookOpen className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Читать</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="icon" 
+                    variant="outline" 
+                    className="h-8 w-8 p-0"
+                    disabled={!book.file_url}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDownload(book.id, book.file_url);
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Скачать</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
