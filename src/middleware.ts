@@ -72,6 +72,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Если пользователь авторизован и находится на странице логина, перенаправляем в библиотеку
+  if (user && request.nextUrl.pathname === '/auth/login') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/library'
+    return NextResponse.redirect(url)
+  }
+
   return supabaseResponse
 }
 
