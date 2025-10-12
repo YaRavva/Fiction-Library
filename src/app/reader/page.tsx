@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { ChevronLeft, Menu, BookOpen, Download } from 'lucide-react'
 import JSZip from 'jszip'
 
+export const dynamic = 'force-dynamic'
+
 export default function ReaderPage() {
   const router = useRouter()
   const searchParams = useSearchParams()

@@ -905,12 +905,12 @@ export class BookWormService {
                     if (existingBook.telegram_post_id === null || existingBook.telegram_post_id !== (anyMsg.id as number)) {
                         console.log(`      🔄 Обновляем telegram_post_id для книги "${metadata.title}" (${existingBook.id})`);
 
-                        const { error: updateError } = await serverSupabase
+                        const { error: updateError } = await (serverSupabase as any)
                             .from('books')
                             .update({
                                 telegram_post_id: anyMsg.id as number,
                                 updated_at: new Date().toISOString()
-                            } as any)
+                            })
                             .eq('id', existingBook.id);
 
                         if (updateError) {

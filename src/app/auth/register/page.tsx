@@ -9,6 +9,8 @@ import type { Session } from '@supabase/supabase-js'
 import { UserAuthForm } from "@/components/auth/user-auth-form"
 import { Icons } from "@/components/ui/icons"
 
+export const dynamic = 'force-dynamic'
+
 export default function RegisterPage() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()

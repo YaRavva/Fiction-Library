@@ -35,6 +35,8 @@ import { BookCardLarge } from '@/components/books/book-card-large'
 import { Book as SupabaseBook } from '@/lib/supabase'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 
+export const dynamic = 'force-dynamic'
+
 // Расширяем тип Book из supabase дополнительными полями
 interface Book extends SupabaseBook {
   series?: {

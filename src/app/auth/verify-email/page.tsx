@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { Icons } from "@/components/ui/icons"
 
+export const dynamic = 'force-dynamic'
+
 export default function VerifyEmailPage() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
