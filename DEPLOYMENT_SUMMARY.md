@@ -5,7 +5,7 @@
 1. **Создание конфигурационных файлов**:
    - Создан файл `vercel.json` с настройками для Vercel
    - Обновлен `next.config.ts` для отключения строгой проверки типов и ESLint
-   - Создан `next.config.vercel.js` с настройками для Vercel
+   - Создан `vercel.config.js` с настройками для Vercel
    - Созданы файлы `DEPLOYMENT.md` и `DEPLOYMENT_SUMMARY.md` с документацией
 
 2. **Исправление проблем с prerendering**:

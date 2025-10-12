@@ -6,7 +6,7 @@
       "use": "@vercel/next",
       "config": {
         "includeFiles": [
-          "next.config.vercel.js",
+          "vercel.config.js",
           "tsconfig.json"
         ]
       }
