@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Icons } from "@/components/ui/icons"
+import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function NotFound() {
@@ -8,7 +8,7 @@ export default function NotFound() {
       <div className="lg:p-8">
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
           <div className="flex flex-col items-center space-y-4 text-center">
-            <Icons.alertCircle className="h-12 w-12 text-muted-foreground" />
+            <AlertCircle className="h-12 w-12 text-muted-foreground" />
             <div className="flex flex-col space-y-2">
               <h1 className="text-2xl font-semibold tracking-tight">
                 Страница не найдена
