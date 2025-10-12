@@ -683,46 +683,28 @@ export function FileSearchManager() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSearch className="h-5 w-5" />
-            Полуавтоматический поиск файлов
-          </CardTitle>
-          <CardDescription>
-            Обработка всех книг без файлов
-          </CardDescription>
-        </CardHeader>
+      <div className="flex items-center gap-4">
+        <Button
+          onClick={startInteractiveFileSearch}
+          disabled={processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing'}
+          size="default"
+        >
+          {processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing' ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+              {processingState.status === 'loading' ? 'Загрузка...' : 'Поиск/Обработка...'}
+            </>
+          ) : (
+            <>
+              Начать интерактивный поиск
+            </>
+          )}
+        </Button>
 
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={startInteractiveFileSearch}
-              disabled={processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing'}
-            >
-              {processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing' ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  {processingState.status === 'loading' ? 'Загрузка...' : 'Поиск/Обработка...'}
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 mr-2" />
-                  Начать интерактивный поиск
-                </>
-              )}
-            </Button>
-
-            <Button variant="outline" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Сброс
-            </Button>
-          </div>
-
-          {/* Здесь не будет выводиться никаких сообщений, только кнопки */}
-          {/* Все сообщения будут выводиться в глобальное окно "Результаты" */}
-        </CardContent>
-      </Card>
+        <Button variant="outline" onClick={handleReset} size="default">
+          Сброс
+        </Button>
+      </div>
 
       {/* Отображаем FileSelector через портал */}
       {showFileSelector && booksWithoutFiles.length > 0 && currentBookIndex < booksWithoutFiles.length && typeof document !== 'undefined' && createPortal(

@@ -401,14 +401,14 @@ export default function AdminPage() {
       </header>
 
       {/* Main Content */}
-      <div className="container py-4">
+      <div className="container py-6">
         {/* Telegram Stats - перемещен в самый верх */}
-        <div className="mb-4">
+        <div className="mb-6">
           <TelegramStatsSection />
         </div>
 
         {/* Синхронизация */}
-        <div className="mb-4">
+        <div className="mb-6">
           <SyncSettings
             bookWormRunning={bookWormRunning}
             bookWormMode={bookWormMode}
@@ -421,7 +421,7 @@ export default function AdminPage() {
         </div>
 
         {/* Результаты последней операции с расширенной информацией */}
-        <Card className="mb-4">
+        <Card className="mb-6">
           <CardHeader className="space-y-0 pb-1">
             <CardTitle className="text-lg font-semibold">Результаты</CardTitle>
           </CardHeader>
@@ -434,7 +434,7 @@ export default function AdminPage() {
                   lastBookWormReport : // Показываем отчет Книжного червя или поиска файлов
                   ''}
                 readOnly
-                className="w-full h-[400px] font-mono text-sm overflow-y-auto max-h-[400px] p-1 bg-background border rounded"
+                className="w-full h-[500px] font-mono text-sm overflow-y-auto max-h-[500px] p-1 bg-background border rounded"
                 placeholder="Результаты последней операции..."
                 ref={textareaRef}
               />
@@ -443,7 +443,7 @@ export default function AdminPage() {
         </Card>
 
         {/* Back to Library */}
-        <div className="flex justify-center">
+        <div className="flex justify-center mt-6">
           <Button variant="outline" onClick={() => router.push('/library')} className="h-8 text-sm">
             Вернуться в библиотеку
           </Button>
