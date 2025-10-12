@@ -6,6 +6,7 @@ import bigInt from 'big-integer';
 export class TelegramService {
     private client: TelegramClient;
     private static instance: TelegramService;
+    private isConnected: boolean = false;
 
     private constructor() {
         const apiId = process.env.TELEGRAM_API_ID;
@@ -13,7 +14,7 @@ export class TelegramService {
         const sessionString = process.env.TELEGRAM_SESSION;
 
         if (!apiId || !apiHash || !sessionString) {
-            throw new Error('TELEGRAM_API_ID, TELEGRAM_API_HASH, and TELEGRAM_SESSION must be set in environment variables');
+            throw new Error('TELEGRAM_API_ID, TELEGRAM_API_HASH, and TELELEGRAM_SESSION must be set in environment variables');
         }
 
         const session = new StringSession(sessionString);
@@ -25,13 +26,43 @@ export class TelegramService {
     public static async getInstance(): Promise<TelegramService> {
         if (!TelegramService.instance) {
             TelegramService.instance = new TelegramService();
-            // Connect the client
-            await TelegramService.instance.client.connect();
         }
+        
+        // Проверяем, подключен ли клиент, и подключаемся, если нет
+        await TelegramService.instance.ensureConnected();
+        
         return TelegramService.instance;
     }
 
+    private async ensureConnected(): Promise<void> {
+        try {
+            // Проверяем соединение, отправив тестовый запрос
+            if (!this.isConnected) {
+                await this.client.connect();
+                this.isConnected = true;
+            }
+            
+            // Проверяем соединение, отправив тестовый запрос
+            await this.client.getMe();
+        } catch (error) {
+            console.log('Connection lost, reconnecting...');
+            try {
+                await this.client.connect();
+                this.isConnected = true;
+                
+                // Проверяем соединение после переподключения
+                await this.client.getMe();
+            } catch (reconnectError) {
+                this.isConnected = false;
+                console.error('Error reconnecting Telegram client:', reconnectError);
+                throw reconnectError;
+            }
+        }
+    }
+
     public async getMetadataChannel() {
+        await this.ensureConnected();
+        
         const channelUrl = process.env.TELEGRAM_METADATA_CHANNEL;
         if (!channelUrl) {
             throw new Error('TELEGRAM_METADATA_CHANNEL must be set');
@@ -85,6 +116,8 @@ export class TelegramService {
     }
 
     public async getFilesChannel() {
+        await this.ensureConnected();
+        
         // Используем прямой доступ к каналу по ID вместо invite link
         const logMessage = '📚 Получаем доступ к каналу "Архив для фантастики" по ID...';
         console.log(logMessage);
@@ -103,6 +136,8 @@ export class TelegramService {
     }
 
     public async getMessages(chatId: any, limit: number = 10, offsetId?: number): Promise<unknown> {
+        await this.ensureConnected();
+        
         try {
             // Для получения конкретного сообщения по ID используем ids
             if (offsetId !== undefined && limit === 1) {
@@ -135,6 +170,8 @@ export class TelegramService {
      * @returns Массив всех сообщений из канала
      */
     public async getAllMessages(chatId: any, batchSize: number = 300): Promise<unknown[]> {
+        await this.ensureConnected();
+        
         try {
             const logMessage = `📥 Получение всех сообщений из канала (пакетами по ${batchSize})...`;
             console.log(logMessage);
@@ -243,6 +280,8 @@ export class TelegramService {
      * @returns Сущность канала
      */
     public async getChannelEntityById(channelId: number): Promise<unknown> {
+        await this.ensureConnected();
+        
         try {
             const entity = await this.client.getEntity(new Api.PeerChannel({ channelId: bigInt(channelId) }));
             return entity;
@@ -254,8 +293,9 @@ export class TelegramService {
 
     public async disconnect(): Promise<void> {
         try {
-            if (this.client && this.client.connected) {
+            if (this.client && this.isConnected) {
                 await this.client.disconnect();
+                this.isConnected = false;
             }
         } catch (error) {
             console.error('Error disconnecting Telegram client:', error);
@@ -269,6 +309,8 @@ export class TelegramService {
      * @returns Сообщение или null, если не найдено
      */
     public async getMessageById(chatId: any, messageId: number): Promise<unknown | null> {
+        await this.ensureConnected();
+        
         try {
             console.log(`🔍 Получение сообщения с ID ${messageId}...`);
             

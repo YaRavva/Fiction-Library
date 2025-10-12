@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -681,63 +682,66 @@ export function FileSearchManager() {
   }, [setFileSelectorKey, setIsResetting]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileSearch className="h-5 w-5" />
-          Полуавтоматический поиск файлов
-        </CardTitle>
-        <CardDescription>
-          Обработка всех книг без файлов
-        </CardDescription>
-      </CardHeader>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSearch className="h-5 w-5" />
+            Полуавтоматический поиск файлов
+          </CardTitle>
+          <CardDescription>
+            Обработка всех книг без файлов
+          </CardDescription>
+        </CardHeader>
 
-      <CardContent>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={startInteractiveFileSearch}
-            disabled={processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing'}
-          >
-            {processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing' ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                {processingState.status === 'loading' ? 'Загрузка...' : 'Поиск/Обработка...'}
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4 mr-2" />
-                Начать интерактивный поиск
-              </>
-            )}
-          </Button>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={startInteractiveFileSearch}
+              disabled={processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing'}
+            >
+              {processingState.status === 'loading' || processingState.status === 'searching' || processingState.status === 'processing' ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  {processingState.status === 'loading' ? 'Загрузка...' : 'Поиск/Обработка...'}
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Начать интерактивный поиск
+                </>
+              )}
+            </Button>
 
-          <Button variant="outline" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Сброс
-          </Button>
-        </div>
-
-        {/* Отображаем FileSelector напрямую без Portal */}
-        {showFileSelector && booksWithoutFiles.length > 0 && currentBookIndex < booksWithoutFiles.length && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[95vh] overflow-hidden flex flex-col">
-              <FileSelector
-                key={`file-selector-${fileSelectorKey}-${currentBookIndex}-${booksWithoutFiles[currentBookIndex].id}`}
-                book={booksWithoutFiles[currentBookIndex]}
-                files={findMatchingFiles(
-                  booksWithoutFiles[currentBookIndex], 
-                  allTelegramFilesRef.current.length > 0 ? allTelegramFilesRef.current : []
-                )}
-                onSelect={handleFileSelect}
-                onSkip={handleSkipBook}
-              />
-            </div>
+            <Button variant="outline" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Сброс
+            </Button>
           </div>
-        )}
 
-        {/* Здесь не будет выводиться никаких сообщений, только кнопки */}
-        {/* Все сообщения будут выводиться в глобальное окно "Результаты" */}
-      </CardContent>
-    </Card>
+          {/* Здесь не будет выводиться никаких сообщений, только кнопки */}
+          {/* Все сообщения будут выводиться в глобальное окно "Результаты" */}
+        </CardContent>
+      </Card>
+
+      {/* Отображаем FileSelector через портал */}
+      {showFileSelector && booksWithoutFiles.length > 0 && currentBookIndex < booksWithoutFiles.length && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden flex flex-col">
+            <FileSelector
+              key={`file-selector-${fileSelectorKey}-${currentBookIndex}-${booksWithoutFiles[currentBookIndex].id}`}
+              book={booksWithoutFiles[currentBookIndex]}
+              files={findMatchingFiles(
+                booksWithoutFiles[currentBookIndex], 
+                allTelegramFilesRef.current.length > 0 ? allTelegramFilesRef.current : []
+              )}
+              onSelect={handleFileSelect}
+              onSkip={handleSkipBook}
+            />
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, SkipForward, Check } from 'lucide-react';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
 
 export interface FileOption {
   message_id: number;
@@ -187,6 +188,25 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
           </div>
         </div>
 
+        {/* Подсказка по клавишам управления */}
+        <div className="flex justify-center py-2">
+          <div className="text-base text-muted-foreground flex items-center gap-4">
+            <KbdGroup>
+              <Kbd>↑</Kbd>
+              <Kbd>↓</Kbd>
+              <span>Навигация</span>
+            </KbdGroup>
+            <KbdGroup>
+              <Kbd>Enter</Kbd>
+              <span>Выбрать</span>
+            </KbdGroup>
+            <KbdGroup>
+              <Kbd>Esc</Kbd>
+              <span>Пропустить</span>
+            </KbdGroup>
+          </div>
+        </div>
+
         {/* Действия */}
         <div className="flex items-center justify-between pt-2 mt-2">
           <div className="flex items-center gap-2">
@@ -201,10 +221,11 @@ export function FileSelector({ book, files, onSelect, onSkip }: FileSelectorProp
             </Button>
           </div>
 
+          <div className="text-base text-muted-foreground mx-4">
+            Выбран: {selectedFile?.file_name || 'Нет'}
+          </div>
+
           <div className="flex items-center gap-2">
-            <div className="text-sm text-muted-foreground">
-              Выбран: {selectedFile?.file_name || 'Нет'}
-            </div>
             <Button
               onClick={handleSelect}
               disabled={isProcessing}

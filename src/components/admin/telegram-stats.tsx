@@ -308,19 +308,16 @@ export function TelegramStatsSection() {
 
   return (
     <Card className="relative">
-      <CardHeader>
-        <CardTitle>Статистика</CardTitle>
-        <CardDescription>
-          Информация о книгах в Telegram канале и в базе данных
-        </CardDescription>
+      <CardHeader className="space-y-0 pb-1">
+        <CardTitle className="text-lg font-semibold">Статистика</CardTitle>
       </CardHeader>
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-2 right-3">
         <Button
           onClick={updateStats}
           disabled={updating}
           variant="outline"
           size="sm"
-          className="min-w-[100px]"
+          className="min-w-[100px] h-8 text-sm"
         >
           {updating ? (
             <>
@@ -334,7 +331,7 @@ export function TelegramStatsSection() {
           )}
         </Button>
       </div>
-      <CardContent>
+      <CardContent className="pb-2">
         {/* Локальные сообщения убраны - вся информация в результатах операции */}
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">

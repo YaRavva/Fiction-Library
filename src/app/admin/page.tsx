@@ -14,8 +14,10 @@ import { Separator } from '@/components/ui/separator';
 
 import { TelegramStatsSection } from '@/components/admin/telegram-stats';
 import { FileSearchManager } from '@/components/admin/file-search-manager';
+import { SyncSettings } from '@/components/admin/sync-settings';
 import { getValidSession } from '@/lib/auth-helpers';
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface UserProfile {
   id: string
@@ -37,7 +39,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   // Состояния только для Книжного червя
   const [bookWormRunning, setBookWormRunning] = useState(false)
-  const [bookWormMode, setBookWormMode] = useState<'full' | 'update' | 'settings' | null>(null)
+  const [bookWormMode, setBookWormMode] = useState<'full' | 'update' | null>(null)
   const [bookWormInterval, setBookWormInterval] = useState(30)
   const [bookWormAutoUpdate, setBookWormAutoUpdate] = useState(false)
   const [bookWormStatus, setBookWormStatus] = useState<{
@@ -159,8 +161,8 @@ export default function AdminPage() {
 
 
   // Функция для переключения автоматического обновления
-  const handleToggleAutoUpdate = () => {
-    setBookWormAutoUpdate(!bookWormAutoUpdate);
+  const handleToggleAutoUpdate = (checked: boolean) => {
+    setBookWormAutoUpdate(checked);
   };
 
   // Функции для интерактивного поиска файлов
@@ -188,10 +190,10 @@ export default function AdminPage() {
       }
 
       // Создаем отчет о запуске
-      const report = `🐋 Запуск Книжного Червя в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n`
+      const report = `🔄 Запуск синхронизации в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n`
       setLastBookWormReport(report)
 
-      // Вызываем API endpoint для запуска "Книжного Червя"
+      // Вызываем API endpoint для запуска синхронизации
       const response = await fetch('/api/admin/book-worm', {
         method: 'POST',
         headers: {
@@ -208,7 +210,7 @@ export default function AdminPage() {
         if (mode === 'update' && data.result) {
           // Используем подробный отчет из API, если он есть
           const detailedReport = data.report || 
-            `🐋 Результаты работы Книжного Червя в режиме ОБНОВЛЕНИЯ:\n` +
+            `🔄 Результаты работы синхронизации в режиме ОБНОВЛЕНИЯ:\n` +
             `=====================================================\n\n` +
             `📚 Метаданные:\n` +
             `   ✅ Обработано: ${data.result.metadata.processed}\n` +
@@ -229,23 +231,23 @@ export default function AdminPage() {
           setLastBookWormReport(detailedReport);
         } else {
           // Для полной синхронизации или других случаев
-          const finalReport = `${report}✅ Книжный Червь успешно запущен в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
+          const finalReport = `${report}✅ Синхронизация успешно запущена в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
           setLastBookWormReport(finalReport)
         }
         
         // Обновляем статус
         setBookWormStatus({
           status: 'completed',
-          message: `Завершен в режиме ${mode}`,
+          message: `Завершена в режиме ${mode}`,
           progress: 100
         });
       } else {
-        throw new Error(data.error || 'Ошибка запуска Книжного Червя')
+        throw new Error(data.error || 'Ошибка запуска синхронизации')
       }
     } catch (error) {
-      console.error('Book Worm error:', error)
-      setError(`Ошибка при выполнении Книжного Червя: ${(error as Error).message}`)
-      const errorReport = `🐋 Запуск Книжного Червя в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n❌ Ошибка: ${(error as Error).message}`
+      console.error('Sync error:', error)
+      setError(`Ошибка при выполнении синхронизации: ${(error as Error).message}`)
+      const errorReport = `🔄 Запуск синхронизации в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n❌ Ошибка: ${(error as Error).message}`
       setLastBookWormReport(errorReport)
       
       // Обновляем статус
@@ -260,7 +262,7 @@ export default function AdminPage() {
     }
   }
 
-  // Функция для проверки статуса "Книжного Червя"
+  // Функция для проверки статуса синхронизации
   const checkBookWormStatus = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -284,11 +286,11 @@ export default function AdminPage() {
         });
       }
     } catch (error) {
-      console.error('Error checking Book Worm status:', error)
+      console.error('Error checking sync status:', error)
     }
   }
 
-  // Периодически проверяем статус "Книжного Червя"
+  // Периодически проверяем статус синхронизации
   useEffect(() => {
     const interval = setInterval(() => {
       if (bookWormRunning || bookWormStatus.status === 'running') {
@@ -335,7 +337,7 @@ export default function AdminPage() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between">
+        <div className="container flex h-12 items-center justify-between">
           <div className="flex items-center">
             <a href="/library" className="mr-6 flex items-center space-x-2">
               <Library className="h-6 w-6" />
@@ -345,10 +347,7 @@ export default function AdminPage() {
             </a>
           </div>
           <div className="hidden md:block text-center absolute left-1/2 transform -translate-x-1/2">
-            <h1 className="text-lg font-bold">Админ панель</h1>
-            <p className="text-xs text-muted-foreground">
-              Управление синхронизацией с Telegram
-            </p>
+            <h1 className="text-base font-bold">Админ панель</h1>
           </div>
 
           <div className="flex flex-1 items-center justify-end space-x-2">
@@ -402,80 +401,32 @@ export default function AdminPage() {
       </header>
 
       {/* Main Content */}
-      <div className="container py-6">
+      <div className="container py-4">
         {/* Telegram Stats - перемещен в самый верх */}
-        <div className="mb-6">
+        <div className="mb-4">
           <TelegramStatsSection />
         </div>
 
-        {/* Книжный червь - минималистичный дизайн */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Книжный червь</CardTitle>
-            <CardDescription>
-              Управление синхронизацией
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between gap-6">
-              {/* Управление Книжным червем */}
-              <div className="flex items-center gap-3">
-                <Button
-                  onClick={() => handleRunBookWorm('full')}
-                  disabled={bookWormRunning && bookWormMode === 'full'}
-                  size="sm"
-                >
-                  Полная
-                </Button>
-
-                <Button
-                  onClick={() => handleRunBookWorm('update')}
-                  disabled={bookWormRunning && bookWormMode === 'update'}
-                  variant="outline"
-                  size="sm"
-                >
-                  Обновление
-                </Button>
-                
-                {/* Интерактивный поиск файлов */}
-                <FileSearchManager />
-              </div>
-
-              {/* Настройки таймера */}
-              <div className="flex items-center gap-2">
-                <Label htmlFor="book-worm-interval" className="text-sm whitespace-nowrap">
-                  Таймер:
-                </Label>
-                <Input
-                  id="book-worm-interval"
-                  type="number"
-                  min="5"
-                  max="1440"
-                  value={bookWormInterval}
-                  onChange={(e) => setBookWormInterval(Math.max(5, Math.min(1440, parseInt(e.target.value) || 30)))}
-                  className="w-20 h-8 text-sm"
-                />
-                <span className="text-sm text-muted-foreground">мин</span>
-                <Button
-                  onClick={handleToggleAutoUpdate}
-                  variant={bookWormAutoUpdate ? "default" : "outline"}
-                  size="sm"
-                  className="h-8"
-                >
-                  {bookWormAutoUpdate ? 'ВКЛ' : 'ВЫКЛ'}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Синхронизация */}
+        <div className="mb-4">
+          <SyncSettings
+            bookWormRunning={bookWormRunning}
+            bookWormMode={bookWormMode}
+            bookWormInterval={bookWormInterval}
+            bookWormAutoUpdate={bookWormAutoUpdate}
+            handleRunBookWorm={handleRunBookWorm}
+            handleToggleAutoUpdate={handleToggleAutoUpdate}
+            setBookWormInterval={setBookWormInterval}
+          />
+        </div>
 
         {/* Результаты последней операции с расширенной информацией */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Результаты</CardTitle>
+        <Card className="mb-4">
+          <CardHeader className="space-y-0 pb-1">
+            <CardTitle className="text-lg font-semibold">Результаты</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="border rounded-md p-2 bg-muted">
+          <CardContent className="pb-2">
+            <div className="border rounded-md p-1 bg-muted">
               <textarea
                 id="results-textarea"
                 value={
@@ -483,7 +434,7 @@ export default function AdminPage() {
                   lastBookWormReport : // Показываем отчет Книжного червя или поиска файлов
                   ''}
                 readOnly
-                className="w-full h-[1000px] font-mono text-xs overflow-y-auto max-h-[1000px] p-2 bg-background border rounded"
+                className="w-full h-[400px] font-mono text-sm overflow-y-auto max-h-[400px] p-1 bg-background border rounded"
                 placeholder="Результаты последней операции..."
                 ref={textareaRef}
               />
@@ -493,7 +444,7 @@ export default function AdminPage() {
 
         {/* Back to Library */}
         <div className="flex justify-center">
-          <Button variant="outline" onClick={() => router.push('/library')}>
+          <Button variant="outline" onClick={() => router.push('/library')} className="h-8 text-sm">
             Вернуться в библиотеку
           </Button>
         </div>
