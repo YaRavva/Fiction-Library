@@ -20,10 +20,7 @@ const nextConfig: NextConfig = {
   },
   // Отключаем статический экспорт для всех страниц
   output: 'standalone',
-  // Отключаем статический экспорт принудительно
-  experimental: {
-    serverComponentsExternalPackages: ['react', 'react-dom'],
-  },
+  // Конфигурация для Next.js 15
 };
 
 export default nextConfig;
