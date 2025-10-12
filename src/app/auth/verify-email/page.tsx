@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { Icons } from "@/components/ui/icons"
 
 export const dynamic = 'force-dynamic'
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -44,7 +44,7 @@ export default function VerifyEmailPage() {
     }
 
     verifyEmail()
-  }, [])
+  }, [searchParams, router, supabase])
 
   return (
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
@@ -78,5 +78,29 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="container flex h-screen w-screen flex-col items-center justify-center">
+        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+          <div className="flex flex-col items-center space-y-4">
+            <Icons.spinner className="h-8 w-8 animate-spin" />
+            <div className="flex flex-col space-y-2 text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Загрузка...
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Пожалуйста, подождите...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }

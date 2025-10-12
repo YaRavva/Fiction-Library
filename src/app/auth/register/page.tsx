@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import type { Session } from '@supabase/supabase-js'
@@ -11,7 +11,7 @@ import { Icons } from "@/components/ui/icons"
 
 export const dynamic = 'force-dynamic'
 
-export default function RegisterPage() {
+function RegisterContent() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -21,11 +21,11 @@ export default function RegisterPage() {
   useEffect(() => {
     setRedirectTo(searchParams.get('redirectTo'))
     setLoading(false)
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
     if (loading) return
-    
+
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
@@ -44,7 +44,7 @@ export default function RegisterPage() {
     })
 
     return () => subscription.unsubscribe()
-  }, [loading])
+  }, [loading, redirectTo, router, supabase])
 
   if (loading) {
     return (
@@ -78,7 +78,7 @@ export default function RegisterPage() {
         <UserAuthForm type="register" />
 
         <p className="px-8 text-center text-sm text-muted-foreground">
-          <Link 
+          <Link
             href="/auth/login"
             className="hover:text-primary underline underline-offset-4"
           >
@@ -88,5 +88,17 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="container flex h-screen w-screen items-center justify-center">
+        <Icons.spinner className="h-6 w-6 animate-spin" />
+      </div>
+    }>
+      <RegisterContent />
+    </Suspense>
   )
 }
