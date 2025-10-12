@@ -2,11 +2,14 @@
 
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { BookCardLarge } from '@/components/books/book-card-large'
 import { Button } from '@/components/ui/button'
 import { Book as SupabaseBook } from '@/lib/supabase'
 import Head from 'next/head'
+import { BookOpen } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 // Расширяем тип Book из supabase дополнительными полями
 interface Book extends SupabaseBook {
@@ -19,7 +22,7 @@ interface Book extends SupabaseBook {
   }
 }
 
-export default function BookTablePage() {
+function BookTableContent() {
   const [supabase] = useState(() => getBrowserSupabase())
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -177,5 +180,20 @@ export default function BookTablePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function BookTablePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <BookOpen className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
+          <p className="text-muted-foreground">Загрузка книги...</p>
+        </div>
+      </div>
+    }>
+      <BookTableContent />
+    </Suspense>
   )
 }

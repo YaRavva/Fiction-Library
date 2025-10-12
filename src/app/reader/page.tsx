@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getBrowserSupabase } from '@/lib/browserSupabase'
 import { getValidSession } from '@/lib/auth-helpers'
@@ -11,7 +11,7 @@ import JSZip from 'jszip'
 
 export const dynamic = 'force-dynamic'
 
-export default function ReaderPage() {
+function ReaderContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const bookId = searchParams.get('bookId')
@@ -282,5 +282,20 @@ export default function ReaderPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ReaderPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <BookOpen className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
+          <p className="text-muted-foreground">Загрузка читалки...</p>
+        </div>
+      </div>
+    }>
+      <ReaderContent />
+    </Suspense>
   )
 }
