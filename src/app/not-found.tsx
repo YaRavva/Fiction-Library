@@ -1,36 +1,69 @@
-import Link from "next/link"
-import { AlertCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-
 export default function NotFound() {
   return (
-    <div className="container relative grid min-h-screen flex-col items-center justify-center lg:max-w-none lg:grid-cols-1 lg:px-0">
-      <div className="lg:p-8">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-          <div className="flex flex-col items-center space-y-4 text-center">
-            <AlertCircle className="h-12 w-12 text-muted-foreground" />
-            <div className="flex flex-col space-y-2">
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Страница не найдена
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Запрашиваемая страница не существует или была перемещена.
-              </p>
-            </div>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      padding: '20px',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
+      <div style={{ textAlign: 'center', maxWidth: '350px' }}>
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            margin: '0 auto 1rem',
+            color: '#6b7280'
+          }}>
+            ⚠️
           </div>
+          <h1 style={{
+            fontSize: '1.5rem',
+            fontWeight: '600',
+            marginBottom: '0.5rem',
+            color: '#111827'
+          }}>
+            Страница не найдена
+          </h1>
+          <p style={{
+            fontSize: '0.875rem',
+            color: '#6b7280',
+            lineHeight: '1.5'
+          }}>
+            Запрашиваемая страница не существует или была перемещена.
+          </p>
+        </div>
 
-          <div className="flex flex-col gap-2">
-            <Button asChild className="w-full">
-              <Link href="/">
-                На главную
-              </Link>
-            </Button>
-            <Button variant="outline" asChild className="w-full">
-              <Link href="/library">
-                К библиотеке
-              </Link>
-            </Button>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <a href="/" style={{
+            display: 'block',
+            padding: '8px 16px',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            textAlign: 'center'
+          }}>
+            На главную
+          </a>
+          <a href="/library" style={{
+            display: 'block',
+            padding: '8px 16px',
+            backgroundColor: 'transparent',
+            color: '#3b82f6',
+            textDecoration: 'none',
+            border: '1px solid #3b82f6',
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            textAlign: 'center'
+          }}>
+            К библиотеке
+          </a>
         </div>
       </div>
     </div>
