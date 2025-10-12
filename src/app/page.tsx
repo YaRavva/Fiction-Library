@@ -1,38 +1,37 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-'use client'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { getBrowserSupabase } from '@/lib/browserSupabase'
-import { Icons } from "@/components/ui/icons"
-
-export default function Home() {
-  const router = useRouter()
-  const supabase = getBrowserSupabase()
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (session) {
-        // Пользователь авторизован, перенаправляем в библиотеку
-        router.push('/library')
-      } else {
-        // Пользователь не авторизован, перенаправляем на страницу входа
-        router.push('/auth/login')
-      }
+export default async function Home() {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch (error) {
+            // Обработка ошибок установки cookies
+          }
+        },
+      },
     }
-
-    checkUser()
-  }, [router, supabase])
-
-  return (
-    <div className="container flex h-screen w-screen items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <Icons.spinner className="h-8 w-8 animate-spin" />
-        <p className="text-muted-foreground">Проверка авторизации...</p>
-      </div>
-    </div>
   )
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (session) {
+    // Пользователь авторизован, перенаправляем в библиотеку
+    redirect('/library')
+  } else {
+    // Пользователь не авторизован, перенаправляем на страницу входа
+    redirect('/auth/login')
+  }
 }
