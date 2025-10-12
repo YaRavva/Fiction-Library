@@ -30,10 +30,11 @@ export async function middleware(request: NextRequest) {
   // Проверяем аутентификацию пользователя
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser()
 
   // Защищенные маршруты (требуют аутентификации)
-  const protectedPaths = ['/library', '/profile', '/admin']
+  const protectedPaths = ['/library', '/profile', '/admin', '/reader']
   const isProtectedPath = protectedPaths.some(path => 
     request.nextUrl.pathname.startsWith(path)
   )
@@ -45,7 +46,7 @@ export async function middleware(request: NextRequest) {
   )
 
   // Если пользователь не авторизован и пытается попасть на защищенную страницу
-  if (!user && isProtectedPath) {
+  if ((!user || error) && isProtectedPath) {
     // Для путей, начинающихся с /auth, не перенаправляем на логин, чтобы избежать зацикливания
     if (request.nextUrl.pathname.startsWith('/auth')) {
       return supabaseResponse
@@ -58,7 +59,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Проверяем права администратора для админских маршрутов
-  if (user && isAdminPath) {
+  if ((user && !error) && isAdminPath) {
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role')
@@ -72,8 +73,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Если пользователь авторизован и находится на странице логина, перенаправляем в библиотеку
-  if (user && request.nextUrl.pathname === '/auth/login') {
+  // Если пользователь авторизован и находится на главной странице, перенаправляем в библиотеку
+  if ((user && !error) && request.nextUrl.pathname === '/') {
     const url = request.nextUrl.clone()
     url.pathname = '/library'
     return NextResponse.redirect(url)
