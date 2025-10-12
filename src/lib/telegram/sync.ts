@@ -3,7 +3,7 @@ import { MetadataParser, BookMetadata } from './parser';
 import { uploadFileToStorage, upsertBookRecord, getSupabaseAdmin } from '../supabase';
 import { serverSupabase } from '../serverSupabase';
 import { Message } from 'node-telegram-bot-api';
-import path from 'path';
+import * as path from 'path';
 import { TelegramMetadataService } from './metadata-service';
 import { TelegramFileService } from './file-service';
 

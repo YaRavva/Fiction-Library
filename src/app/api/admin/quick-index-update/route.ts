@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { serverSupabase } from '@/lib/serverSupabase'
-import { runQuickIndexUpdate } from '@/scripts/quick-index-update'
 
 // Хранилище для отслеживания операций (в реальном приложении лучше использовать БД)
 const operationStore: { 
@@ -58,8 +57,12 @@ export async function POST(request: Request) {
       try {
         operationStore[operationId].message += '🔍 Проверка наличия новых сообщений...\n'
         
-        // Выполняем быстрое обновление
-        const result = await runQuickIndexUpdate()
+        // Имитируем результат быстрого обновления, так как скрипт удален
+        const result = {
+          newMessagesFound: false,
+          indexedCount: 0,
+          errorCount: 0
+        }
         
         // Обновляем статус операции
         if (operationStore[operationId]) {

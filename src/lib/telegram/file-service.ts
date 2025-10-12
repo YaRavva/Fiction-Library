@@ -1,7 +1,7 @@
 import { TelegramService } from './client';
 import { uploadFileToStorage, getSupabaseAdmin } from '../supabase';
 import { serverSupabase } from '../serverSupabase';
-import path from 'path';
+import * as path from 'path';
 
 export class TelegramFileService {
     private static instance: TelegramFileService;

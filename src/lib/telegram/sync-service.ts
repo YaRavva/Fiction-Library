@@ -4,15 +4,7 @@ import { serverSupabase } from '../serverSupabase';
 import { TelegramService } from './client';
 import { uploadFileToStorage } from '../supabase';
 import { MetadataParser, BookMetadata } from './parser';
-
-// Используем типы Supabase вместо локального интерфейса
-type Book = {
-    id: string;
-    title: string;
-    author: string;
-    telegram_post_id: number | null;
-    [key: string]: unknown;
-};
+import { Book } from '../supabase';
 
 export class SyncService {
     private metadataService: TelegramMetadataService;
@@ -154,10 +146,10 @@ export class SyncService {
                     if (existingBook.telegram_post_id === null || existingBook.telegram_post_id !== (anyMsg.id as number)) {
                         console.log(`      🔄 Обновляем telegram_post_id для книги "${metadata.title}" (${existingBook.id})`);
                         
-                        const { error: updateError } = await serverSupabase
+                        const { error: updateError } = await (serverSupabase as any)
                             .from('books')
                             .update({ telegram_post_id: anyMsg.id as number })
-                            .eq('id', existingBook.id);
+                            .eq('id', (existingBook as Book).id);
 
                         if (updateError) {
                             console.error(`      ❌ Ошибка при обновлении telegram_post_id:`, updateError);
@@ -166,7 +158,7 @@ export class SyncService {
                                 msgId: anyMsg.id, 
                                 status: 'error', 
                                 reason: 'failed to update telegram_post_id',
-                                bookId: existingBook.id,
+                                bookId: (existingBook as Book).id,
                                 bookTitle: metadata.title,
                                 bookAuthor: metadata.author
                             });
@@ -177,7 +169,7 @@ export class SyncService {
                             msgId: anyMsg.id, 
                             status: 'updated', 
                             reason: 'telegram_post_id updated',
-                            bookId: existingBook.id,
+                            bookId: (existingBook as Book).id,
                             bookTitle: metadata.title,
                             bookAuthor: metadata.author
                         });
@@ -188,7 +180,7 @@ export class SyncService {
                             msgId: anyMsg.id, 
                             status: 'skipped', 
                             reason: 'book already has correct telegram_post_id',
-                            bookId: existingBook.id,
+                            bookId: (existingBook as Book).id,
                             bookTitle: metadata.title,
                             bookAuthor: metadata.author
                         });
@@ -288,7 +280,7 @@ export class SyncService {
                     }
                 }
  
-                if (!existingBook || (existingBook.telegram_post_id === null || existingBook.telegram_post_id !== (anyMsg.id as number))) {
+                if (!existingBook || ((existingBook as Book).telegram_post_id === null || (existingBook as Book).telegram_post_id !== (anyMsg.id as number))) {
                     metadataList.push({
                         ...metadata,
                         coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || []
@@ -298,7 +290,7 @@ export class SyncService {
                         msgId: anyMsg.id, 
                         status: 'skipped', 
                         reason: 'book already exists with correct telegram_post_id',
-                        bookId: existingBook.id,
+                        bookId: (existingBook as Book).id,
                         bookTitle: metadata.title,
                         bookAuthor: metadata.author
                     });

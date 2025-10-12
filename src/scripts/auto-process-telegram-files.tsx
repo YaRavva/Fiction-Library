@@ -1,5 +1,5 @@
 // Загружаем переменные окружения
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { TelegramService } from '../lib/telegram/client';
@@ -118,12 +118,12 @@ async function autoProcessTelegramFiles() {
         console.log('3. Получение сообщений с файлами...');
         const messages = await client.getMessages(filesChannel, 5);
 
-        if (messages.length === 0) {
+        if ((messages as any[]).length === 0) {
             console.log('   ⚠️  Нет сообщений в канале');
             return;
         }
 
-        console.log(`   ✅ Получено ${messages.length} сообщений с файлами\n`);
+        console.log(`   ✅ Получено ${(messages as any[]).length} сообщений с файлами\n`);
 
         // Получаем доступ к Supabase
         const admin = getSupabaseAdmin();
@@ -142,8 +142,8 @@ async function autoProcessTelegramFiles() {
 
         // Обрабатываем каждое сообщение
         console.log('4. Обработка файлов:');
-        for (let i = 0; i < messages.length; i++) {
-            const msg: any = messages[i];
+        for (let i = 0; i < (messages as any[]).length; i++) {
+            const msg: any = (messages as any[])[i];
 
             if (!msg.document) {
                 continue;
@@ -190,7 +190,7 @@ async function autoProcessTelegramFiles() {
                 skippedCount++;
             }
 
-            if (i < messages.length - 1) {
+            if (i < (messages as any[]).length - 1) {
                 console.log('     ' + '─'.repeat(50));
             }
         }
@@ -208,7 +208,7 @@ async function autoProcessTelegramFiles() {
         console.log(`   ✅ Успешно обработано: ${processedCount} файлов`);
         console.log(`   ⚠️  Пропущено: ${skippedCount} файлов`);
         console.log(`   ❌ Ошибок: ${errorCount} файлов`);
-        console.log(`   📊 Всего: ${messages.length} файлов`);
+        console.log(`   📊 Всего: ${(messages as any[]).length} файлов`);
 
         console.log('\n=== ОБРАБОТКА ЗАВЕРШЕНА ===');
 

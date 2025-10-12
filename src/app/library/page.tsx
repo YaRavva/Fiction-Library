@@ -248,6 +248,7 @@ function LibraryContent() {
         } else {
           setBooks(data || [])
         }
+      }
     } catch (error) {
       console.error('Error searching books:', error)
     }
@@ -308,21 +309,6 @@ function LibraryContent() {
             } else {
               setBooks(data || []);
             }
-          }
-          
-          export default function LibraryPage() {
-            return (
-              <Suspense fallback={
-                <div className="min-h-screen flex items-center justify-center">
-                  <div className="text-center space-y-4">
-                    <Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
-                    <p className="text-muted-foreground">Загрузка библиотеки...</p>
-                  </div>
-                </div>
-              }>
-                <LibraryContent />
-              </Suspense>
-            )
           }
           return;
         }
@@ -557,5 +543,249 @@ function LibraryContent() {
         </div>
       </div>
     )
- }
+  }
+
+  // Calculate total pages
+  const totalPages = booksPerPage === 0 ? 1 : Math.ceil(totalBooks / booksPerPage)
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b">
+        <div className="container flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <Library className="h-6 w-6" />
+            <span className="text-lg font-semibold">Fiction Library</span>
+          </div>
+          
+          <div className="flex-1 max-w-md mx-4">
+            <form onSubmit={handleSearch} className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Поиск книг, авторов или тегов (#выше5, #фэнтези)..."
+                className="w-full pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </form>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                      <User className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {userProfile?.display_name || userProfile?.username || user?.email}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {userProfile?.role === 'admin' && (
+                  <>
+                    <DropdownMenuItem onClick={() => router.push('/admin')}>
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Админ панель</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Выйти</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </header>
+
+      <main className="container py-6">
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Библиотека</h1>
+            <Badge variant="secondary">{totalBooks} книг</Badge>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">На странице:</span>
+              <select 
+                value={customBooksPerPage}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setCustomBooksPerPage(value);
+                  if (value === 'all') {
+                    setBooksPerPage(0);
+                  } else {
+                    setBooksPerPage(parseInt(value, 10));
+                  }
+                  setCurrentPage(1);
+                  if (searchQuery) {
+                    searchBooks(searchQuery, 1);
+                  } else {
+                    loadBooks(1);
+                  }
+                }}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">Все</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Books display */}
+        {books.length === 0 && !loading ? (
+          <div className="text-center py-12">
+            <BookOpen className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h3 className="mt-4 text-lg font-medium">Книги не найдены</h3>
+            <p className="mt-1 text-muted-foreground">
+              {searchQuery ? 'Попробуйте изменить поисковый запрос' : 'В библиотеке пока нет книг'}
+            </p>
+          </div>
+        ) : (
+          <>
+            {viewMode === 'table' ? (
+              <BooksTable 
+                books={books} 
+                onBookClick={handleBookClick}
+                onDownloadClick={handleDownloadClick}
+                onReadClick={handleRead}
+                onTagClick={handleTagClick}
+              />
+            ) : viewMode === 'small-cards' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {books.map((book) => (
+                  <BookCardSmall
+                    key={book.id}
+                    book={book}
+                    onClick={() => router.push(`/library/book?id=${book.id}`)}
+                    onRead={handleRead}
+                    onTagClick={handleTagClick}
+                    onSelect={undefined}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {books.map((book) => (
+                  <BookCardLarge
+                    key={book.id}
+                    book={book}
+                    onDownload={handleDownload}
+                    onRead={handleRead}
+                    onTagClick={handleTagClick}
+                    userProfile={userProfile}
+                    onFileClear={handleClearFile}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {booksPerPage > 0 && totalPages > 1 && (
+              <div className="mt-8 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => {
+                          if (currentPage > 1) {
+                            const newPage = currentPage - 1;
+                            setCurrentPage(newPage);
+                            if (searchQuery) {
+                              searchBooks(searchQuery, newPage);
+                            } else {
+                              loadBooks(newPage);
+                            }
+                          }
+                        }}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      const page = i + 1;
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => {
+                              setCurrentPage(page);
+                              if (searchQuery) {
+                                searchBooks(searchQuery, page);
+                              } else {
+                                loadBooks(page);
+                              }
+                            }}
+                            isActive={currentPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    })}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => {
+                          if (currentPage < totalPages) {
+                            const newPage = currentPage + 1;
+                            setCurrentPage(newPage);
+                            if (searchQuery) {
+                              searchBooks(searchQuery, newPage);
+                            } else {
+                              loadBooks(newPage);
+                            }
+                          }
+                        }}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default function LibraryPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
+          <p className="text-muted-foreground">Загрузка библиотеки...</p>
+        </div>
+      </div>
+    }>
+      <LibraryContent />
+    </Suspense>
+  )
 }

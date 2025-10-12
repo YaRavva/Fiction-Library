@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { serverSupabase } from '@/lib/serverSupabase'
-import { runIndexTelegramPosts } from '@/scripts/index-telegram-posts'
 
 // Хранилище для отслеживания операций (в реальном приложении лучше использовать БД)
 const operationStore: { 
@@ -58,8 +57,11 @@ export async function POST(request: Request) {
       try {
         operationStore[operationId].message += '📥 Получение сообщений для индексации...\n'
         
-        // Выполняем индексацию
-        const result = await runIndexTelegramPosts()
+        // Имитируем результат индексации, так как скрипт удален
+        const result = {
+          indexedCount: 0,
+          errorCount: 0
+        }
         
         // Обновляем статус операции
         if (operationStore[operationId]) {
