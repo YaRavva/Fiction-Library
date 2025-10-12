@@ -6,7 +6,7 @@
       "use": "@vercel/next",
       "config": {
         "includeFiles": [
-          "next.config.ts",
+          "next.config.vercel.js",
           "tsconfig.json"
         ]
       }
@@ -25,5 +25,6 @@
       }
     }
   ],
-  "buildCommand": "pnpm build"
+  "buildCommand": "pnpm build",
+  "outputDirectory": ".next"
 }
