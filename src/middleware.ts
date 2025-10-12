@@ -46,6 +46,11 @@ export async function middleware(request: NextRequest) {
 
   // Если пользователь не авторизован и пытается попасть на защищенную страницу
   if (!user && isProtectedPath) {
+    // Для путей, начинающихся с /auth, не перенаправляем на логин, чтобы избежать зацикливания
+    if (request.nextUrl.pathname.startsWith('/auth')) {
+      return supabaseResponse
+    }
+    
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     url.searchParams.set('redirectTo', request.nextUrl.pathname)

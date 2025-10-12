@@ -18,9 +18,8 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Отключаем статический экспорт для всех страниц
-  output: 'standalone',
-  // Конфигурация для Next.js 15
+  // Убираем output: 'standalone' для корректной работы на Vercel
+  // output: 'standalone',
 };
 
 export default nextConfig;
