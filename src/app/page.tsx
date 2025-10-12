@@ -1,8 +1,10 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-
-// Простое перенаправление на страницу логина
 export default function Home() {
-  redirect('/auth/login')
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Добро пожаловать в Fiction Library</h1>
+        <p className="text-muted-foreground">Перенаправление...</p>
+      </div>
+    </div>
+  )
 }

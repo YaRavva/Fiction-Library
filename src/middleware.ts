@@ -74,9 +74,16 @@ export async function middleware(request: NextRequest) {
   }
 
   // Если пользователь авторизован и находится на главной странице, перенаправляем в библиотеку
-  if ((user && !error) && request.nextUrl.pathname === '/') {
+  if (user && !error && request.nextUrl.pathname === '/') {
     const url = request.nextUrl.clone()
     url.pathname = '/library'
+    return NextResponse.redirect(url)
+  }
+
+  // Если пользователь НЕ авторизован и находится на главной странице, перенаправляем на логин
+  if ((!user || error) && request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
