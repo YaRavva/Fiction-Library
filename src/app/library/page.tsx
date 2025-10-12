@@ -248,7 +248,6 @@ function LibraryContent() {
         } else {
           setBooks(data || [])
         }
-      }
     } catch (error) {
       console.error('Error searching books:', error)
     }
@@ -309,6 +308,21 @@ function LibraryContent() {
             } else {
               setBooks(data || []);
             }
+          }
+          
+          export default function LibraryPage() {
+            return (
+              <Suspense fallback={
+                <div className="min-h-screen flex items-center justify-center">
+                  <div className="text-center space-y-4">
+                    <Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
+                    <p className="text-muted-foreground">Загрузка библиотеки...</p>
+                  </div>
+                </div>
+              }>
+                <LibraryContent />
+              </Suspense>
+            )
           }
           return;
         }
@@ -543,20 +557,5 @@ function LibraryContent() {
         </div>
       </div>
     )
- }
- 
- export default function LibraryPage() {
-   return (
-     <Suspense fallback={
-       <div className="min-h-screen flex items-center justify-center">
-         <div className="text-center space-y-4">
-           <Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
-           <p className="text-muted-foreground">Загрузка библиотеки...</p>
-         </div>
-       </div>
-     }>
-       <LibraryContent />
-     </Suspense>
-   )
  }
 }
