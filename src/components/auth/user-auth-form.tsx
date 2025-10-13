@@ -37,7 +37,7 @@ export function UserAuthForm({
       const { error } = await client.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/library`
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
         }
       })
 
