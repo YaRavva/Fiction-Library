@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::books/*"
+    },
+    {
+      "Sid": "OwnerPermissions",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "ARN_OF_BUCKET_OWNER"
+      },
+      "Action": [
+        "s3:PutObject",
+        "s3:GetBucketAcl",
+        "s3:PutBucketAcl"
+      ],
+      "Resource": "arn:aws:s3:::books/*"
+    }
+  ]
+}

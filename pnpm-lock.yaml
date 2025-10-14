@@ -11,6 +11,12 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.908.0
         version: 3.908.0
+      '@aws-sdk/credential-providers':
+        specifier: ^3.908.0
+        version: 3.908.0
+      '@aws-sdk/types':
+        specifier: ^3.901.0
+        version: 3.901.0
       '@radix-ui/react-avatar':
         specifier: ^1.1.10
         version: 1.1.10(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -38,6 +44,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@19.2.1(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@smithy/node-http-handler':
+        specifier: ^4.4.0
+        version: 4.4.0
       '@supabase/auth-ui-react':
         specifier: ^0.4.7
         version: 0.4.7(@supabase/supabase-js@2.75.0(bufferutil@4.0.7)(utf-8-validate@5.0.10))
@@ -174,6 +183,10 @@ packages:
   '@aws-crypto/util@5.2.0':
     resolution: {integrity: sha512-4RkU9EsI6ZpBve5fseQlGNUWKMa1RLPQ1dnjnQoe07ldfIzcsGb5hC5W0Dm7u423KWzawlrpbjXBrXCEv9zazQ==}
 
+  '@aws-sdk/client-cognito-identity@3.908.0':
+    resolution: {integrity: sha512-XEva6l07dtF+6QNzTZHB+PEOX03sdcOudh+XVa4UjlUPlqrl/LAk/MzRxbw6pHScG5DPMx6Iyeicm7pJBOTdYg==}
+    engines: {node: '>=18.0.0'}
+
   '@aws-sdk/client-s3@3.908.0':
     resolution: {integrity: sha512-c/89iG3of8UEiWbRK014DoHLy8PLLTJtM9IvYLPsvrf83kpV2P/K9WrdbjW4h6e5qt9XPgfNTZ8U607mt7pdmA==}
     engines: {node: '>=18.0.0'}
@@ -184,6 +197,10 @@ packages:
 
   '@aws-sdk/core@3.908.0':
     resolution: {integrity: sha512-okl6FC2cQT1Oidvmnmvyp/IEvqENBagKO0ww4YV5UtBkf0VlhAymCWkZqhovtklsqgq0otag2VRPAgnrMt6nVQ==}
+    engines: {node: '>=18.0.0'}
+
+  '@aws-sdk/credential-provider-cognito-identity@3.908.0':
+    resolution: {integrity: sha512-Lmb5GatPNDY5cODfwH3XGWpKZqg/lh7ghCn4Y9BTMi5W9Z/E2Jq5YF7yaLobOjOpx+lVoxS+EsVrtSm6p3ffuw==}
     engines: {node: '>=18.0.0'}
 
   '@aws-sdk/credential-provider-env@3.908.0':
@@ -212,6 +229,10 @@ packages:
 
   '@aws-sdk/credential-provider-web-identity@3.908.0':
     resolution: {integrity: sha512-9xWrFn6nWlF5KlV4XYW+7E6F33S3wUUEGRZ/+pgDhkIZd527ycT2nPG2dZ3fWUZMlRmzijP20QIJDqEbbGWe1Q==}
+    engines: {node: '>=18.0.0'}
+
+  '@aws-sdk/credential-providers@3.908.0':
+    resolution: {integrity: sha512-WuAttxDemeKyMAgNEwBdgz11/W8IOosDxAU9GOk8ZbNJI/Cp0SiCp5p9bu0hlroq2V4HxECIRIMNeJZLh7fIgg==}
     engines: {node: '>=18.0.0'}
 
   '@aws-sdk/middleware-bucket-endpoint@3.901.0':
@@ -3596,6 +3617,50 @@ snapshots:
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
 
+  '@aws-sdk/client-cognito-identity@3.908.0':
+    dependencies:
+      '@aws-crypto/sha256-browser': 5.2.0
+      '@aws-crypto/sha256-js': 5.2.0
+      '@aws-sdk/core': 3.908.0
+      '@aws-sdk/credential-provider-node': 3.908.0
+      '@aws-sdk/middleware-host-header': 3.901.0
+      '@aws-sdk/middleware-logger': 3.901.0
+      '@aws-sdk/middleware-recursion-detection': 3.901.0
+      '@aws-sdk/middleware-user-agent': 3.908.0
+      '@aws-sdk/region-config-resolver': 3.901.0
+      '@aws-sdk/types': 3.901.0
+      '@aws-sdk/util-endpoints': 3.901.0
+      '@aws-sdk/util-user-agent-browser': 3.907.0
+      '@aws-sdk/util-user-agent-node': 3.908.0
+      '@smithy/config-resolver': 4.3.1
+      '@smithy/core': 3.16.0
+      '@smithy/fetch-http-handler': 5.3.2
+      '@smithy/hash-node': 4.2.1
+      '@smithy/invalid-dependency': 4.2.1
+      '@smithy/middleware-content-length': 4.2.1
+      '@smithy/middleware-endpoint': 4.3.2
+      '@smithy/middleware-retry': 4.4.2
+      '@smithy/middleware-serde': 4.2.1
+      '@smithy/middleware-stack': 4.2.1
+      '@smithy/node-config-provider': 4.3.1
+      '@smithy/node-http-handler': 4.4.0
+      '@smithy/protocol-http': 5.3.1
+      '@smithy/smithy-client': 4.8.0
+      '@smithy/types': 4.7.0
+      '@smithy/url-parser': 4.2.1
+      '@smithy/util-base64': 4.3.0
+      '@smithy/util-body-length-browser': 4.2.0
+      '@smithy/util-body-length-node': 4.2.1
+      '@smithy/util-defaults-mode-browser': 4.3.1
+      '@smithy/util-defaults-mode-node': 4.2.2
+      '@smithy/util-endpoints': 3.2.1
+      '@smithy/util-middleware': 4.2.1
+      '@smithy/util-retry': 4.2.1
+      '@smithy/util-utf8': 4.2.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - aws-crt
+
   '@aws-sdk/client-s3@3.908.0':
     dependencies:
       '@aws-crypto/sha1-browser': 5.2.0
@@ -3717,6 +3782,16 @@ snapshots:
       '@smithy/util-utf8': 4.2.0
       tslib: 2.8.1
 
+  '@aws-sdk/credential-provider-cognito-identity@3.908.0':
+    dependencies:
+      '@aws-sdk/client-cognito-identity': 3.908.0
+      '@aws-sdk/types': 3.901.0
+      '@smithy/property-provider': 4.2.1
+      '@smithy/types': 4.7.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - aws-crt
+
   '@aws-sdk/credential-provider-env@3.908.0':
     dependencies:
       '@aws-sdk/core': 3.908.0
@@ -3802,6 +3877,30 @@ snapshots:
       '@aws-sdk/types': 3.901.0
       '@smithy/property-provider': 4.2.1
       '@smithy/shared-ini-file-loader': 4.3.1
+      '@smithy/types': 4.7.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - aws-crt
+
+  '@aws-sdk/credential-providers@3.908.0':
+    dependencies:
+      '@aws-sdk/client-cognito-identity': 3.908.0
+      '@aws-sdk/core': 3.908.0
+      '@aws-sdk/credential-provider-cognito-identity': 3.908.0
+      '@aws-sdk/credential-provider-env': 3.908.0
+      '@aws-sdk/credential-provider-http': 3.908.0
+      '@aws-sdk/credential-provider-ini': 3.908.0
+      '@aws-sdk/credential-provider-node': 3.908.0
+      '@aws-sdk/credential-provider-process': 3.908.0
+      '@aws-sdk/credential-provider-sso': 3.908.0
+      '@aws-sdk/credential-provider-web-identity': 3.908.0
+      '@aws-sdk/nested-clients': 3.908.0
+      '@aws-sdk/types': 3.901.0
+      '@smithy/config-resolver': 4.3.1
+      '@smithy/core': 3.16.0
+      '@smithy/credential-provider-imds': 4.2.1
+      '@smithy/node-config-provider': 4.3.1
+      '@smithy/property-provider': 4.2.1
       '@smithy/types': 4.7.0
       tslib: 2.8.1
     transitivePeerDependencies:
