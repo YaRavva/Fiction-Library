@@ -453,8 +453,16 @@ function LibraryContent() {
           (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
         const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
         
+        // Проверяем, является ли файл из Cloud.ru S3
+        let downloadUrl = fileUrl;
+        if (fileUrl && fileUrl.includes('s3.cloud.ru')) {
+          // Используем проксирующий endpoint для Cloud.ru S3
+          const fileName = book.storage_path || fileUrl.split('/').pop() || filename;
+          downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
+        }
+        
         // Fetch the file and trigger download with custom filename
-        fetch(fileUrl)
+        fetch(downloadUrl)
           .then(response => response.blob())
           .then(blob => {
             const url = window.URL.createObjectURL(blob);
@@ -469,7 +477,7 @@ function LibraryContent() {
           .catch(error => {
             console.error('Error downloading file:', error);
             // Fallback to opening in new tab if download fails
-            window.open(fileUrl, '_blank');
+            window.open(downloadUrl, '_blank');
           });
       } else {
         // Fallback if book not found in state

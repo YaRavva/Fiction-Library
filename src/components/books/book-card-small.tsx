@@ -124,8 +124,16 @@ export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: B
                     (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
                   const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
                   
+                  // Проверяем, является ли файл из Cloud.ru S3
+                  let downloadUrl = book.file_url;
+                  if (book.file_url && book.file_url.includes('s3.cloud.ru')) {
+                    // Используем проксирующий endpoint для Cloud.ru S3
+                    const fileName = book.storage_path || book.file_url.split('/').pop() || filename;
+                    downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
+                  }
+                  
                   // Fetch the file and trigger download with custom filename
-                  fetch(book.file_url)
+                  fetch(downloadUrl)
                     .then(response => response.blob())
                     .then(blob => {
                       const url = window.URL.createObjectURL(blob);
@@ -140,7 +148,7 @@ export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: B
                     .catch(error => {
                       console.error('Error downloading file:', error);
                       // Fallback to opening in new tab if download fails
-                      window.open(book.file_url, '_blank');
+                      window.open(downloadUrl, '_blank');
                     });
                 }
               }}

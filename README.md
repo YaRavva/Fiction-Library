@@ -41,7 +41,7 @@ pnpm start
 - **UI компоненты**: shadcn/ui (стиль: new-york)
 - **База данных**: Supabase (PostgreSQL)
 - **Аутентификация**: Supabase Auth
-- **Файловое хранилище**: Supabase Storage
+- **Файловое хранилище**: Supabase Storage → Cloud.ru S3
 - **Интеграция**: Telegram Client API (GramJS)
 - **Пакетный менеджер**: pnpm
 
@@ -58,6 +58,7 @@ pnpm start
 - 📊 **Мониторинг системы** и статистика библиотеки
 - 🎯 **Управление очередью загрузок** файлов
 - 🛠️ **Настройка ролей пользователей**
+- ☁️ **Миграция файлов** из Supabase Storage в Cloud.ru S3
 
 ### Автоматические процессы
 - 🐛 **Книжный Червь** - интеллектуальный сервис сопоставления файлов
@@ -122,6 +123,21 @@ pnpm book-worm:index-posts          # Индексация сообщений Te
 pnpm book-worm:quick-update         # Быстрое обновление индекса
 ```
 
+### Миграция файлов в Cloud.ru S3
+```bash
+# Пошаговая миграция файлов из Supabase Storage в Cloud.ru S3
+npx tsx src/scripts/migrate-to-cloud-ru.ts
+
+# Параллельная миграция файлов из Supabase Storage в Cloud.ru S3
+npx tsx src/scripts/migrate-to-cloud-ru-concurrent.ts
+
+# Загрузка файлов из архива Telegram в Cloud.ru S3
+npx tsx src/scripts/upload-telegram-archive.ts <путь_к_архиву>
+
+# Загрузка отдельного файла из архива Telegram в Cloud.ru S3
+npx tsx src/scripts/upload-single-telegram-file.ts <путь_к_файлу> [оригинальное_имя]
+```
+
 ### Анализ и диагностика
 ```bash
 pnpm deduplicate                     # Автоматическая дедупликация книг
@@ -146,11 +162,17 @@ TELEGRAM_METADATA_CHANNEL=your_channel_username
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Cloud.ru S3
+AWS_ACCESS_KEY_ID=your_tenant_id:your_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=ru-central-1
+S3_BUCKET_NAME=books
 ```
 
 ## 📁 Структура проекта
 
-```
+```bash
 fiction-library/
 ├── src/
 │   ├── app/                    # Next.js App Router
@@ -189,6 +211,7 @@ fiction-library/
 - [Книжный Червь](./README-BOOK-WORM.md) — детальное описание сервиса синхронизации
 - [Асинхронная загрузка](./ASYNC_DOWNLOAD_DOCUMENTATION.md) — система загрузки файлов
 - [Дедупликация](./DEDUPLICATION.md) — удаление дубликатов книг
+- [Миграция в Cloud.ru S3](./MIGRATION_TO_CLOUD_RU.md) — руководство по миграции файлов
 
 ## 🤝 Поддержка и развитие
 

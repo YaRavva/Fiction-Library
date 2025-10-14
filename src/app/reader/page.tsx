@@ -81,20 +81,36 @@ function ReaderContent() {
   // Загрузка содержимого одиночного файла
   const loadFileContent = async (fileUrl: string) => {
     try {
-      const response = await fetch(fileUrl)
-      const text = await response.text()
-      setContent(text)
+      // Проверяем, является ли файл из Cloud.ru S3
+      let downloadUrl = fileUrl;
+      if (fileUrl && fileUrl.includes('s3.cloud.ru')) {
+        // Используем проксирующий endpoint для Cloud.ru S3
+        const fileName = book?.storage_path || fileUrl.split('/').pop() || 'file';
+        downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
+      }
+      
+      const response = await fetch(downloadUrl);
+      const text = await response.text();
+      setContent(text);
     } catch (error) {
-      console.error('Error loading file content:', error)
+      console.error('Error loading file content:', error);
     }
   }
   
   // Загрузка содержимого архива
   const loadZipContent = async (fileUrl: string) => {
     try {
-      const response = await fetch(fileUrl)
-      const arrayBuffer = await response.arrayBuffer()
-      const zip = new JSZip()
+      // Проверяем, является ли файл из Cloud.ru S3
+      let downloadUrl = fileUrl;
+      if (fileUrl && fileUrl.includes('s3.cloud.ru')) {
+        // Используем проксирующий endpoint для Cloud.ru S3
+        const fileName = book?.storage_path || fileUrl.split('/').pop() || 'file.zip';
+        downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
+      }
+      
+      const response = await fetch(downloadUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const zip = new JSZip();
       const zipContent = await zip.loadAsync(arrayBuffer)
       
       const fileContents: {name: string, content: string}[] = []
@@ -217,8 +233,16 @@ function ReaderContent() {
                       (book.storage_path ? book.storage_path.split('.').pop() : 'fb2')
                     const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`
                     
+                    // Проверяем, является ли файл из Cloud.ru S3
+                    let downloadUrl = book.file_url;
+                    if (book.file_url && book.file_url.includes('s3.cloud.ru')) {
+                      // Используем проксирующий endpoint для Cloud.ru S3
+                      const fileName = book.storage_path || book.file_url.split('/').pop() || filename;
+                      downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
+                    }
+                    
                     // Fetch the file and trigger download with custom filename
-                    fetch(book.file_url)
+                    fetch(downloadUrl)
                       .then(response => response.blob())
                       .then(blob => {
                         const url = window.URL.createObjectURL(blob)
@@ -233,7 +257,7 @@ function ReaderContent() {
                       .catch(error => {
                         console.error('Error downloading file:', error)
                         // Fallback to opening in new tab if download fails
-                        window.open(book.file_url, '_blank')
+                        window.open(downloadUrl, '_blank')
                       })
                   }
                 }}
