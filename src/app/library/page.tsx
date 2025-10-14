@@ -12,6 +12,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -69,8 +76,22 @@ function LibraryContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalBooks, setTotalBooks] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>('large-cards')
-  const [booksPerPage, setBooksPerPage] = useState(100)
-  const [customBooksPerPage, setCustomBooksPerPage] = useState('100')
+  
+  // Инициализируем viewMode из URL параметра view
+  useEffect(() => {
+    const viewParam = searchParams.get('view') as ViewMode | null
+    if (viewParam && ['large-cards', 'small-cards', 'table'].includes(viewParam)) {
+      setViewMode(viewParam)
+    }
+  }, [searchParams])
+
+  // Инициализируем booksPerPage из URL параметра limit
+  const initialLimit = searchParams.get('limit')
+  const [booksPerPage, setBooksPerPage] = useState(() => {
+    if (initialLimit === 'all') return 0
+    const limit = parseInt(initialLimit || '100', 10)
+    return isNaN(limit) ? 10 : limit
+  })
 
   // Проверяем, есть ли поисковый запрос в URL
   useEffect(() => {
@@ -616,43 +637,71 @@ function LibraryContent() {
 
       <main className="container py-6">
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">Библиотека</h1>
-            <Badge variant="secondary">{totalBooks} книг</Badge>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <ViewModeToggle viewMode={viewMode} onViewModeChange={handleViewModeChange} />
-            
+            <div className="text-sm font-medium text-muted-foreground">Книг в библиотеке: </div>
+            <Badge variant="secondary" className="h-9"> {totalBooks}</Badge>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">На странице:</span>
-              <select 
-                value={customBooksPerPage}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setCustomBooksPerPage(value);
+              <Select
+                value={booksPerPage === 0 ? 'all' : booksPerPage.toString()}
+                onValueChange={(value) => {
+                  let newBooksPerPage;
                   if (value === 'all') {
-                    setBooksPerPage(0);
+                    newBooksPerPage = 0;
                   } else {
-                    setBooksPerPage(parseInt(value, 10));
+                    newBooksPerPage = parseInt(value, 10);
                   }
+                  setBooksPerPage(newBooksPerPage);
                   setCurrentPage(1);
-                  if (searchQuery) {
-                    searchBooks(searchQuery, 1);
+                  
+                  // Обновляем URL с новым параметром limit
+                  const params = new URLSearchParams(searchParams.toString());
+                  if (value === 'all') {
+                    params.set('limit', 'all');
                   } else {
-                    loadBooks(1);
+                    params.set('limit', value);
                   }
+                  params.set('page', '1'); // Сбрасываем на первую страницу
+                  router.push(`?${params.toString()}`);
                 }}
-                className="border rounded px-2 py-1 text-sm"
               >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="all">Все</option>
-              </select>
+                <SelectTrigger className="w-[80px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="all">Все</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-2 ml-auto">
+            <Select
+              value={viewMode}
+              onValueChange={(value: ViewMode) => {
+                const newViewMode = value as ViewMode;
+                setViewMode(newViewMode);
+                
+                // Обновляем URL с новым параметром view
+                const params = new URLSearchParams(searchParams.toString());
+                params.set('view', newViewMode);
+                router.push(`?${params.toString()}`);
+              }}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="large-cards">Большие карточки</SelectItem>
+                <SelectItem value="small-cards">Маленькие карточки</SelectItem>
+                <SelectItem value="table">Таблица</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -689,7 +738,7 @@ function LibraryContent() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6">
                 {books.map((book) => (
                   <BookCardLarge
                     key={book.id}
