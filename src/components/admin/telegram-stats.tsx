@@ -188,10 +188,11 @@ export function TelegramStatsSection() {
       const supabase = getBrowserSupabase();
       const { data: { session } } = await supabase.auth.getSession();
 
-      const response = await fetch('/api/admin/telegram-stats', {
+      const response = await fetch('/api/admin/telegram-stats?sync=true', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
         }
       })
 
@@ -202,85 +203,62 @@ export function TelegramStatsSection() {
 
       const data = await response.json()
 
-      // Показываем прогресс обновления
-      const updateProgressReport = `[${timestamp}] 📊 Статус: Операция обновления запущена\n`;
-      
-      // Используем правильную функцию для передачи логов в админ-панель
-      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-        try {
-          (window as any).setStatsUpdateReport(updateProgressReport);
-        } catch (error) {
-          console.error('❌ Error sending message to results window:', error);
-        }
+      // Обрабатываем как новый формат (синхронное обновление с прогрессом), так и старый формат (фоновое обновление)
+      if (data.status === 'error') {
+        throw new Error(data.error || 'Неизвестная ошибка при обновлении статистики');
       }
 
-      // Проверяем обновление данных каждые 2 секунды в течение 30 секунд
-      let attempts = 0;
-      const maxAttempts = 15; // 30 секунд (15 * 2 секунды)
-      let updateCompleted = false;
-
-      const checkForUpdates = async () => {
-        // Если операция уже завершена, не продолжаем
-        if (updateCompleted) {
-          return;
-        }
-        
-        attempts++;
-
-        try {
-          const updatedStats = await loadStats();
-
-          // Если прошло много времени, считаем обновление завершенным
-          if (attempts >= maxAttempts) {
-            updateCompleted = true;
-            
-            const finalTimestamp = new Date().toLocaleTimeString('ru-RU');
-            const finalReport = `[${finalTimestamp}] 📊 Статистика обновлена: 📚 Книг в Telegram: ${updatedStats.booksInTelegram} | 💾 В базе данных: ${updatedStats.booksInDatabase} | ❌ Отсутствуют книги: ${updatedStats.missingBooks} | 📁 Отсутствуют файлы: ${updatedStats.booksWithoutFiles}\n`;
-            
-            // Используем правильную функцию для передачи логов в админ-панель
-            if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
-              try {
-                (window as any).setStatsUpdateReport(finalReport);
-              } catch (error) {
-                console.error('❌ Error sending message to results window:', error);
-              }
-            }
-
-            setUpdating(false); // Разблокируем кнопку только после полного завершения
-            return;
-          }
-
-          // Продолжаем проверку через 2 секунды
-          setTimeout(checkForUpdates, 2000);
-
-        } catch (error) {
-          // Если уже завершено, не обрабатываем ошибку
-          if (updateCompleted) {
-            return;
-          }
-          
-          updateCompleted = true;
-          attempts = maxAttempts; // Прекращаем попытки при ошибке
-          
-          // Показываем ошибку в результатах
-          const errorTimestamp = new Date().toLocaleTimeString('ru-RU');
-          const errorReport = `[${errorTimestamp}] ❌ Ошибка обновления статистики Telegram: ${(error as Error).message || 'Неизвестная ошибка'}\n`;
+      // Отправляем все прогресс-сообщения в окно результатов
+      if (data.progress && Array.isArray(data.progress)) {
+        // Новый формат - синхронное обновление с прогрессом
+        data.progress.forEach((progressItem: { progress: number; message: string }) => {
+          const progressTimestamp = new Date().toLocaleTimeString('ru-RU');
+          const progressLog = `[${progressTimestamp}] 📈 ${progressItem.message}\n`;
           
           // Используем правильную функцию для передачи логов в админ-панель
           if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
             try {
-              (window as any).setStatsUpdateReport(errorReport);
+              (window as any).setStatsUpdateReport(progressLog);
             } catch (error) {
-              console.error('❌ Error sending message to results window:', error);
+              console.error('❌ Error sending progress message to results window:', error);
             }
           }
-          
-          setUpdating(false); // Разблокируем кнопку при ошибке
+        });
+      } else if (data.status === 'processing') {
+        // Старый формат - фоновое обновление
+        const progressTimestamp = new Date().toLocaleTimeString('ru-RU');
+        const progressLog = `[${progressTimestamp}] 📊 ${data.message}\n`;
+        
+        // Используем правильную функцию для передачи логов в админ-панель
+        if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+          try {
+            (window as any).setStatsUpdateReport(progressLog);
+          } catch (error) {
+            console.error('❌ Error sending progress message to results window:', error);
+          }
         }
-      };
+      }
 
-      // Начинаем проверку обновлений через 2 секунды
-      setTimeout(checkForUpdates, 2000);
+      // Загружаем обновленные статистические данные
+      await loadStats();
+
+      setUpdating(false); // Разблокируем кнопку после завершения
+      
+      // Показываем итоговое сообщение
+      const finalTimestamp = new Date().toLocaleTimeString('ru-RU');
+      const finalMessage = data.status === 'completed' ?
+        '✅ Обновление статистики завершено!' :
+        '✅ Запрос на обновление статистики отправлен!';
+      const finalReport = `[${finalTimestamp}] ${finalMessage}\n`;
+      
+      // Используем правильную функцию для передачи логов в админ-панель
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(finalReport);
+        } catch (error) {
+          console.error('❌ Error sending final message to results window:', error);
+        }
+      }
 
     } catch (err: unknown) {
       // ВАЖНО: Гарантируем разблокировку кнопки при любой ошибке

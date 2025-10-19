@@ -64,39 +64,36 @@ function BookContent() {
     loadBook()
   }, [bookId, router, supabase])
 
-  const handleDownload = (bookId: string, fileUrl: string | undefined) => {
-    if (fileUrl) {
-      // Find the book to get its title and author
-      if (book) {
-        // Create a custom filename in the format "author - title.ext"
-        // Use the actual file format instead of defaulting to .zip
-        const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-        const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-        // Get the file extension from the storage_path or file_format field
-        const fileExtension = book.file_format && book.file_format !== '' ? 
-          book.file_format : 
-          (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
-        const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
-        
-        // Fetch the file and trigger download with custom filename
-        fetch(fileUrl)
-          .then(response => response.blob())
-          .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-          })
-          .catch(error => {
-            console.error('Error downloading file:', error);
-            // Fallback to opening in new tab if download fails
-            window.open(fileUrl, '_blank');
-          });
-      }
+  const handleDownload = (book: Book) => {
+    if (book.file_url) {
+      // Create a custom filename in the format "author - title.ext"
+      // Use the actual file format instead of defaulting to .zip
+      const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+      const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
+      // Get the file extension from the file_url or file_format field
+      const fileExtension = book.file_format && book.file_format !== '' ? 
+        book.file_format : 
+        (book.file_url ? book.file_url.split('/').pop()?.split('.').pop() : 'zip');
+      const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
+      
+      // Fetch the file and trigger download with custom filename
+      fetch(book.file_url)
+        .then(response => response.blob())
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        })
+        .catch(error => {
+          console.error('Error downloading file:', error);
+          // Fallback to opening in new tab if download fails
+          window.open(book.file_url!, '_blank');
+        });
     }
   }
 
@@ -130,6 +127,43 @@ function BookContent() {
       }
     } catch (error) {
       console.error('Error incrementing downloads:', error)
+    }
+  }
+
+  // Добавляем функцию для очистки привязки файла
+  const handleClearFile = async (bookId: string) => {
+    try {
+      // Очищаем привязку файла к книге
+      const { error } = await supabase
+        .from('books')
+        .update({
+          file_url: null,
+          file_size: null,
+          file_format: null,
+          telegram_file_id: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', bookId)
+
+      if (error) {
+        console.error('❌ Ошибка при очистке файла:', error)
+        alert('Ошибка при очистке файла')
+      } else {
+        // Обновляем локальное состояние
+        if (book && book.id === bookId) {
+          setBook({ 
+            ...book, 
+            file_url: undefined,
+            file_size: undefined,
+            file_format: '',
+            telegram_file_id: undefined
+          } as unknown as Book)
+        }
+        alert('Файл успешно очищен!')
+      }
+    } catch (error) {
+      console.error('❌ Ошибка:', error)
+      alert('Произошла ошибка при очистке файла')
     }
   }
 
@@ -171,6 +205,7 @@ function BookContent() {
           onDownload={handleDownload}
           onRead={handleRead}
           onTagClick={handleTagClick}
+          onFileClear={handleClearFile} // Добавляем пропс onFileClear
         />
         
         <div className="flex justify-center mt-6">

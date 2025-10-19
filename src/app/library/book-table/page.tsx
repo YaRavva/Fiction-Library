@@ -72,10 +72,10 @@ function BookTableContent() {
         // Use the actual file format instead of defaulting to .zip
         const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
         const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-        // Get the file extension from the storage_path or file_format field
+        // Get the file extension from the file_url or file_format field
         const fileExtension = book.file_format && book.file_format !== '' ? 
           book.file_format : 
-          (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
+          (book.file_url ? book.file_url.split('/').pop()?.split('.').pop() : 'zip');
         const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
         
         // Fetch the file and trigger download with custom filename
@@ -133,6 +133,43 @@ function BookTableContent() {
     }
   }
 
+  // Добавляем функцию для очистки привязки файла
+  const handleClearFile = async (bookId: string) => {
+    try {
+      // Очищаем привязку файла к книге
+      const { error } = await supabase
+        .from('books')
+        .update({
+          file_url: null,
+          file_size: null,
+          file_format: '',
+          telegram_file_id: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', bookId)
+
+      if (error) {
+        console.error('❌ Ошибка при очистке файла:', error)
+        alert('Ошибка при очистке файла')
+      } else {
+        // Обновляем локальное состояние
+        if (book && book.id === bookId) {
+          setBook({ 
+            ...book, 
+            file_url: undefined,
+            file_size: undefined,
+            file_format: '',
+            telegram_file_id: undefined
+          } as unknown as Book)
+        }
+        alert('Файл успешно очищен!')
+      }
+    } catch (error) {
+      console.error('❌ Ошибка:', error)
+      alert('Произошла ошибка при очистке файла')
+    }
+  }
+
   // Создаем новую функцию для обработки клика по тегу
   const handleTagClick = (tag: string) => {
     // Переходим к библиотеке с поисковым запросом по тегу
@@ -168,9 +205,10 @@ function BookTableContent() {
       <div className="max-w-3xl mx-auto">
         <BookCardLarge 
           book={book} 
-          onDownload={handleDownload}
+          onDownload={(book) => handleDownload(book.id, book.file_url)}
           onRead={handleRead}
           onTagClick={handleTagClick}
+          onFileClear={handleClearFile} // Добавляем пропс onFileClear
         />
         
         <div className="flex justify-center mt-6">

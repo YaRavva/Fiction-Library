@@ -88,7 +88,6 @@ export async function POST(request: NextRequest) {
         .from('books')
         .update({
           file_url: null,
-          storage_path: null,
           file_size: null,
           file_format: null,
           telegram_file_id: null,

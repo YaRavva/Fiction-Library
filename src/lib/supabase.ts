@@ -108,7 +108,6 @@ export interface Book {
   views_count: number
   created_at: string
   updated_at: string
-  storage_path?: string
 }
 
 export interface UserProfile {
@@ -205,7 +204,6 @@ export async function upsertBookRecord(book: Partial<Book>) {
       if (book.file_format) updateData.file_format = book.file_format;
       if (book.telegram_file_id) updateData.telegram_file_id = book.telegram_file_id;
       if (book.telegram_post_id) updateData.telegram_post_id = book.telegram_post_id; // Добавляем обработку telegram_post_id
-      if (book.storage_path) updateData.storage_path = book.storage_path;
       
       // Обновляем только если есть новые данные
       if (Object.keys(updateData).length > 0) {

@@ -107,7 +107,9 @@ export class TelegramService {
                 }
             }
             
+            console.log('Получаем сущность канала с идентификатором:', channelIdentifier);
             const entity = await this.client.getEntity(channelIdentifier);
+            console.log('Получена сущность канала:', entity?.constructor?.name, (entity as any)?.id, (entity as any)?.username, (entity as any)?.title);
             return entity;
         } catch (error) {
             console.error('Error getting metadata channel:', error);

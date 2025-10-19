@@ -11,7 +11,7 @@ async function testDownloadIssue() {
     title: "цикл Мицелий",
     author: "Вилма Кадлечкова",
     file_format: "zip",
-    storage_path: undefined as string | undefined,
+    file_url: "https://fiction-library-1760461283197.s3.cloud.ru/4379.zip"
     file_url: "https://fiction-library-1760461283197.s3.cloud.ru/4379.zip"
   };
   
@@ -27,7 +27,7 @@ async function testDownloadIssue() {
   const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
   const fileExtension = book.file_format && book.file_format !== '' ? 
     book.file_format : 
-    (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
+    (book.file_url ? book.file_url.split('/').pop()?.split('.').pop() : 'zip');
   const expectedFilename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
   
   console.log(`  Очищенное название: ${sanitizedTitle}`);

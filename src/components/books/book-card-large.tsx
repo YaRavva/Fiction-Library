@@ -38,39 +38,42 @@ export function BookCardLarge({ book, onDownload, onRead, onTagClick, userProfil
 
   const handleClearFile = async () => {
     if (onFileClear) {
-      onFileClear(book.id)
+      // Используем переданную функцию для очистки файла
+      onFileClear(book.id);
     } else {
       // Если не передана функция onFileClear, реализуем логику здесь
       try {
-        const supabase = getBrowserSupabase()
+        const supabase = getBrowserSupabase();
         
         // Очищаем привязку файла к книге
         const { error } = await supabase
           .from('books')
           .update({
             file_url: null,
-            storage_path: null,
             file_size: null,
             file_format: null,
             telegram_file_id: null,
             updated_at: new Date().toISOString()
           })
-          .eq('id', book.id)
+          .eq('id', book.id);
 
         if (error) {
-          console.error('❌ Ошибка при очистке файла:', error)
-          alert('Ошибка при очистке файла')
+          console.error('❌ Ошибка при очистке файла:', error);
+          alert('Ошибка при очистке файла');
         } else {
-          alert('Файл успешно очищен!')
-          // Перезагружаем страницу или обновляем состояние
-          window.location.reload()
+          alert('Файл успешно очищен!');
+          // Вместо перезагрузки страницы, обновляем состояние через callback
+          // Если нет callback, то перезагружаем страницу
+          if (!onFileClear) {
+            window.location.reload();
+          }
         }
       } catch (error) {
-        console.error('❌ Ошибка:', error)
-        alert('Произошла ошибка при очистке файла')
+        console.error('❌ Ошибка:', error);
+        alert('Произошла ошибка при очистке файла');
       }
     }
-  }
+  };
 
   return (
     // Replaced shadcn/ui Card with custom div for full layout control
@@ -92,7 +95,7 @@ export function BookCardLarge({ book, onDownload, onRead, onTagClick, userProfil
           
           {/* Action buttons in top right corner */}
           <div className="flex gap-1 ml-2">
-            {userProfile?.role === 'admin' && (
+            {(userProfile?.role === 'admin' || process.env.NODE_ENV === 'development') && book.file_url && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

@@ -455,7 +455,6 @@ function LibraryContent() {
         .from('books')
         .update({
           file_url: null,
-          storage_path: null,
           file_size: null,
           file_format: null,
           telegram_file_id: null,
@@ -473,7 +472,6 @@ function LibraryContent() {
             ? { 
                 ...book, 
                 file_url: undefined,
-                storage_path: undefined,
                 file_size: undefined,
                 file_format: undefined,
                 telegram_file_id: undefined
