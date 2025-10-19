@@ -12,13 +12,13 @@ export class MetadataExtractionService {
         // Нормализуем строку в NFC форму для консистентности
         const normalized = nameWithoutExt.normalize('NFC');
         
-        // Проверяем, есть ли в имени файла тире, отделяющее автора от названия
-        // Ищем последнее тире, которое не окружено цифрами (чтобы не перепутать с годом)
-        const parts = normalized.split(/(?<!\d)-(?!\d)/);
-        if (parts.length >= 2) {
-            // Предполагаем, что автор - это первая часть, а название - остальные
-            let author = parts[0].trim();
-            let title = parts.slice(1).join('-').trim();
+        // Проверяем, есть ли в имени файла тире или подчеркивание, отделяющее автора от названия
+        // Сначала пробуем найти два и более последовательных подчеркивания или тире как разделитель
+        const doubleUnderscoreParts = normalized.split(/_{2,}/);
+        if (doubleUnderscoreParts.length >= 2) {
+            // Найдены двойные подчеркивания как разделители
+            let author = doubleUnderscoreParts[0].trim().replace(/_/g, ' ');
+            let title = doubleUnderscoreParts.slice(1).join(' ').replace(/_/g, ' ').trim();
             
             // Особая обработка для случаев, когда автор содержит "и др." или "и др"
             if (author.normalize('NFC').toLowerCase().includes('и др')) {
@@ -37,7 +37,61 @@ export class MetadataExtractionService {
             return { author, title };
         }
         
-        // Если тире не найдено или не подходит, используем эвристики
+        // Пробуем найти одиночные подчеркивания как разделители между автором и названием
+        const underscoreParts = normalized.split('_');
+        if (underscoreParts.length >= 2) {
+            // Предполагаем, что первая часть - фамилия автора, вторая - имя автора
+            // Остальные части - название книги
+            if (underscoreParts.length >= 3) {
+                // Есть как минимум имя и фамилия автора + часть названия
+                const authorParts = [underscoreParts[0], underscoreParts[1]];
+                let author = authorParts.join(' ').trim();
+                let title = underscoreParts.slice(2).join(' ').trim();
+                
+                // Особая обработка для случаев, когда автор содержит "и др." или "и др"
+                if (author.normalize('NFC').toLowerCase().includes('и др')) {
+                    author = author.replace(/\s+и\s+др\.?$/, '').trim();
+                }
+                
+                // Особая обработка для случаев, когда в названии есть слово "мицелий"
+                if (title.normalize('NFC').toLowerCase().includes('мицелий')) {
+                    title = `цикл ${title}`;
+                } else if (title.includes('цикл')) {
+                    title = `цикл ${title.replace(/цикл\s*/i, '')}`;
+                } else if (title.normalize('NFC').toLowerCase().includes('оксфордский')) {
+                    title = `цикл ${title}`;
+                }
+                
+                return { author, title };
+            }
+        }
+        
+        // Проверяем, есть ли в имени файла тире, отделяющее автора от названия
+        // Ищем последнее тире, которое не окружено цифрами (чтобы не перепутать с годом)
+        const dashParts = normalized.split(/(?<!\d)-(?!\d)/);
+        if (dashParts.length >= 2) {
+            // Предполагаем, что автор - это первая часть, а название - остальные
+            let author = dashParts[0].trim();
+            let title = dashParts.slice(1).join('-').trim();
+            
+            // Особая обработка для случаев, когда автор содержит "и др." или "и др"
+            if (author.normalize('NFC').toLowerCase().includes('и др')) {
+                author = author.replace(/\s+и\s+др\.?$/, '').trim();
+            }
+            
+            // Особая обработка для случаев, когда в названии есть слово "мицелий"
+            if (title.normalize('NFC').toLowerCase().includes('мицелий')) {
+                title = `цикл ${title}`;
+            } else if (title.includes('цикл')) {
+                title = `цикл ${title.replace(/цикл\s*/i, '')}`;
+            } else if (title.normalize('NFC').toLowerCase().includes('оксфордский')) {
+                title = `цикл ${title}`;
+            }
+            
+            return { author, title };
+        }
+        
+        // Если тире или подчеркивание не найдено или не подходит, используем эвристики
         // Ищем известные паттерны авторов
         const knownAuthors = [
             'Джеймс Роллинс', 'Айзек Азимов', 'Роберт Хайнлайн', 'Артур Кларк', 'Фрэнк Герберт',
@@ -51,7 +105,7 @@ export class MetadataExtractionService {
             const normalizedAuthor = knownAuthor.normalize('NFC');
             if (normalized.includes(normalizedAuthor)) {
                 // Найден известный автор, разбиваем строку
-                const parts = normalized.split(new RegExp(`${normalizedAuthor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*-\\s*)?`, 'i'));
+                const parts = normalized.split(new RegExp(`${normalizedAuthor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s*[-_]\\s*)?`, 'i'));
                 if (parts.length >= 2) {
                     let author = normalizedAuthor;
                     let title = parts.slice(1).join('').trim();

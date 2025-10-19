@@ -81,10 +81,13 @@ export function TelegramStatsSection() {
   const loadStats = async () => {
     try {
       setError(null)
+      console.log('Loading Telegram stats...')
 
       // Получаем сессию для авторизации
       const supabase = getBrowserSupabase();
       const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('Session status:', session ? 'Available' : 'Not available')
 
       const response = await fetch('/api/admin/telegram-stats', {
         headers: {
@@ -92,12 +95,16 @@ export function TelegramStatsSection() {
         }
       })
 
+      console.log('API response status:', response.status)
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('API error response:', errorData)
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('API response data:', data)
 
       const newStats = {
         booksInDatabase: data.booksInDatabase || 0,
@@ -105,6 +112,8 @@ export function TelegramStatsSection() {
         missingBooks: data.missingBooks || 0,
         booksWithoutFiles: data.booksWithoutFiles || 0
       }
+
+      console.log('Mapped stats:', newStats)
 
       // Анимируем изменение цифр только если это не первая загрузка
       if (stats.booksInDatabase !== 0 || stats.booksInTelegram !== 0) {
@@ -145,13 +154,18 @@ export function TelegramStatsSection() {
 
   // Загружаем начальные данные и делаем функцию доступной глобально
   useEffect(() => {
-    loadStats();
-
+    console.log('TelegramStatsSection mounted, loading stats...')
+    // Добавим небольшую задержку чтобы убедиться что все готово
+    const timer = setTimeout(() => {
+      loadStats();
+    }, 100);
+    
     // @ts-ignore
     window.refreshSyncStats = loadStats;
 
     // Очищаем при размонтировании
     return () => {
+      clearTimeout(timer);
       // Очищаем анимацию
       if (animationRef.current) {
         clearTimeout(animationRef.current)
@@ -167,6 +181,7 @@ export function TelegramStatsSection() {
 
   const updateStats = async () => {
     try {
+      console.log('Updating stats...')
       setUpdating(true)
       setError(null)
       setSuccess(null)
@@ -187,6 +202,8 @@ export function TelegramStatsSection() {
       // Получаем сессию для авторизации
       const supabase = getBrowserSupabase();
       const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('Session for update:', session ? 'Available' : 'Not available')
 
       const response = await fetch('/api/admin/telegram-stats?sync=true', {
         method: 'POST',
@@ -196,12 +213,16 @@ export function TelegramStatsSection() {
         }
       })
 
+      console.log('Update API response status:', response.status)
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('Update API error response:', errorData)
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('Update API response data:', data)
 
       // Обрабатываем как новый формат (синхронное обновление с прогрессом), так и старый формат (фоновое обновление)
       if (data.status === 'error') {
@@ -228,7 +249,7 @@ export function TelegramStatsSection() {
         // Старый формат - фоновое обновление
         const progressTimestamp = new Date().toLocaleTimeString('ru-RU');
         const progressLog = `[${progressTimestamp}] 📊 ${data.message}\n`;
-        
+      
         // Используем правильную функцию для передачи логов в админ-панель
         if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
           try {
@@ -240,17 +261,18 @@ export function TelegramStatsSection() {
       }
 
       // Загружаем обновленные статистические данные
+      console.log('Loading updated stats...')
       await loadStats();
 
       setUpdating(false); // Разблокируем кнопку после завершения
-      
+    
       // Показываем итоговое сообщение
       const finalTimestamp = new Date().toLocaleTimeString('ru-RU');
       const finalMessage = data.status === 'completed' ?
         '✅ Обновление статистики завершено!' :
         '✅ Запрос на обновление статистики отправлен!';
       const finalReport = `[${finalTimestamp}] ${finalMessage}\n`;
-      
+    
       // Используем правильную функцию для передачи логов в админ-панель
       if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
         try {
@@ -261,6 +283,7 @@ export function TelegramStatsSection() {
       }
 
     } catch (err: unknown) {
+      console.error('Error updating stats:', err);
       // ВАЖНО: Гарантируем разблокировку кнопки при любой ошибке
       setUpdating(false);
 
@@ -326,7 +349,7 @@ export function TelegramStatsSection() {
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
             <div className="flex items-center">
               <Database className="h-5 w-5 text-green-500 mr-2" />
-              <h3 className="font-medium">В базе данных</h3>
+              <h3 className="font-medium">Книг в базе данных</h3>
             </div>
             <p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
               {animatedStats.booksInDatabase.toLocaleString()}
@@ -336,7 +359,7 @@ export function TelegramStatsSection() {
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
             <div className="flex items-center">
               <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-              <h3 className="font-medium">Отсутствуют книги</h3>
+              <h3 className="font-medium">Отсутствующих книг</h3>
             </div>
             <p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
               {animatedStats.missingBooks.toLocaleString()}
@@ -346,7 +369,7 @@ export function TelegramStatsSection() {
           <div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
             <div className="flex items-center">
               <File className="h-5 w-5 text-red-500 mr-2" />
-              <h3 className="font-medium">Отсутствуют файлы</h3>
+              <h3 className="font-medium">Книг без файлов</h3>
             </div>
             <p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
               {animatedStats.booksWithoutFiles.toLocaleString()}
