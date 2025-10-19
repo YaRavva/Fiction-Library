@@ -8,22 +8,29 @@ interface BookCardSmallProps {
   book: Book
   onClick: () => void
   onRead: (book: Book) => void
+  onDownload: (book: Book) => void
   onTagClick?: (tag: string) => void
   onSelect?: (book: Book) => void
 }
 
-export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: BookCardSmallProps) {
+export function BookCardSmall({ book, onClick, onRead, onDownload, onTagClick, onSelect }: BookCardSmallProps) {
   const router = useRouter()
   
   // Формируем URL обложки
-  const coverUrl = book.cover_url || '/placeholder-cover.svg'
+  let coverUrl = book.cover_url || '/placeholder-cover.svg';
+  
+  // Проверяем, является ли обложка из Cloud.ru S3
+  if (book.cover_url && book.cover_url.includes('s3.cloud.ru')) {
+    // Для публичного бакета используем прямую ссылку, как в больших карточках
+    coverUrl = book.cover_url;
+  }
   
   // Проверяем, является ли обложка тройной
   const isTripleCover = () => {
     return coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
            coverUrl.includes('3109e8fdf303b46ee64f1');   // цикл Одаренные
   };
-  
+
   return (
     <div 
       className="w-full max-w-xs cursor-pointer hover:shadow-md transition-shadow flex flex-col h-full border rounded-lg bg-card text-card-foreground"
@@ -90,8 +97,12 @@ export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: B
 
         <div className="flex items-center justify-between mt-auto pt-2">
           <div className="flex items-center gap-1">
-            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-            <span className="text-xs font-medium">{book.rating?.toFixed(1) || '—'}</span>
+            {book.rating && book.rating > 0 && (
+              <>
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                <span className="text-xs font-medium">{book.rating.toFixed(1)}</span>
+              </>
+            )}
           </div>
           <div className="flex gap-1">
             <Button 
@@ -113,44 +124,7 @@ export function BookCardSmall({ book, onClick, onRead, onTagClick, onSelect }: B
               disabled={!book.file_url}
               onClick={(e) => {
                 e.stopPropagation();
-                if (book.file_url) {
-                  // Create a custom filename in the format "author - title.ext"
-                  // Use the actual file format instead of defaulting to .zip
-                  const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-                  const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-                  // Get the file extension from the storage_path or file_format field
-                  const fileExtension = book.file_format && book.file_format !== '' ? 
-                    book.file_format : 
-                    (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
-                  const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
-                  
-                  // Проверяем, является ли файл из Cloud.ru S3
-                  let downloadUrl = book.file_url;
-                  if (book.file_url && book.file_url.includes('s3.cloud.ru')) {
-                    // Используем проксирующий endpoint для Cloud.ru S3
-                    const fileName = book.storage_path || book.file_url.split('/').pop() || filename;
-                    downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
-                  }
-                  
-                  // Fetch the file and trigger download with custom filename
-                  fetch(downloadUrl)
-                    .then(response => response.blob())
-                    .then(blob => {
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = filename;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      window.URL.revokeObjectURL(url);
-                    })
-                    .catch(error => {
-                      console.error('Error downloading file:', error);
-                      // Fallback to opening in new tab if download fails
-                      window.open(downloadUrl, '_blank');
-                    });
-                }
+                onDownload(book);
               }}
             >
               <Download className="h-3 w-3" />

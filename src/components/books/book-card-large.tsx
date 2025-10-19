@@ -21,7 +21,7 @@ interface BookCardLargeProps {
       cover_urls?: string[]
     }
   }
-  onDownload: (bookId: string, fileUrl: string | undefined) => void
+  onDownload: (book: Book) => void
   onRead: (book: Book) => void
   onTagClick?: (tag: string) => void
   userProfile?: {
@@ -148,7 +148,7 @@ export function BookCardLarge({ book, onDownload, onRead, onTagClick, userProfil
                     disabled={!book.file_url}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDownload(book.id, book.file_url);
+                      onDownload(book);
                     }}
                   >
                     <Download className="h-4 w-4" />
@@ -183,7 +183,7 @@ export function BookCardLarge({ book, onDownload, onRead, onTagClick, userProfil
           )}
 
           {/* Рейтинг */}
-          {book.rating && (
+          {book.rating && book.rating > 0 && (
             <div className="text-sm">
               <span className="font-semibold">Рейтинг:</span> {book.rating.toFixed(2)}{' '}
               {ratingTag && (

@@ -1,6 +1,7 @@
 import { TelegramService } from './client';
-import { uploadFileToStorage, getSupabaseAdmin } from '../supabase';
+import { getSupabaseAdmin } from '../supabase';
 import { serverSupabase } from '../serverSupabase';
+import { putObject } from '../s3-service';
 import * as path from 'path';
 
 export class TelegramFileService {
@@ -861,12 +862,16 @@ export class TelegramFileService {
             const storageKey = sanitizeFilename(`${anyMsg.id}${ext}`);
             const displayName = originalFilename; // Оригинальное имя файла для отображения
 
-            // Загружаем в Supabase Storage (bucket 'books')
-            console.log(`  ☁️  Загружаем файл в Supabase Storage: ${storageKey}`);
-            await uploadFileToStorage('books', storageKey, Buffer.from(buffer), mime);
+            // Загружаем в S3 бакет (используем S3_BUCKET_NAME из переменных окружения)
+            console.log(`  ☁️  Загружаем файл в S3 бакет: ${storageKey}`);
+            const bucketName = process.env.S3_BUCKET_NAME;
+            if (!bucketName) {
+              throw new Error('S3_BUCKET_NAME environment variable is not set.');
+            }
+            await putObject(storageKey, Buffer.from(buffer), bucketName);
 
             // Формируем URL файла
-            const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/books/${encodeURIComponent(storageKey)}`;
+            const fileUrl = `https://${bucketName}.s3.cloud.ru/${storageKey}`;
 
             // Обновляем запись книги с информацией о файле
             try {
@@ -906,11 +911,15 @@ export class TelegramFileService {
                 console.warn(`  ⚠️  Ошибка при обновлении книги:`, updateBookError);
                 // Удаляем загруженный файл из Storage в случае ошибки
                 console.log(`  🗑️  Удаление файла из Storage из-за ошибки обновления книги: ${storageKey}`);
-                const admin = getSupabaseAdmin();
-                if (admin) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const storageSupabase: any = admin;
-                    await storageSupabase.storage.from('books').remove([storageKey]);
+                try {
+                    const admin = getSupabaseAdmin();
+                    if (admin) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const storageSupabase: any = admin;
+                        await storageSupabase.storage.from('books').remove([storageKey]);
+                    }
+                } catch (deleteError) {
+                    console.warn(`  ⚠️  Ошибка при удалении файла:`, deleteError);
                 }
                 throw updateBookError;
             }
@@ -1226,7 +1235,7 @@ export class TelegramFileService {
             return rankedMatches[0].book;
         }
         
-        // Если нет книг с высокой релевантностью, возвращаем null
+        // Если нет книг с достаточной релевантностью, возвращаем null
         console.log(`  ⚠️  Нет книг с достаточной релевантностью (минимум 25)`);
         return null;
     }

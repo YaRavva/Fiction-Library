@@ -69,12 +69,12 @@ export const columns: ColumnDef<Book>[] = [
     },
     cell: ({ row }) => {
       const rating = row.getValue('rating') as number | undefined
-      return (
+      return rating && rating > 0 ? (
         <div className="flex items-center gap-1">
           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-          <span>{rating?.toFixed(1) || '—'}</span>
+          <span>{rating.toFixed(1)}</span>
         </div>
-      )
+      ) : null
     },
   },
   {

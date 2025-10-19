@@ -3,13 +3,47 @@ import { Readable } from 'stream';
 
 // Создаем сконфигурированный S3-клиент для cloud.ru с аутентификацией
 const cloudRuS3 = new S3Client({
-  endpoint: 'https://s3.cloud.ru',
+  endpoint: "https://s3.cloud.ru",
   region: process.env.AWS_REGION || 'ru-central-1',
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
+  forcePathStyle: true, // Важно для S3-совместимых хранилищ
 });
+
+/**
+ * Функция для генерации заголовков аутентификации AWS Signature V4 для Cloud.ru S3
+ * @param requestParams - параметры запроса
+ * @returns Promise, который резолвится с заголовками аутентификации
+ */
+export async function getS3AuthHeaders(requestParams: {
+  method: string;
+  pathname: string;
+  query: Record<string, string>;
+  headers: Record<string, string>;
+  payload: string;
+  keyId: string;
+  keySecret: string;
+  tenantId: string;
+  region: string;
+  service: string;
+}) {
+  // Для Cloud.ru S3 формируем правильные заголовки аутентификации
+  const date = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateShort = date.substring(0, 8); // Формат YYYYMMDD
+  
+  // Формируем credential scope
+  const credentialScope = `${dateShort}/${requestParams.region}/${requestParams.service}/aws4_request`;
+  
+  // Формируем заголовки аутентификации
+  return {
+    'Authorization': `AWS4-HMAC-SHA256 Credential=${requestParams.tenantId}:${requestParams.keyId}/${credentialScope}, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=UNSIGNED-PAYLOAD`,
+    'x-amz-date': date,
+    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+    'host': requestParams.headers.host
+  };
+}
 
 /**
  * Функция для получения списка бакетов из S3-хранилища cloud.ru

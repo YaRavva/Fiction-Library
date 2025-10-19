@@ -81,15 +81,7 @@ function ReaderContent() {
   // Загрузка содержимого одиночного файла
   const loadFileContent = async (fileUrl: string) => {
     try {
-      // Проверяем, является ли файл из Cloud.ru S3
-      let downloadUrl = fileUrl;
-      if (fileUrl && fileUrl.includes('s3.cloud.ru')) {
-        // Используем проксирующий endpoint для Cloud.ru S3
-        const fileName = book?.storage_path || fileUrl.split('/').pop() || 'file';
-        downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
-      }
-      
-      const response = await fetch(downloadUrl);
+      const response = await fetch(`/api/reader/${bookId}`);
       const text = await response.text();
       setContent(text);
     } catch (error) {
@@ -100,49 +92,41 @@ function ReaderContent() {
   // Загрузка содержимого архива
   const loadZipContent = async (fileUrl: string) => {
     try {
-      // Проверяем, является ли файл из Cloud.ru S3
-      let downloadUrl = fileUrl;
-      if (fileUrl && fileUrl.includes('s3.cloud.ru')) {
-        // Используем проксирующий endpoint для Cloud.ru S3
-        const fileName = book?.storage_path || fileUrl.split('/').pop() || 'file.zip';
-        downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
-      }
-      
-      const response = await fetch(downloadUrl);
+      const response = await fetch(`/api/reader/${bookId}`);
       const arrayBuffer = await response.arrayBuffer();
       const zip = new JSZip();
-      const zipContent = await zip.loadAsync(arrayBuffer)
+      const zipContent = await zip.loadAsync(arrayBuffer);
       
-      const fileContents: {name: string, content: string}[] = []
-      const filePromises: Promise<void>[] = []
+      const fileContents: {name: string, content: string}[] = [];
+      const filePromises: Promise<void>[] = [];
       
       zipContent.forEach((relativePath: string, zipEntry: JSZip.JSZipObject) => {
         // Игнорируем директории и служебные файлы macOS
         if (!zipEntry.dir && 
             (relativePath.endsWith('.fb2') || relativePath.endsWith('.txt')) &&
-            !relativePath.startsWith('__MACOSX/') &&
+            !relativePath.includes('__MACOSX/') &&
             !relativePath.includes('/._')) {
           filePromises.push(
             zipEntry.async('text').then((content: string) => {
-              fileContents.push({ name: relativePath, content })
+              fileContents.push({ name: relativePath, content });
             })
-          )
+          );
         }
-      })
+      });
       
-      await Promise.all(filePromises)
-      setFiles(fileContents)
+      await Promise.all(filePromises);
+      setFiles(fileContents);
       
       // Если в архиве только один файл, открываем его сразу
       if (fileContents.length === 1) {
-        setSelectedFile(fileContents[0].name)
-        setContent(fileContents[0].content)
+        setSelectedFile(fileContents[0].name);
+        setContent(fileContents[0].content);
       } else if (fileContents.length > 1) {
         // Если несколько файлов, показываем выбор
-        setShowFileSelector(true)
+        setShowFileSelector(true);
       }
     } catch (error) {
-      console.error('Error loading ZIP content:', error)
+      console.error('Error loading ZIP content:', error);
     }
   }
   
@@ -164,6 +148,7 @@ function ReaderContent() {
       setShowFileSelector(false)
     }
   }
+  
   
   // Увеличение размера шрифта
   const increaseFontSize = () => {
@@ -203,7 +188,7 @@ function ReaderContent() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => router.push('/library')}>
+            <Button variant="ghost" size="icon" onClick={() => router.push('/library')}> 
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <div className="flex flex-col">
@@ -223,7 +208,7 @@ function ReaderContent() {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => {
+                onClick={async () => {
                   if (book.file_url) {
                     // Create a custom filename in the format "author - title.ext"
                     const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
@@ -233,32 +218,14 @@ function ReaderContent() {
                       (book.storage_path ? book.storage_path.split('.').pop() : 'fb2')
                     const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`
                     
-                    // Проверяем, является ли файл из Cloud.ru S3
-                    let downloadUrl = book.file_url;
-                    if (book.file_url && book.file_url.includes('s3.cloud.ru')) {
-                      // Используем проксирующий endpoint для Cloud.ru S3
-                      const fileName = book.storage_path || book.file_url.split('/').pop() || filename;
-                      downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
-                    }
-                    
-                    // Fetch the file and trigger download with custom filename
-                    fetch(downloadUrl)
-                      .then(response => response.blob())
-                      .then(blob => {
-                        const url = window.URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = filename
-                        document.body.appendChild(a)
-                        a.click()
-                        document.body.removeChild(a)
-                        window.URL.revokeObjectURL(url)
-                      })
-                      .catch(error => {
-                        console.error('Error downloading file:', error)
-                        // Fallback to opening in new tab if download fails
-                        window.open(downloadUrl, '_blank')
-                      })
+                    // Create a link element with download attribute to trigger download with custom filename
+                    const a = document.createElement('a')
+                    a.href = book.file_url
+                    a.download = filename
+                    a.target = '_blank'
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
                   }
                 }}
               >

@@ -3,23 +3,23 @@
  */
 
 /**
- * Генерирует URL для скачивания файла из Cloud.ru S3 через проксирующий endpoint
+ * Генерирует прямой URL для скачивания файла из Cloud.ru S3
+ * @param bucketName Имя бакета
  * @param fileName Имя файла в бакете
  * @returns URL для скачивания файла
  */
-export function getCloudRuDownloadUrl(fileName: string): string {
-  // Используем проксирующий endpoint на сервере
-  return `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
+export function getCloudRuDownloadUrl(bucketName: string, fileName: string): string {
+  return `https://${bucketName}.s3.cloud.ru/${encodeURIComponent(fileName)}`;
 }
 
 /**
- * Генерирует URL для чтения файла из Cloud.ru S3 через проксирующий endpoint
+ * Генерирует прямой URL для чтения файла из Cloud.ru S3
+ * @param bucketName Имя бакета
  * @param fileName Имя файла в бакете
  * @returns URL для чтения файла
  */
-export function getCloudRuReadUrl(fileName: string): string {
-  // Используем проксирующий endpoint на сервере
-  return `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
+export function getCloudRuReadUrl(bucketName: string, fileName: string): string {
+  return `https://${bucketName}.s3.cloud.ru/${encodeURIComponent(fileName)}`;
 }
 
 export default {

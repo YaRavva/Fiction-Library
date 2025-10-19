@@ -159,53 +159,42 @@ function LibraryContent() {
 
   useEffect(() => {
     const getInitialData = async () => {
+      setLoading(true);
       try {
-        // Проверяем и получаем валидную сессию
-        const session = await getValidSession(supabase)
-
+        const session = await getValidSession(supabase);
         if (!session) {
-          router.push('/auth/login')
-          return
+          router.push('/auth/login');
+          return;
         }
+        setUser(session.user);
 
-        setUser(session.user)
-
-        // Получаем профиль пользователя
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from('user_profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single()
+          .single();
+        setUserProfile(profile);
 
-        if (profileError) {
-          console.error('Profile error:', profileError)
-        } else {
-          setUserProfile(profile)
-        }
-
-        // Получаем книги
-        await loadBooks(currentPage)
+        await loadBooks(currentPage);
       } catch (error) {
-        console.error('Error loading initial data:', error)
-        router.push('/auth/login')
+        console.error('Error loading initial data:', error);
+        // Optionally handle error state here, e.g., redirect to an error page
+        router.push('/auth/login');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    getInitialData()
+    getInitialData();
 
-    // Подписываемся на изменения аутентификации
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent) => {
       if (event === 'SIGNED_OUT') {
-        router.push('/')
+        router.push('/');
       }
-    })
+    });
 
-    return () => subscription.unsubscribe()
-  }, [supabase, router, loadBooks, currentPage])
+    return () => subscription.unsubscribe();
+  }, [supabase, router, loadBooks, currentPage]);
 
   const searchBooks = useCallback(async (query: string, page = 1) => {
     if (!query.trim()) {
@@ -429,60 +418,10 @@ function LibraryContent() {
     router.push(`/library/book-table?id=${book.id}`)
   }
 
-  const handleDownloadClick = (book: Book) => {
+  const handleDownload = (book: Book) => {
     if (book.file_url) {
-      incrementDownloads(book.id)
-      window.open(book.file_url, '_blank')
-    }
-  }
-
-  const handleDownload = (bookId: string, fileUrl: string | undefined) => {
-    if (fileUrl) {
-      incrementDownloads(bookId);
-      
-      // Find the book to get its title and author
-      const book = books.find(b => b.id === bookId);
-      if (book) {
-        // Create a custom filename in the format "author - title.ext"
-        // Use the actual file format instead of defaulting to .zip
-        const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-        const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-        // Get the file extension from the storage_path or file_format field
-        const fileExtension = book.file_format && book.file_format !== '' ? 
-          book.file_format : 
-          (book.storage_path ? book.storage_path.split('.').pop() : 'zip');
-        const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
-        
-        // Проверяем, является ли файл из Cloud.ru S3
-        let downloadUrl = fileUrl;
-        if (fileUrl && fileUrl.includes('s3.cloud.ru')) {
-          // Используем проксирующий endpoint для Cloud.ru S3
-          const fileName = book.storage_path || fileUrl.split('/').pop() || filename;
-          downloadUrl = `/api/cloud-ru-proxy?fileName=${encodeURIComponent(fileName)}`;
-        }
-        
-        // Fetch the file and trigger download with custom filename
-        fetch(downloadUrl)
-          .then(response => response.blob())
-          .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-          })
-          .catch(error => {
-            console.error('Error downloading file:', error);
-            // Fallback to opening in new tab if download fails
-            window.open(downloadUrl, '_blank');
-          });
-      } else {
-        // Fallback if book not found in state
-        window.open(fileUrl, '_blank');
-      }
+      incrementDownloads(book.id);
+      window.location.href = `/api/download/${book.id}`;
     }
   }
 
@@ -728,7 +667,7 @@ function LibraryContent() {
               <BooksTable 
                 books={books} 
                 onBookClick={handleBookClick}
-                onDownloadClick={handleDownloadClick}
+                onDownload={handleDownload}
                 onReadClick={handleRead}
                 onTagClick={handleTagClick}
               />
@@ -740,6 +679,7 @@ function LibraryContent() {
                     book={book}
                     onClick={() => router.push(`/library/book?id=${book.id}`)}
                     onRead={handleRead}
+                    onDownload={handleDownload}
                     onTagClick={handleTagClick}
                     onSelect={undefined}
                   />
