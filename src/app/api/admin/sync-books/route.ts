@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { syncBooks } from '../../../../scripts/sync-books';
+// Импортируем правильный сервис для синхронизации книг
+import { TelegramMetadataService } from '@/lib/telegram/metadata-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,22 +42,36 @@ export async function POST(request: Request) {
     
     // Запускаем синхронизацию и ждем результата
     try {
-      const result = await syncBooks(limit);
+      // Получаем экземпляр сервиса синхронизации метаданных
+      const metadataService = await TelegramMetadataService.getInstance();
+      
+      // Выполняем синхронизацию
+      const result = await metadataService.syncBooks(limit);
+      
       syncStatus.lastResult = result;
       
       // Обновляем статус по завершении
       syncStatus.isRunning = false;
-      syncStatus.message = `Синхронизация завершена: ${result.message}`;
+      syncStatus.message = `Синхронизация завершена: ${result.processed} обработано, ${result.added} добавлено`;
       syncStatus.progress = 100;
       console.log('✅ Синхронизация книг завершена:', result);
+      
+      // Формируем отчет
+      const actions = [
+        `Обработано сообщений: ${result.processed}`,
+        `Добавлено книг: ${result.added}`,
+        `Обновлено книг: ${result.updated}`,
+        `Пропущено сообщений: ${result.skipped}`,
+        `Ошибок: ${result.errors}`
+      ];
       
       // Возвращаем результат
       return NextResponse.json({
         success: true,
         message: 'Синхронизация завершена',
         status: 'completed',
-        results: result.results,
-        actions: result.actions,
+        results: result,
+        actions,
         limit
       });
     } catch (error) {
