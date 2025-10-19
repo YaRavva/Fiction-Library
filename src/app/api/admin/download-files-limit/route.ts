@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { TelegramSyncService } from '@/lib/telegram/sync';
-import { DownloadWorker } from '@/lib/telegram/download-worker';
+// Импортируем правильные сервисы
 import { TelegramService } from '@/lib/telegram/client';
+import { FileProcessingService } from '@/lib/telegram/file-processing-service';
 
 // Используем service role key для админских операций
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -81,12 +81,13 @@ export async function POST(request: NextRequest) {
     ]) as unknown as any[];
     console.log(`✅ Получено ${messages.length} сообщений для добавления в очередь\n`);
 
-    // Получаем экземпляр воркера для добавления задач в очередь
-    const worker = await DownloadWorker.getInstance();
+    // Получаем экземпляр сервиса обработки файлов
+    const fileService = await FileProcessingService.getInstance();
     
-    // Добавляем задачи в очередь
+    // Обрабатываем файлы напрямую (вместо добавления в очередь)
     let addedCount = 0;
     let skippedCount = 0;
+    let errorCount = 0;
     
     for (const msg of messages) {
       const anyMsg = msg as unknown as {[key: string]: unknown};
@@ -99,28 +100,34 @@ export async function POST(request: NextRequest) {
       }
       
       try {
-        // Добавляем задачу в очередь
-        await worker.addTask(String(anyMsg.id), channelId, 0);
-        addedCount++;
-        console.log(`  ✅ Задача добавлена в очередь для сообщения ${anyMsg.id}`);
+        // Обрабатываем файл напрямую
+        const result = await fileService.processSingleFile(anyMsg);
+        if (result.success) {
+          addedCount++;
+          console.log(`  ✅ Файл обработан: ${anyMsg.id}`);
+        } else {
+          skippedCount++;
+          console.log(`  ⚠️ Файл пропущен: ${anyMsg.id} - ${result.reason || 'Неизвестная причина'}`);
+        }
       } catch (msgError) {
-        console.error(`  ❌ Ошибка добавления задачи для сообщения ${anyMsg.id}:`, msgError);
-        skippedCount++;
+        console.error(`  ❌ Ошибка обработки файла ${anyMsg.id}:`, msgError);
+        errorCount++;
       }
     }
     
-    console.log(`✅ Добавление задач в очередь завершено: ${addedCount} добавлено, ${skippedCount} пропущено`);
+    console.log(`✅ Обработка файлов завершена: ${addedCount} обработано, ${skippedCount} пропущено, ${errorCount} ошибок`);
     
     // Формируем отчет об операции в простом текстовом формате с иконками
-    let report = `📚 Результаты добавления задач в очередь\n\n`;
+    let report = `📚 Результаты обработки файлов\n\n`;
     report += `📊 Статистика:\n`;
     report += `- Сообщений найдено: ${messages.length}\n`;
-    report += `- Задач добавлено в очередь: ${addedCount}\n`;
-    report += `- Пропущено: ${skippedCount}\n\n`;
+    report += `- Файлов обработано: ${addedCount}\n`;
+    report += `- Пропущено: ${skippedCount}\n`;
+    report += `- Ошибок: ${errorCount}\n\n`;
     
     if (addedCount > 0) {
-      report += `✅ Добавленные задачи:\n`;
-      // Добавляем информацию о добавленных задачах
+      report += `✅ Обработанные файлы:\n`;
+      // Добавляем информацию о обработанных файлах
       let taskIndex = 1;
       for (const msg of messages) {
         const anyMsg = msg as unknown as {[key: string]: unknown};
@@ -141,10 +148,7 @@ export async function POST(request: NextRequest) {
           taskIndex++;
         }
       }
-      report += `\n📥 Задачи добавлены в очередь для обработки воркером.\n`;
-      report += `Для запуска обработки задач:\n`;
-      report += `- Используйте кнопку "Запустить воркер" в админ панели\n`;
-      report += `- Или выполните команду: npm run start-download-worker\n\n`;
+      report += `\n📥 Файлы обработаны и загружены.\n\n`;
     }
     
     if (skippedCount > 0) {
@@ -160,27 +164,23 @@ export async function POST(request: NextRequest) {
       report += `\n`;
     }
     
-    report += `📊 Для отслеживания прогресса:\n`;
-    report += `- Админ панель: раздел "Очередь загрузки"\n`;
-    report += `- Команда: npm run check-download-queue\n`;
+    if (errorCount > 0) {
+      report += `❌ Ошибки:\n`;
+      report += `- Количество ошибок: ${errorCount}\n\n`;
+    }
     
     return NextResponse.json({
-      message: 'Задачи добавлены в очередь',
+      message: 'Обработка файлов завершена',
       results: {
-        added: addedCount,
+        processed: addedCount,
         skipped: skippedCount,
-        total: messages.length,
-        errors: [],
-        actions: [
-          `Сообщений найдено: ${messages.length}`,
-          `Задач добавлено в очередь: ${addedCount}`,
-          `Пропущено: ${skippedCount}`
-        ]
+        errors: errorCount,
+        total: messages.length
       },
       report
     });
   } catch (error) {
-    console.error('Ошибка добавления задач в очередь:', error);
+    console.error('Ошибка обработки файлов:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error',
