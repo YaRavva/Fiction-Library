@@ -2,7 +2,6 @@ import { TelegramMetadataService } from './metadata-service';
 import { TelegramFileService } from './file-service';
 import { serverSupabase } from '../serverSupabase';
 import { TelegramService } from './client';
-import { uploadFileToStorage } from '../supabase';
 import { MetadataParser, BookMetadata } from './parser';
 
 interface Book {
@@ -625,10 +624,47 @@ export class BookWormService {
 
             console.log(`  📚 Найдено ${validBooks.length} книг без файлов`);
 
-            // Получаем ВСЕ файлы для сопоставления
-            console.log(`  📥 Получаем список файлов для сопоставления...`);
-            const filesToProcess = await this.fileService.getFilesToProcess(1000);
-            console.log(`  ✅ Получено ${filesToProcess.length} файлов для анализа`);
+            // Получаем файлы для сопоставления в батчах по 1000
+            console.log(`  📥 Получаем список файлов для сопоставления (батчи по 1000)...`);
+            
+            let allFilesToProcess: any[] = [];
+            let offsetId: number | undefined = undefined;
+            let hasMoreFiles = true;
+            let batchCount = 0;
+            
+            // Загружаем все файлы батчами по 1000
+            while (hasMoreFiles) {
+                batchCount++;
+                console.log(`  📦 Загрузка батча ${batchCount} (по 1000 файлов)...`);
+                
+                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetId);
+                
+                if (filesBatch.length === 0) {
+                    hasMoreFiles = false;
+                    break;
+                }
+                
+                console.log(`    📊 Получено ${filesBatch.length} файлов в батче ${batchCount}`);
+                allFilesToProcess = allFilesToProcess.concat(filesBatch);
+                
+                // Определяем offsetId для следующего батча
+                // Используем минимальный ID из текущего батча минус 1
+                const fileIds = filesBatch
+                    .map(file => parseInt(String(file.messageId), 10))
+                    .filter(id => !isNaN(id));
+                
+                if (fileIds.length > 0) {
+                    offsetId = Math.min(...fileIds) - 1;
+                } else {
+                    hasMoreFiles = false;
+                    break;
+                }
+                
+                // Небольшая пауза между батчами
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            console.log(`  ✅ Всего получено ${allFilesToProcess.length} файлов для анализа`);
 
             let processed = 0;
             let linked = 0;
@@ -642,7 +678,7 @@ export class BookWormService {
 
                 try {
                     // Пытаемся найти соответствующий файл по названию и автору
-                    const matchingFile = this.findMatchingFile(typedBook, filesToProcess);
+                    const matchingFile = this.findMatchingFile(typedBook, allFilesToProcess);
 
                     if (matchingFile) {
                         console.log(`    📨 Найден соответствующий файл: ${matchingFile.filename}`);
@@ -710,9 +746,26 @@ export class BookWormService {
         for (const file of files) {
             if (!file.filename) continue;
 
+            // Нормализация Unicode для корректного сравнения
             const filename = file.filename.normalize('NFC').toLowerCase();
             const bookTitle = book.title.normalize('NFC').toLowerCase();
             const bookAuthor = book.author.normalize('NFC').toLowerCase();
+            
+            // Разбиение на слова для более точного поиска
+            const filenameWords: string[] = filename
+                .split(/[_\-\s]+/)
+                .map((word: string) => word.trim())
+                .filter((word: string) => word.length > 1);
+            
+            const bookTitleWords: string[] = bookTitle
+                .split(/\s+/)
+                .map((word: string) => word.trim())
+                .filter((word: string) => word.length > 1);
+            
+            const bookAuthorWords: string[] = bookAuthor
+                .split(/\s+/)
+                .map((word: string) => word.trim())
+                .filter((word: string) => word.length > 1);
 
             let score = 0;
 
@@ -736,7 +789,6 @@ export class BookWormService {
             }
 
             // Добавляем проверку на частичное совпадение слов в названии
-            const bookTitleWords = bookTitle.split(/\s+/).filter(word => word.length > 2);
             let titleWordsMatchCount = 0;
 
             for (const word of bookTitleWords) {
@@ -769,15 +821,14 @@ export class BookWormService {
             }
 
             // Проверяем совпадение по поисковым терминам
-            const searchTerms = [...bookTitleWords, ...bookAuthor.split(/\s+/).filter(word => word.length > 2)];
+            const searchTerms = [...bookTitleWords, ...bookAuthorWords];
             for (const term of searchTerms) {
                 if (filename.includes(term)) {
                     score += 5;
                 }
             }
 
-            // НОВОЕ: Проверяем включение всех слов из имени файла в название и автора книги
-            const filenameWords = filename.toLowerCase().split(/[_\-\s]+/).filter((word: string) => word.length > 2);
+            // Проверяем включение всех слов из имени файла в название и автора книги
             let allWordsInTitle = true;
             let allWordsInAuthor = true;
             let wordsFoundCount = 0;

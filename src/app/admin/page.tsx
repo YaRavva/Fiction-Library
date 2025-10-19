@@ -193,8 +193,11 @@ export default function AdminPage() {
       const report = `🔄 Запуск синхронизации в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n`
       setLastBookWormReport(report)
 
+      // Для полной синхронизации используем новый dedicated endpoint
+      const endpoint = mode === 'full' ? '/api/admin/book-worm/full-sync' : '/api/admin/book-worm';
+      
       // Вызываем API endpoint для запуска синхронизации
-      const response = await fetch('/api/admin/book-worm', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

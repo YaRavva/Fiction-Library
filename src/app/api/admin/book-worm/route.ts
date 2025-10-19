@@ -137,38 +137,15 @@ export async function POST(request: NextRequest) {
         const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown sync error occurred';
         return NextResponse.json({ error: 'Sync error: ' + errorMessage }, { status: 500 });
       }
+    } else if (mode === 'full') {
+      // Для режима "full" предлагаем использовать новый endpoint
+      return NextResponse.json({ 
+        error: 'For full sync, please use the dedicated endpoint at /api/admin/book-worm/full-sync',
+        suggestion: 'POST to /api/admin/book-worm/full-sync with the same authorization header'
+      }, { status: 400 });
     } else {
-      // Для полной синхронизации используем подход с запуском отдельного процесса
-      // только в режиме разработки
-      if (process.env.NODE_ENV !== 'development') {
-        // В production среде (включая Vercel) полная синхронизация недоступна из-за ограничений среды
-        return NextResponse.json({ 
-          error: 'Full sync is only available in development mode due to environment limitations. Please run it locally.' 
-        }, { status: 400 });
-      }
-      
-      // В режиме разработки пытаемся запустить отдельный процесс
-      try {
-        // Используем прямой путь к tsx через node_modules
-        const scriptPath = join(process.cwd(), 'src', 'scripts', 'run-book-worm.ts');
-        // Пробуем запустить через npx tsx (как указано в ваших предпочтениях)
-        const child = spawn('npx', ['tsx', scriptPath, mode], {
-          cwd: process.cwd(),
-          env: process.env,
-          stdio: ['pipe', 'pipe', 'pipe']
-        });
-
-        return NextResponse.json({ 
-          success: true, 
-          message: `Book Worm started in ${mode} mode`,
-          mode,
-          pid: child.pid
-        });
-      } catch (spawnError: unknown) {
-        console.error('Book Worm spawn error:', spawnError);
-        const errorMessage = spawnError instanceof Error ? spawnError.message : 'Unknown spawn error occurred';
-        return NextResponse.json({ error: 'Failed to start process: ' + errorMessage }, { status: 500 });
-      }
+      // Неизвестный режим
+      return NextResponse.json({ error: 'Invalid mode. Use "full", "update", or "index"' }, { status: 400 });
     }
     
   } catch (error: unknown) {

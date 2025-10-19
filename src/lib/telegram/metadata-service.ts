@@ -2,6 +2,7 @@ import { TelegramService } from './client';
 import { MetadataParser, BookMetadata } from './parser';
 import { uploadFileToStorage, upsertBookRecord } from '../supabase';
 import { serverSupabase } from '../serverSupabase';
+import { putObject } from '../s3-service';
 import { Message } from 'node-telegram-bot-api';
 
 export class TelegramMetadataService {
@@ -496,8 +497,12 @@ export class TelegramMetadataService {
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
                                 console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
-                                const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
+                                if (!coversBucket) {
+                                  throw new Error('S3_COVERS_BUCKET_NAME environment variable is not set.');
+                                }
+                                await putObject(photoKey, Buffer.from(photoBuffer), coversBucket);
+                                const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
                                 coverUrls.push(photoUrl);
                                 console.log(`  ✅ Обложка загружена: ${photoUrl}`);
                             } else {
@@ -517,8 +522,12 @@ export class TelegramMetadataService {
                             if (photoBuffer) {
                                 const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
                                 console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
-                                const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
+                                if (!coversBucket) {
+                                  throw new Error('S3_COVERS_BUCKET_NAME environment variable is not set.');
+                                }
+                                await putObject(photoKey, Buffer.from(photoBuffer), coversBucket);
+                                const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
                                 coverUrls.push(photoUrl);
                                 console.log(`  ✅ Обложка загружена: ${photoUrl}`);
                             } else {
@@ -540,8 +549,12 @@ export class TelegramMetadataService {
                                 if (photoBuffer) {
                                     const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
                                     console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                    await uploadFileToStorage('covers', photoKey, Buffer.from(photoBuffer), 'image/jpeg');
-                                    const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
+                                    const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
+                                    if (!coversBucket) {
+                                      throw new Error('S3_COVERS_BUCKET_NAME environment variable is not set.');
+                                    }
+                                    await putObject(photoKey, Buffer.from(photoBuffer), coversBucket);
+                                    const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
                                     coverUrls.push(photoUrl);
                                     console.log(`  ✅ Обложка загружена: ${photoUrl}`);
                                 } else {

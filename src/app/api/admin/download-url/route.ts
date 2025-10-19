@@ -6,13 +6,13 @@ import { cookies } from 'next/headers';
 // Интерфейсы для типизации данных
 interface Book {
   id: string;
-  storage_path: string;
+  file_url: string;
   // ... другие поля книги
 }
 
 interface DownloadTask {
   id: string;
-  storage_path: string;
+  file_url: string;
   // ... другие поля задачи
 }
 
@@ -89,11 +89,11 @@ export async function GET(request: NextRequest) {
 
     let storagePath: string | null = null;
 
-    // Получаем storage_path из books или download_queue
+    // Получаем file_url из books или download_queue
     if (bookId) {
       const { data: book, error: bookError } = await serverSupabase
         .from('books')
-        .select('storage_path')
+        .select('file_url')
         .eq('id', bookId)
         .single<Book>();
 
@@ -104,11 +104,11 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      storagePath = book.storage_path;
+      storagePath = book.file_url;
     } else if (taskId) {
       const { data: task, error: taskError } = await serverSupabase
         .from('download_queue')
-        .select('storage_path')
+        .select('file_url')
         .eq('id', taskId)
         .single<DownloadTask>();
 
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      storagePath = task.storage_path;
+      storagePath = task.file_url;
     }
 
     if (!storagePath) {
