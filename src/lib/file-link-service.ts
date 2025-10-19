@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { FileSearchService, BookWithoutFile, TelegramFile } from './file-search-service';
+import { putObject } from './s3-service';
 
 // Используем service role key для админских операций
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -160,7 +161,7 @@ export class FileLinkService {
   }
 
   /**
-   * Сохраняет файл в Supabase Storage
+   * Сохраняет файл в S3 бакет
    */
   public async uploadToStorage(
     fileName: string,
@@ -168,34 +169,24 @@ export class FileLinkService {
     mimeType: string
   ): Promise<string> {
     try {
-      console.log(`☁️ Загрузка файла в storage: ${fileName}...`);
+      console.log(`☁️ Загрузка файла в S3: ${fileName}...`);
 
       // Используем имя файла как есть, без добавления временных меток
       // Это соответствует подходу в file-service.ts
-      const storagePath = `books/${fileName}`;
+      const storagePath = fileName;
 
-      // Загружаем файл в storage
-      const { data, error } = await supabaseAdmin.storage
-        .from('books')
-        .upload(storagePath, buffer, {
-          contentType: mimeType,
-          upsert: false
-        });
-
-      if (error) {
-        throw new Error(`Ошибка загрузки в storage: ${error.message}`);
+      // Загружаем файл в S3 бакет
+      const bucketName = process.env.S3_BUCKET_NAME;
+      if (!bucketName) {
+        throw new Error('S3_BUCKET_NAME environment variable is not set.');
       }
+      await putObject(storagePath, buffer, bucketName);
 
-      // Получаем публичный URL
-      const { data: urlData } = supabaseAdmin.storage
-        .from('books')
-        .getPublicUrl(storagePath);
-
-      console.log(`✅ Файл загружен в storage: ${urlData.publicUrl}`);
+      console.log(`✅ Файл загружен в S3: ${storagePath}`);
 
       return storagePath;
     } catch (error) {
-      console.error('Ошибка при загрузке в storage:', error);
+      console.error('Ошибка при загрузке в S3:', error);
       throw error;
     }
   }
@@ -214,10 +205,12 @@ export class FileLinkService {
     try {
       console.log(`🔗 Привязка файла к книге ${bookId}...`);
 
-      // Получаем публичный URL файла
-      const { data: urlData } = supabaseAdmin.storage
-        .from('books')
-        .getPublicUrl(storagePath);
+      // Формируем URL файла в S3
+      const bucketName = process.env.S3_BUCKET_NAME;
+      if (!bucketName) {
+        throw new Error('S3_BUCKET_NAME environment variable is not set.');
+      }
+      const fileUrl = `https://${bucketName}.s3.cloud.ru/${storagePath}`;
 
       // Определяем формат файла
       const fileFormat = this.detectFileFormat(fileName);
@@ -226,7 +219,7 @@ export class FileLinkService {
       const { data, error } = await supabaseAdmin
         .from('books')
         .update({
-          file_url: urlData.publicUrl,
+          file_url: fileUrl,
           storage_path: storagePath,
           file_size: fileSize,
           file_format: fileFormat,
@@ -246,7 +239,7 @@ export class FileLinkService {
       return {
         success: true,
         bookId,
-        fileUrl: urlData.publicUrl,
+        fileUrl,
         storagePath
       };
     } catch (error) {
@@ -275,78 +268,12 @@ export class FileLinkService {
     try {
       console.log(`🔗 Привязка существующего файла к книге ${bookId}...`);
 
-      // Получаем информацию о файле из storage
-      const { data: fileInfo, error: infoError } = await supabaseAdmin.storage
-        .from('books')
-        .list('books', {
-          search: fileName
-        });
-
-      if (infoError || !fileInfo || fileInfo.length === 0) {
-        throw new Error('Файл не найден в storage');
+      // Формируем URL файла в S3
+      const bucketName = process.env.S3_BUCKET_NAME;
+      if (!bucketName) {
+        throw new Error('S3_BUCKET_NAME environment variable is not set.');
       }
-
-      const file = fileInfo[0];
-      const fileSize = file.metadata?.size || 0;
-
-      // Предварительная проверка типа файла и размера
-      const fileExtension = fileName.toLowerCase().split('.').pop();
-      
-      // Проверка допустимых форматов файлов
-      const allowedFormats = ['fb2', 'zip'];
-      if (!fileExtension || !allowedFormats.includes(fileExtension)) {
-        // Если формат файла недопустимый, удаляем существующий файл и возвращаем ошибку
-        await supabaseAdmin.storage.from('books').remove([storagePath]);
-        throw new Error(`Недопустимый формат файла: ${fileExtension}. Разрешены только: fb2, zip`);
-      }
-
-      // Проверка размера файла (минимальный размер для fb2 - 100 байт, для zip - 1000 байт)
-      let sizeCheckFailed = false;
-      let sizeCheckError = '';
-      
-      if (fileExtension === 'fb2' && fileSize < 100) {
-        sizeCheckFailed = true;
-        sizeCheckError = `Файл fb2 слишком маленький: ${fileSize} байт. Минимальный размер: 100 байт`;
-      }
-      
-      if (fileExtension === 'zip' && fileSize < 1000) {
-        sizeCheckFailed = true;
-        sizeCheckError = `Файл zip слишком маленький: ${fileSize} байт. Минимальный размер: 1000 байт`;
-      }
-
-      // Если проверка размера не пройдена, удаляем существующий файл и возвращаем ошибку
-      if (sizeCheckFailed) {
-        await supabaseAdmin.storage.from('books').remove([storagePath]);
-        throw new Error(sizeCheckError);
-      }
-
-      // Проверка соответствия ожидаемого размера и типа (если переданы)
-      if (expectedFileSize && expectedFileExtension) {
-        const actualFileExtension = fileName.toLowerCase().split('.').pop();
-        if (actualFileExtension !== expectedFileExtension || fileSize !== expectedFileSize) {
-          console.log(`⚠️ Файл не соответствует ожиданиям. Ожидаемый тип: ${expectedFileExtension}, фактический: ${actualFileExtension}. Ожидаемый размер: ${expectedFileSize}, фактический: ${fileSize}`);
-          
-          // Удаляем существующий файл
-          const { error: removeError } = await supabaseAdmin.storage.from('books').remove([storagePath]);
-          if (removeError) {
-            console.error('Ошибка при удалении существующего файла:', removeError);
-          } else {
-            console.log('✅ Существующий файл удален');
-          }
-          
-          // Возвращаем специальную ошибку, чтобы вызывающая сторона знала, что нужно загрузить новый файл
-          return {
-            success: false,
-            bookId,
-            error: 'FILE_MISMATCH_NEEDS_REUPLOAD'
-          };
-        }
-      }
-
-      // Получаем публичный URL файла
-      const { data: urlData } = supabaseAdmin.storage
-        .from('books')
-        .getPublicUrl(storagePath);
+      const fileUrl = `https://${bucketName}.s3.cloud.ru/${storagePath}`;
 
       // Определяем формат файла
       const fileFormat = this.detectFileFormat(fileName);
@@ -355,9 +282,9 @@ export class FileLinkService {
       const { data, error } = await supabaseAdmin
         .from('books')
         .update({
-          file_url: urlData.publicUrl,
+          file_url: fileUrl,
           storage_path: storagePath,
-          file_size: fileSize,
+          file_size: expectedFileSize || 0,
           file_format: fileFormat,
           updated_at: new Date().toISOString()
         })
@@ -374,7 +301,7 @@ export class FileLinkService {
       return {
         success: true,
         bookId,
-        fileUrl: urlData.publicUrl,
+        fileUrl,
         storagePath
       };
     } catch (error) {

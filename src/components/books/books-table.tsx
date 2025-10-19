@@ -8,12 +8,12 @@ import { BookOpen, Download, Star } from 'lucide-react'
 interface BooksTableProps {
   books: Book[]
   onBookClick?: (book: Book) => void
-  onDownloadClick?: (book: Book) => void
+  onDownload?: (book: Book) => void
   onReadClick?: (book: Book) => void
   onTagClick?: (tag: string) => void
 }
 
-export function BooksTable({ books, onBookClick, onDownloadClick, onReadClick, onTagClick }: BooksTableProps) {
+export function BooksTable({ books, onBookClick, onDownload, onReadClick, onTagClick }: BooksTableProps) {
   // Обновляем колонки с обработчиками событий и настройками ширины
   const updatedColumns = [
     // Автор column - 40px
@@ -35,12 +35,12 @@ export function BooksTable({ books, onBookClick, onDownloadClick, onReadClick, o
       minSize: 20,
       cell: ({ row }: { row: { getValue: (key: string) => unknown } }) => {
         const rating = row.getValue('rating') as number | undefined
-        return (
+        return rating && rating > 0 ? (
           <div className="flex items-center justify-center gap-1">
             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-            <span>{rating?.toFixed(1) || '—'}</span>
+            <span>{rating.toFixed(1)}</span>
           </div>
-        )
+        ) : null
       },
     },
     // Теги column - 500px
@@ -80,31 +80,9 @@ export function BooksTable({ books, onBookClick, onDownloadClick, onReadClick, o
         return (
           <button
             onClick={(e) => {
-              e.stopPropagation()
-              if (book.file_url) {
-                // Create a custom filename in the format "author - title.zip"
-                const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-                const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-                const filename = `${sanitizedAuthor} - ${sanitizedTitle}.zip`;
-                
-                // Fetch the file and trigger download with custom filename
-                fetch(book.file_url)
-                  .then(response => response.blob())
-                  .then(blob => {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                  })
-                  .catch(error => {
-                    console.error('Error downloading file:', error);
-                    // Fallback to opening in new tab if download fails
-                    window.open(book.file_url, '_blank');
-                  });
+              e.stopPropagation();
+              if (book.file_url && onDownload) {
+                onDownload(book);
               }
             }}
             disabled={!book.file_url}

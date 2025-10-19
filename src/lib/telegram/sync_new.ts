@@ -2,6 +2,7 @@ import { TelegramService } from './client';
 import { MetadataParser, BookMetadata } from './parser';
 import { uploadFileToStorage, upsertBookRecord } from '../supabase';
 import { serverSupabase } from '../serverSupabase';
+import { putObject } from '../s3-service';
 import { Message } from 'node-telegram-bot-api';
 import path from 'path';
 
@@ -273,14 +274,18 @@ export class TelegramSyncService {
                 || 'application/octet-stream';
 
             // Загружаем в Supabase Storage (bucket 'books')
-            console.log('Uploading file to Supabase Storage...');
-            await uploadFileToStorage('books', storageKey as string, Buffer.from(buffer), mime as string);
+            console.log('Uploading file to S3 bucket...');
+            const bucketName = process.env.S3_BUCKET_NAME;
+            if (!bucketName) {
+              throw new Error('S3_BUCKET_NAME environment variable is not set.');
+            }
+            await putObject(storageKey as string, Buffer.from(buffer), bucketName);
 
             // Вставляем/обновляем запись книги (минимальные поля)
             const bookRecord: { [key: string]: unknown } = {
                 title: (filenameCandidate as string) || 'book-' + anyMsg.id,
                 author: (anyMsg.author as string) || (anyMsg.from && (anyMsg.from as { username?: string }).username) || 'Unknown',
-                file_url: process.env.NEXT_PUBLIC_SUPABASE_URL + '/storage/v1/object/public/books/' + encodeURIComponent(storageKey as string),
+                file_url: `https://${bucketName}.s3.cloud.ru/${storageKey}`,
                 file_size: buffer.length,
                 file_format: (ext as string).replace('.', ''),
                 telegram_file_id: String(anyMsg.id),

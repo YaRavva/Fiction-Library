@@ -20,10 +20,10 @@ export const getObject = async (key: string) => {
   return s3Client.send(command);
 };
 
-export const putObject = async (key: string, body: Buffer) => {
+export const putObject = async (key: string, body: Buffer, bucketName?: string) => {
   const s3Client = createS3Client();
   const command = new PutObjectCommand({
-    Bucket: process.env.S3_BUCKET_NAME,
+    Bucket: bucketName || process.env.S3_BUCKET_NAME,
     Key: key,
     Body: body
   });
