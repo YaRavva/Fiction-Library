@@ -3,6 +3,7 @@ import { TelegramFileService } from './file-service';
 import { serverSupabase } from '../serverSupabase';
 import { TelegramService } from './client';
 import { MetadataParser, BookMetadata } from './parser';
+import { EnhancedFileProcessingService } from './file-processing-service-enhanced';
 
 interface Book {
     id: string;
@@ -51,6 +52,7 @@ interface IndexResult {
 export class BookWormService {
     private metadataService: TelegramMetadataService | null = null;
     private fileService: TelegramFileService | null = null;
+    private enhancedFileService: EnhancedFileProcessingService | null = null;
     private telegramClient: TelegramService | null = null;
 
     constructor() {}
@@ -64,6 +66,9 @@ export class BookWormService {
         }
         if (!this.fileService) {
             this.fileService = await TelegramFileService.getInstance();
+        }
+        if (!this.enhancedFileService) {
+            this.enhancedFileService = await EnhancedFileProcessingService.getInstance();
         }
         if (!this.telegramClient) {
             this.telegramClient = await TelegramService.getInstance();
@@ -325,11 +330,6 @@ export class BookWormService {
         }
     }
 
-
-
-
-
-
     /**
      * Загружает все метаданные из публичного канала
      */
@@ -584,8 +584,8 @@ export class BookWormService {
         errors: number;
     }> {
         try {
-            if (!this.fileService) {
-                throw new Error('File service not initialized');
+            if (!this.enhancedFileService) {
+                throw new Error('Enhanced file service not initialized');
             }
 
             // Получаем книги без файлов
@@ -637,7 +637,7 @@ export class BookWormService {
                 batchCount++;
                 console.log(`  📦 Загрузка батча ${batchCount} (по 1000 файлов)...`);
                 
-                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetId);
+                const filesBatch = await this.fileService!.getFilesToProcess(1000, offsetId);
                 
                 if (filesBatch.length === 0) {
                     hasMoreFiles = false;
@@ -684,9 +684,9 @@ export class BookWormService {
                         console.log(`    📨 Найден соответствующий файл: ${matchingFile.filename}`);
                         console.log(`    📨 Message ID файла: ${matchingFile.messageId}`);
 
-                        // Пытаемся обработать файл
-                        console.log(`    ⬇️  Попытка обработки файла...`);
-                        const result = await this.fileService!.processSingleFileById(parseInt(matchingFile.messageId as string, 10));
+                        // Пытаемся обработать файл с использованием улучшенного сервиса
+                        console.log(`    ⬇️  Попытка обработки файла с корректной обработкой обложек...`);
+                        const result = await this.enhancedFileService!.processSingleFileById(parseInt(matchingFile.messageId as string, 10));
 
                         processed++;
 
