@@ -268,10 +268,15 @@ export function TelegramStatsSection() {
     
       // Показываем итоговое сообщение
       const finalTimestamp = new Date().toLocaleTimeString('ru-RU');
-      const finalMessage = data.status === 'completed' ?
-        '✅ Обновление статистики завершено!' :
-        '✅ Запрос на обновление статистики отправлен!';
-      const finalReport = `[${finalTimestamp}] ${finalMessage}\n`;
+      let finalReport = `[${finalTimestamp}] ✅ Обновление статистики завершено!\n`;
+
+      if (data.stats) {
+        finalReport += `\n📊 === ИТОГОВАЯ СТАТИСТИКА ===\n`;
+        finalReport += `📚 Книг в базе данных: ${data.stats.booksInDatabase}\n`;
+        finalReport += `📡 Книг в Telegram: ${data.stats.booksInTelegram}\n`;
+        finalReport += `❌ Отсутствующих книг: ${data.stats.missingBooks}\n`;
+        finalReport += `📁 Книг без файлов: ${data.stats.booksWithoutFiles}\n`;
+      }
     
       // Используем правильную функцию для передачи логов в админ-панель
       if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {

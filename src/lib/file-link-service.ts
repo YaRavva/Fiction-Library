@@ -219,7 +219,6 @@ export class FileLinkService {
         .from('books')
         .update({
           file_url: fileUrl,
-          storage_path: storagePath,
           file_size: fileSize,
           file_format: fileFormat,
           telegram_file_id: telegramFileId,
@@ -281,7 +280,6 @@ export class FileLinkService {
         .from('books')
         .update({
           file_url: fileUrl,
-          storage_path: storagePath,
           file_size: expectedFileSize || 0,
           file_format: fileFormat,
           updated_at: new Date().toISOString()

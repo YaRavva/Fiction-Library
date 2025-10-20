@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { TelegramService } from '../lib/telegram/client';
-import { MetadataParser } from '../lib/telegram/parser';
+import { TelegramService } from './client';
+import { MetadataParser } from './parser';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,13 +15,6 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-interface Book {
-  id: string;
-  title: string;
-  author: string;
-  file_url: string | null;
-}
-
 interface TelegramStats {
   id?: string;
   books_in_database: number;
@@ -31,7 +24,7 @@ interface TelegramStats {
   updated_at: string;
 }
 
-async function updateTelegramStats() {
+export async function updateTelegramStats(): Promise<TelegramStats | null> {
   console.log('📊 Обновление статистики Telegram...');
   
   try {
@@ -43,7 +36,7 @@ async function updateTelegramStats() {
 
     if (booksCountError) {
       console.error('❌ Ошибка при получении количества книг:', booksCountError);
-      return;
+      return null;
     }
 
     console.log(`✅ Книг в базе данных: ${booksInDatabase || 0}`);
@@ -57,7 +50,7 @@ async function updateTelegramStats() {
 
     if (booksWithoutFilesError) {
       console.error('❌ Ошибка при получении количества книг без файлов:', booksWithoutFilesError);
-      return;
+      return null;
     }
 
     console.log(`✅ Книг без файлов: ${booksWithoutFiles || 0}`);
@@ -172,7 +165,7 @@ async function updateTelegramStats() {
       
     } catch (telegramError) {
       console.error('❌ Ошибка при подсчете книг в Telegram:', telegramError);
-      return;
+      return null;
     }
 
     // Вычисляем количество отсутствующих книг
@@ -197,7 +190,7 @@ async function updateTelegramStats() {
 
     if (upsertError) {
       console.error('❌ Ошибка при сохранении статистики:', upsertError);
-      return;
+      return null;
     }
 
     console.log('✅ Статистика успешно сохранена в базу данных');
@@ -212,10 +205,10 @@ async function updateTelegramStats() {
     
     console.log('\n✅ Обновление статистики завершено успешно');
     
+    return statsData;
+    
   } catch (error) {
     console.error('❌ Ошибка при обновлении статистики:', error);
+    return null;
   }
 }
-
-// Run the script
-updateTelegramStats().catch(console.error);

@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
         String(fileChannel.id);
 
       console.log(`📂 Загрузка файлов из канала ${channelId}...`);
-      const messages = await telegramClient.getAllMessages(channelId, 1000);
+      const messages = await telegramClient.getAllMessages(channelId, 10000);
 
       // Фильтруем только сообщения с файлами
       const files = messages
