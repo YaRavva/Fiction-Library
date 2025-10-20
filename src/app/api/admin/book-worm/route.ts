@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (mode === 'index') {
       try {
         // Создаем экземпляр сервиса
-        const bookWorm = new BookWormService();
+        const bookWorm = await BookWormService.getInstance();
         
         // Выполняем индексацию всех сообщений
         const result = await bookWorm.run('full');
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     if (mode === 'update') {
       try {
         // Создаем экземпляр сервиса
-        const bookWorm = new BookWormService();
+        const bookWorm = await BookWormService.getInstance();
         
         // Выполняем синхронизацию асинхронно без ожидания
         bookWorm.runUpdateSync()

@@ -69,8 +69,10 @@ export async function GET(request: NextRequest) {
       user = cookieUser;
     }
 
-    // For debugging: log authentication status
-    console.log('User authentication status:', user ? 'Authenticated' : 'Not authenticated');
+    // Log authentication status only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('User authentication status:', user ? 'Authenticated' : 'Not authenticated');
+    }
     
     // Temporarily allow access for testing (remove this in production)
     // if (!user) {

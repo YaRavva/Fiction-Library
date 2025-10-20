@@ -5,6 +5,7 @@ import { putObject } from '../s3-service';
 import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3";
 import * as path from 'path';
 import { MetadataExtractionService } from './metadata-extraction-service';
+import { FileBookMatcherService } from '../file-book-matcher-service';
 
 export class FileProcessingService {
     private static instance: FileProcessingService;
@@ -437,7 +438,7 @@ export class FileProcessingService {
             // Удаляем дубликаты по ID
             const uniqueMatches = allMatches.filter((bookItem, index, self) => 
                 index === self.findIndex(b => (b as { id: string }).id === (bookItem as { id: string }).id)
-            );
+            ) as { id: string; title: string; author: string; publication_year?: number }[];
             
             // Если книги не найдены, пропускаем файл
             if (uniqueMatches.length === 0) {
@@ -456,8 +457,16 @@ export class FileProcessingService {
             
             console.log(`  📚 Найдено ${uniqueMatches.length} уникальных совпадений`);
             
-            // Выбираем наиболее релевантную книгу из найденных
-            const bestMatch = MetadataExtractionService.selectBestMatch(uniqueMatches, searchTerms, title, author);
+            // Создаем объект файла для сопоставления
+            const fileForMatching = {
+                message_id: anyMsg.id,
+                file_name: originalFilename,
+                mime_type: (anyMsg.mime_type as string) || 'unknown',
+                file_size: (anyMsg.file_size as number) ? parseInt(String(anyMsg.file_size), 10) : undefined
+            };
+            
+            // Используем универсальный сервис для сопоставления файла с книгами
+            const bestMatch = await FileBookMatcherService.findBestMatchForFile(fileForMatching, 50);
             
             // Проверяем, что нашли подходящую книгу
             if (!bestMatch) {
@@ -474,9 +483,9 @@ export class FileProcessingService {
                 };
             }
             
-            console.log(`  ✅ Выбрана лучшая книга: "${(bestMatch as { title: string }).title}" автора ${(bestMatch as { author: string }).author}`);
+            console.log(`  ✅ Выбрана лучшая книга: "${bestMatch.book.title}" автора ${bestMatch.book.author} (оценка: ${bestMatch.score})`);
             
-            const book = bestMatch as { id: string; title: string; author: string };
+            const book = bestMatch.book;
             
             // Проверяем, существует ли запись в telegram_processed_messages для данной книги
             // Записи должны создаваться только при синхронизации метаданных из публичного канала
