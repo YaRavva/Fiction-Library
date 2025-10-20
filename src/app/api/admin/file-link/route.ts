@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     console.log(`🔗 Начинаем привязку файла к книге "${book.title}"...`);
 
     try {
-      // Используем существующий сервис для загрузки файла
+      // Используем существующий сервис для получения информации о файле
       const { FileLinkService } = await import('@/lib/file-link-service');
       const fileLinkService = await FileLinkService.getInstance();
 
@@ -100,12 +100,12 @@ export async function POST(request: NextRequest) {
       // Проверяем, существует ли файл в S3
       const s3Key = fileName; // Используем fileName как ключ в S3
       
-      // Проверяем существование файла в S3
+      // Получаем размер существующего файла из S3
       let existingFileSize = 0;
       let fileExists = false;
       
       try {
-        // Используем S3 сервис для проверки существования файла
+        // Используем S3 сервис для проверки существования файла и получения его размера
         const { headObject } = await import('@/lib/s3-service');
         const fileMetadata = await headObject(s3Key, bucketName);
         if (fileMetadata) {
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       if (fileExists) {
         console.log(`🔄 Файл уже существует, проверяем его тип и размер...`);
         
-        // Загружаем новый файл, чтобы сравнить размеры
+        // Загружаем файл из Telegram во временный буфер для проверки
         const { buffer: newFileBuffer, fileName: newFileName, mimeType: newMimeType } = await fileLinkService.downloadAndUploadFile(
           fileMessageId,
           channelId,
@@ -135,9 +135,37 @@ export async function POST(request: NextRequest) {
           // Удаляем старый файл и загружаем новый
           const { deleteObject } = await import('@/lib/s3-service');
           await deleteObject(s3Key, bucketName);
+          
+          // Загружаем новый файл в S3
+          await fileLinkService.uploadToStorage(newFileName, newFileBuffer, newMimeType);
+          
+          // Привязываем новый файл к книге
+          const result = await fileLinkService.linkFileToBook(
+            bookId,
+            newFileName,
+            newFileName,
+            newFileBuffer.length,
+            newMimeType
+          );
+          
+          if (result.success) {
+            console.log(`✅ Новый файл успешно привязан к книге "${book.title}"`);
+            return NextResponse.json({
+              success: true,
+              message: `Новый файл успешно привязан к книге "${book.title}"`,
+              fileUrl: result.fileUrl,
+              storagePath: result.storagePath
+            });
+          } else {
+            console.error(`❌ Ошибка привязки нового файла:`, result.error);
+            return NextResponse.json(
+              { error: result.error || 'Failed to link new file' },
+              { status: 500 }
+            );
+          }
         } else if (existingFileSize === newFileBuffer.length) {
           console.log(`✅ Тип и размер файла совпадают, привязываем существующий файл...`);
-          // Привязываем существующий файл без повторной загрузки
+          // Привязываем существующий файл без повторной загрузки в S3
           const result = await fileLinkService.linkExistingFileToBook(
             bookId,
             s3Key,
@@ -154,34 +182,68 @@ export async function POST(request: NextRequest) {
               fileUrl: result.fileUrl,
               storagePath: result.storagePath
             });
+          } else {
+            console.error(`❌ Ошибка привязки существующего файла:`, result.error);
+            return NextResponse.json(
+              { error: result.error || 'Failed to link existing file' },
+              { status: 500 }
+            );
           }
         } else {
           console.log(`⚠️ Размер файла отличается (существующий: ${existingFileSize}, новый: ${newFileBuffer.length}), заменяем файл...`);
           // Удаляем старый файл и загружаем новый
           const { deleteObject } = await import('@/lib/s3-service');
           await deleteObject(s3Key, bucketName);
+          
+          // Загружаем новый файл в S3
+          await fileLinkService.uploadToStorage(newFileName, newFileBuffer, newMimeType);
+          
+          // Привязываем новый файл к книге
+          const result = await fileLinkService.linkFileToBook(
+            bookId,
+            newFileName,
+            newFileName,
+            newFileBuffer.length,
+            newMimeType
+          );
+          
+          if (result.success) {
+            console.log(`✅ Новый файл успешно привязан к книге "${book.title}"`);
+            return NextResponse.json({
+              success: true,
+              message: `Новый файл успешно привязан к книге "${book.title}"`,
+              fileUrl: result.fileUrl,
+              storagePath: result.storagePath
+            });
+          } else {
+            console.error(`❌ Ошибка привязки нового файла:`, result.error);
+            return NextResponse.json(
+              { error: result.error || 'Failed to link new file' },
+              { status: 500 }
+            );
+          }
         }
-      }
-
-      // Если файл не существует или был удален, загружаем новый
-      console.log(`📥 Загружаем новый файл ${fileName} из канала ${channelId}...`);
-      const result = await fileLinkService.processFileForBook(fileMessageId, channelId, book);
-
-      if (result.success) {
-        console.log(`✅ Файл успешно привязан к книге "${book.title}"`);
-
-        return NextResponse.json({
-          success: true,
-          message: `Файл успешно привязан к книге "${book.title}"`,
-          fileUrl: result.fileUrl,
-          storagePath: result.storagePath
-        });
       } else {
-        console.error(`❌ Ошибка привязки файла:`, result.error);
-        return NextResponse.json(
-          { error: result.error || 'Failed to link file' },
-          { status: 500 }
-        );
+        console.log(`📥 Файл не найден в S3, загружаем новый файл ${fileName} из канала ${channelId}...`);
+        // Если файл не существует, загружаем новый
+        const result = await fileLinkService.processFileForBook(fileMessageId, channelId, book);
+
+        if (result.success) {
+          console.log(`✅ Файл успешно привязан к книге "${book.title}"`);
+
+          return NextResponse.json({
+            success: true,
+            message: `Файл успешно привязан к книге "${book.title}"`,
+            fileUrl: result.fileUrl,
+            storagePath: result.storagePath
+          });
+        } else {
+          console.error(`❌ Ошибка привязки файла:`, result.error);
+          return NextResponse.json(
+            { error: result.error || 'Failed to link file' },
+            { status: 500 }
+          );
+        }
       }
 
     } catch (linkError) {
