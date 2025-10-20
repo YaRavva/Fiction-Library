@@ -258,16 +258,6 @@ export class FileSearchService {
       }
     }
 
-    // Бонус за формат файла
-    if (fileName.endsWith('.fb2') || fileName.endsWith('.epub')) {
-      score += 2;
-    }
-
-    // Бонус за разумный размер файла (книги обычно не меньше 10KB и не больше 50MB)
-    if (file.file_size && file.file_size > 10000 && file.file_size < 50000000) {
-      score += 1;
-    }
-
     return score;
   }
 
