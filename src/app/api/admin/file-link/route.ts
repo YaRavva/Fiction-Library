@@ -88,7 +88,83 @@ export async function POST(request: NextRequest) {
       const { FileLinkService } = await import('@/lib/file-link-service');
       const fileLinkService = await FileLinkService.getInstance();
 
-      console.log(`📥 Загружаем файл ${fileMessageId} из канала ${channelId}...`);
+      // Получаем информацию о файле без загрузки
+      const { fileName, mimeType } = await fileLinkService.getFileInfo(fileMessageId, channelId);
+      const bucketName = process.env.S3_BUCKET_NAME;
+      if (!bucketName) {
+        throw new Error('S3_BUCKET_NAME environment variable is not set.');
+      }
+
+      console.log(`🔍 Проверяем наличие файла ${fileName} в S3 бакете...`);
+
+      // Проверяем, существует ли файл в S3
+      const s3Key = fileName; // Используем fileName как ключ в S3
+      
+      // Проверяем существование файла в S3
+      let existingFileSize = 0;
+      let fileExists = false;
+      
+      try {
+        // Используем S3 сервис для проверки существования файла
+        const { headObject } = await import('@/lib/s3-service');
+        const fileMetadata = await headObject(s3Key, bucketName);
+        if (fileMetadata) {
+          existingFileSize = fileMetadata.ContentLength || 0;
+          fileExists = true;
+          console.log(`✅ Файл ${fileName} найден в S3 с размером ${existingFileSize} байт`);
+        }
+      } catch (error) {
+        // Файл не найден или другая ошибка
+        console.log(`ℹ️ Файл ${fileName} не найден в S3 (будет загружен новый):`, (error as Error).message);
+        fileExists = false;
+      }
+
+      if (fileExists) {
+        console.log(`🔄 Файл уже существует, проверяем его тип и размер...`);
+        
+        // Загружаем новый файл, чтобы сравнить размеры
+        const { buffer: newFileBuffer, fileName: newFileName, mimeType: newMimeType } = await fileLinkService.downloadAndUploadFile(
+          fileMessageId,
+          channelId,
+          book
+        );
+        
+        // Проверяем тип файла
+        if (mimeType !== newMimeType) {
+          console.log(`⚠️ Тип файла отличается (существующий: ${mimeType}, новый: ${newMimeType}), загружаем новый файл...`);
+          // Удаляем старый файл и загружаем новый
+          const { deleteObject } = await import('@/lib/s3-service');
+          await deleteObject(s3Key, bucketName);
+        } else if (existingFileSize === newFileBuffer.length) {
+          console.log(`✅ Тип и размер файла совпадают, привязываем существующий файл...`);
+          // Привязываем существующий файл без повторной загрузки
+          const result = await fileLinkService.linkExistingFileToBook(
+            bookId,
+            s3Key,
+            fileName,
+            mimeType,
+            existingFileSize
+          );
+          
+          if (result.success) {
+            console.log(`✅ Существующий файл успешно привязан к книге "${book.title}"`);
+            return NextResponse.json({
+              success: true,
+              message: `Существующий файл успешно привязан к книге "${book.title}"`,
+              fileUrl: result.fileUrl,
+              storagePath: result.storagePath
+            });
+          }
+        } else {
+          console.log(`⚠️ Размер файла отличается (существующий: ${existingFileSize}, новый: ${newFileBuffer.length}), заменяем файл...`);
+          // Удаляем старый файл и загружаем новый
+          const { deleteObject } = await import('@/lib/s3-service');
+          await deleteObject(s3Key, bucketName);
+        }
+      }
+
+      // Если файл не существует или был удален, загружаем новый
+      console.log(`📥 Загружаем новый файл ${fileName} из канала ${channelId}...`);
       const result = await fileLinkService.processFileForBook(fileMessageId, channelId, book);
 
       if (result.success) {

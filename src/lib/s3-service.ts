@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import "dotenv/config";
 
 // Create S3 client instance
@@ -26,6 +26,24 @@ export const putObject = async (key: string, body: Buffer, bucketName?: string) 
     Bucket: bucketName || process.env.S3_BUCKET_NAME,
     Key: key,
     Body: body
+  });
+  return s3Client.send(command);
+};
+
+export const headObject = async (key: string, bucketName?: string) => {
+  const s3Client = createS3Client();
+  const command = new HeadObjectCommand({
+    Bucket: bucketName || process.env.S3_BUCKET_NAME,
+    Key: key
+  });
+  return s3Client.send(command);
+};
+
+export const deleteObject = async (key: string, bucketName?: string) => {
+  const s3Client = createS3Client();
+  const command = new DeleteObjectCommand({
+    Bucket: bucketName || process.env.S3_BUCKET_NAME,
+    Key: key
   });
   return s3Client.send(command);
 };
