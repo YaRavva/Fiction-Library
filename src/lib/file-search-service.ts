@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { FileBookMatcherService } from './file-book-matcher-service';
 
 // Используем service role key для админских операций
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -158,34 +159,42 @@ export class FileSearchService {
   public searchFilesForBook(book: BookWithoutFile, telegramFiles: TelegramFile[]): FileSearchResult {
     console.log(`🔎 Поиск файлов для книги: "${book.title}" - ${book.author}`);
 
-    const matches: TelegramFile[] = [];
+    // Преобразуем TelegramFile в формат, подходящий для UniversalFileMatcher
+    const filesForMatching = telegramFiles.map(file => ({
+      message_id: file.message_id,
+      file_name: file.file_name || '',
+      mime_type: file.mime_type || 'unknown',
+      file_size: file.file_size
+    }));
+
+    // Используем универсальный сервис для сопоставления
+    const matches = FileBookMatcherService.findBestMatchesForBook(book, filesForMatching);
+
+    // Преобразуем результаты обратно к исходному формату
+    const telegramMatches: TelegramFile[] = [];
     let bestScore = 0;
 
-    // Подготавливаем поисковые термины
-    const searchTerms = this.prepareSearchTerms(book);
-
-    for (const file of telegramFiles) {
-      const score = this.calculateRelevanceScore(file, searchTerms, book);
-
-      if (score > 0) {
-        matches.push({
-          ...file,
+    for (const match of matches) {
+      const originalFile = telegramFiles.find(f => f.message_id === match.file.message_id);
+      if (originalFile) {
+        telegramMatches.push({
+          ...originalFile,
           // Добавляем кастомное поле для сортировки
-          relevance_score: score
+          relevance_score: match.score
         } as any);
 
-        if (score > bestScore) {
-          bestScore = score;
+        if (match.score > bestScore) {
+          bestScore = match.score;
         }
       }
     }
 
     // Сортируем по релевантности
-    matches.sort((a, b) => (b as any).relevance_score - (a as any).relevance_score);
+    telegramMatches.sort((a, b) => (b as any).relevance_score - (a as any).relevance_score);
 
     return {
       book,
-      matches: matches.slice(0, 20), // Возвращаем топ 20 результатов
+      matches: telegramMatches.slice(0, 20), // Возвращаем топ 20 результатов
       score: bestScore
     };
   }

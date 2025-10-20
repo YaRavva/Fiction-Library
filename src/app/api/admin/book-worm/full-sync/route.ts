@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Выполняем полную синхронизацию непосредственно в этом запросе
+    // Для режима \"full\" выполняем полную синхронизацию непосредственно в этом запросе
     try {
       // Создаем экземпляр сервиса
-      const bookWorm = new BookWormService();
+      const bookWorm = await BookWormService.getInstance();
       
       // Выполняем полную синхронизацию асинхронно без ожидания
       bookWorm.runFullSync()
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     } catch (syncError: unknown) {
       console.error('Book Worm full sync error:', syncError);
       const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown sync error occurred';
-      return NextResponse.json({ error: 'Full sync error: ' + errorMessage }, { status: 500 });
+      return NextResponse.json({ error: 'Sync error: ' + errorMessage }, { status: 500 });
     }
     
   } catch (error: unknown) {

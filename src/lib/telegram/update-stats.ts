@@ -95,7 +95,16 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
       
       while (true) {
         try {
-          const messages = await telegramService.getMessages(channelId, batchSize, offsetId) as any[];
+          // Добавляем таймаут к вызову getMessages
+          const messagesPromise = telegramService.getMessages(channelId, batchSize, offsetId) as Promise<any[]>;
+          
+          // Устанавливаем таймаут в 30 секунд для получения сообщений
+          const messages = await Promise.race([
+            messagesPromise,
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('TIMEOUT: getMessages')), 30000)
+            )
+          ]) as any[];
 
           if (!messages || messages.length === 0) {
             break;
@@ -151,17 +160,32 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
           // Добавляем задержку, чтобы не перегружать Telegram API
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (batchError) {
-          console.error('❌ Ошибка при получении пакета сообщений:', batchError);
-          break;
+          if (batchError instanceof Error && batchError.message.includes('TIMEOUT')) {
+            console.error('⏰ Таймаут при получении сообщений, завершаем сканирование...');
+            break;
+          } else {
+            console.error('❌ Ошибка при получении пакета сообщений:', batchError);
+            break;
+          }
         }
       }
       
       booksInTelegram = bookSet.size;
       console.log(`✅ Найдено ${booksInTelegram} уникальных книг в Telegram`);
       
-      // Отключаем Telegram клиент
-      await telegramService.disconnect();
-      console.log('📱 Telegram клиент отключен');
+      // Отключаем Telegram клиент с таймаутом
+      if (telegramService && typeof telegramService.disconnect === 'function') {
+        await Promise.race([
+          telegramService.disconnect(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: disconnect')), 5000))
+        ]).catch(err => {
+          if (err.message !== 'TIMEOUT: disconnect') {
+            console.log('📱 Telegram клиент отключен');
+          } else {
+            console.warn('⚠️ Таймаут при отключении Telegram клиента');
+          }
+        });
+      }
       
     } catch (telegramError) {
       console.error('❌ Ошибка при подсчете книг в Telegram:', telegramError);

@@ -180,7 +180,7 @@ export class UniversalFileMatcher {
       }
     }
 
-    // Проверим, есть ли частичное или полное совпадение по ключевым словам (автор и основное название)
+    // Проверим, есть ли полное совпадение по ключевым словам (автор и основное название)
     // Для этого используем более точное сравнение
     const fileAuthorWords = this.extractWords(this.extractAuthorFromFilename(file.file_name || ''));
     const bookAuthorWords = this.extractWords(book.author || '');
@@ -204,45 +204,16 @@ export class UniversalFileMatcher {
       }
     }
     
-    // Считаем полное совпадение, когда все важные слова из книги совпадают с файлом
-    // Игнорируем мусорные слова в файле, если они есть
-    const authorMatchRatio = bookAuthorWords.length > 0 
-      ? authorMatchCount / bookAuthorWords.length 
-      : 0;
+    // Если есть полное (или почти полное) совпадение по автору и названию, добавим бонус
+    const authorFullMatch = fileAuthorWords.length > 0 && authorMatchCount === fileAuthorWords.length;
+    const titleFullMatch = fileTitleWords.length > 0 && titleMatchCount === fileTitleWords.length;
     
-    const titleMatchRatio = bookTitleWords.length > 0 
-      ? titleMatchCount / bookTitleWords.length 
-      : 0;
-    
-    // Если совпадает 100% автора и хотя бы часть названия, или наоборот - добавляем бонус
-    if (authorMatchRatio === 1 && titleMatchRatio > 0) {
-      // Полное совпадение автора + частичное совпадение названия
-      score += 15;
-    } else if (authorMatchRatio > 0 && titleMatchRatio === 1) {
-      // Частичное совпадение автора + полное совпадение названия
-      score += 15;
-    } else if (authorMatchRatio === 1 && titleMatchRatio === 1) {
-      // Полное совпадение и автора, и названия
+    if (authorFullMatch && titleFullMatch) {
+      // Полное совпадение автора и названия - значительный бонус
       score += 25;
-    } else if (authorMatchRatio >= 0.8 && titleMatchRatio >= 0.5) {
-      // Высокое совпадение автора и частичное совпадение названия
-      score += 10;
-    }
-    
-    // Добавляем бонус, если все слова из книги присутствуют в файле (даже если в файле есть дополнительные слова)
-    // Это особенно важно для случая "Цикл Мантикора" vs "Мантикора" - слово "цикл" игнорируется
-    const allBookAuthorWordsMatch = bookAuthorWords.length > 0 && 
-      bookAuthorWords.every(bookAuthorWord => fileAuthorWords.includes(bookAuthorWord));
-    
-    const allBookTitleWordsMatch = bookTitleWords.length > 0 && 
-      bookTitleWords.every(bookTitleWord => fileTitleWords.includes(bookTitleWord));
-    
-    if (allBookAuthorWordsMatch && allBookTitleWordsMatch) {
-      // Все слова из автора и названия книги присутствуют в файле - большой бонус
-      score += 30;
-    } else if (allBookAuthorWordsMatch || allBookTitleWordsMatch) {
-      // Все слова из автора или названия присутствуют в файле - средний бонус
-      score += 20;
+    } else if (authorFullMatch || titleFullMatch) {
+      // Частичное совпадение - меньший бонус
+      score += 15;
     }
 
     return {
