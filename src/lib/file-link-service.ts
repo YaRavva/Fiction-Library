@@ -202,8 +202,6 @@ export class FileLinkService {
     telegramFileId?: string
   ): Promise<FileLinkResult> {
     try {
-      console.log(`🔗 Привязка файла к книге ${bookId}...`);
-
       // Формируем URL файла в S3
       const bucketName = process.env.S3_BUCKET_NAME;
       if (!bucketName) {
@@ -231,8 +229,6 @@ export class FileLinkService {
       if (error) {
         throw new Error(`Ошибка обновления книги: ${error.message}`);
       }
-
-      console.log(`✅ Файл успешно привязан к книге ${bookId}`);
 
       return {
         success: true,
@@ -263,8 +259,6 @@ export class FileLinkService {
     expectedFileExtension?: string
   ): Promise<FileLinkResult> {
     try {
-      console.log(`🔗 Привязка существующего файла к книге ${bookId}...`);
-
       // Формируем URL файла в S3
       const bucketName = process.env.S3_BUCKET_NAME;
       if (!bucketName) {
@@ -291,8 +285,6 @@ export class FileLinkService {
       if (error) {
         throw new Error(`Ошибка обновления книги: ${error.message}`);
       }
-
-      console.log(`✅ Существующий файл успешно привязан к книге ${bookId}`);
 
       return {
         success: true,

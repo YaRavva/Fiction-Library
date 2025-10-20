@@ -81,7 +81,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🔗 Начинаем привязку файла к книге "${book.title}"...`);
+    // Форматируем информацию о книге для логирования
+    const bookInfo = `"${book.title}" автора "${book.author}"`;
+    console.log(`🔗 Начинаем привязку файла к книге ${bookInfo}...`);
 
     try {
       // Используем существующий сервис для получения информации о файле
@@ -149,10 +151,10 @@ export async function POST(request: NextRequest) {
           );
           
           if (result.success) {
-            console.log(`✅ Новый файл успешно привязан к книге "${book.title}"`);
+            console.log(`✅ Новый файл успешно привязан к книге ${bookInfo}`);
             return NextResponse.json({
               success: true,
-              message: `Новый файл успешно привязан к книге "${book.title}"`,
+              message: `Новый файл успешно привязан к книге ${bookInfo}`,
               fileUrl: result.fileUrl,
               storagePath: result.storagePath
             });
@@ -175,10 +177,10 @@ export async function POST(request: NextRequest) {
           );
           
           if (result.success) {
-            console.log(`✅ Существующий файл успешно привязан к книге "${book.title}"`);
+            console.log(`✅ Существующий файл успешно привязан к книге ${bookInfo}`);
             return NextResponse.json({
               success: true,
-              message: `Существующий файл успешно привязан к книге "${book.title}"`,
+              message: `Существующий файл успешно привязан к книге ${bookInfo}`,
               fileUrl: result.fileUrl,
               storagePath: result.storagePath
             });
@@ -208,10 +210,10 @@ export async function POST(request: NextRequest) {
           );
           
           if (result.success) {
-            console.log(`✅ Новый файл успешно привязан к книге "${book.title}"`);
+            console.log(`✅ Новый файл успешно привязан к книге ${bookInfo}`);
             return NextResponse.json({
               success: true,
-              message: `Новый файл успешно привязан к книге "${book.title}"`,
+              message: `Новый файл успешно привязан к книге ${bookInfo}`,
               fileUrl: result.fileUrl,
               storagePath: result.storagePath
             });
@@ -229,11 +231,11 @@ export async function POST(request: NextRequest) {
         const result = await fileLinkService.processFileForBook(fileMessageId, channelId, book);
 
         if (result.success) {
-          console.log(`✅ Файл успешно привязан к книге "${book.title}"`);
+          console.log(`✅ Файл успешно привязан к книге ${bookInfo}`);
 
           return NextResponse.json({
             success: true,
-            message: `Файл успешно привязан к книге "${book.title}"`,
+            message: `Файл успешно привязан к книге ${bookInfo}`,
             fileUrl: result.fileUrl,
             storagePath: result.storagePath
           });
