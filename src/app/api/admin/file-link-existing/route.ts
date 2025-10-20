@@ -91,90 +91,88 @@ export async function POST(request: NextRequest) {
       // Получаем информацию о файле без загрузки
       const { fileName, mimeType } = await fileLinkService.getFileInfo(fileMessageId, channelId);
       
-      // Формируем путь к файлу в storage (как в file-service.ts)
-      const storagePath = `books/${fileName}`;
+      // Формируем путь к файлу в S3
+      const s3Key = fileName;
+      const bucketName = process.env.S3_BUCKET_NAME;
+      if (!bucketName) {
+        throw new Error('S3_BUCKET_NAME environment variable is not set.');
+      }
       
-      // Проверяем, существует ли файл в storage
-      const { data: existingFile, error: storageError } = await supabase.storage
-        .from('books')
-        .list('books', {
-          search: fileName
-        });
-
-      if (storageError || !existingFile || existingFile.length === 0) {
+      // Проверяем, существует ли файл в S3
+      let existingFileSize = 0;
+      let fileExists = false;
+      
+      try {
+        // Используем S3 сервис для проверки существования файла
+        const { headObject } = await import('@/lib/s3-service');
+        const fileMetadata = await headObject(s3Key, bucketName);
+        if (fileMetadata) {
+          existingFileSize = fileMetadata.ContentLength || 0;
+          fileExists = true;
+          console.log(`✅ Файл ${fileName} найден в S3 с размером ${existingFileSize} байт`);
+        }
+      } catch (error) {
+        // Файл не найден или другая ошибка
+        console.log(`❌ Файл ${fileName} не найден в S3:`, (error as Error).message);
         return NextResponse.json(
           { error: 'File not found in storage' },
           { status: 404 }
         );
       }
 
-      // Предварительная проверка типа файла и размера
-      const file = existingFile[0];
-      const fileSize = file.metadata?.size || 0;
-      const fileExtension = fileName.toLowerCase().split('.').pop();
-      
-      // Проверка допустимых форматов файлов
-      const allowedFormats = ['fb2', 'zip'];
-      if (!fileExtension || !allowedFormats.includes(fileExtension)) {
-        // Удаляем файл из storage
-        await supabase.storage.from('books').remove([storagePath]);
-        return NextResponse.json(
-          { error: `Недопустимый формат файла: ${fileExtension}. Разрешены только: fb2, zip` },
-          { status: 400 }
+      if (fileExists) {
+        // Загружаем новый файл, чтобы сравнить размеры
+        const { buffer: newFileBuffer, fileName: newFileName, mimeType: newMimeType } = await fileLinkService.downloadAndUploadFile(
+          fileMessageId,
+          channelId,
+          book
         );
-      }
-
-      // Проверка размера файла (минимальный размер для fb2 - 100 байт, для zip - 1000 байт)
-      if (fileExtension === 'fb2' && fileSize < 100) {
-        // Удаляем файл из storage
-        await supabase.storage.from('books').remove([storagePath]);
-        return NextResponse.json(
-          { error: `Файл fb2 слишком маленький: ${fileSize} байт. Минимальный размер: 100 байт` },
-          { status: 400 }
-        );
-      }
-      
-      if (fileExtension === 'zip' && fileSize < 1000) {
-        // Удаляем файл из storage
-        await supabase.storage.from('books').remove([storagePath]);
-        return NextResponse.json(
-          { error: `Файл zip слишком маленький: ${fileSize} байт. Минимальный размер: 1000 байт` },
-          { status: 400 }
-        );
-      }
-
-      console.log(`✅ Файл найден в storage: ${storagePath}`);
-
-      // Привязываем существующий файл к книге
-      const result = await fileLinkService.linkExistingFileToBook(
-        bookId,
-        storagePath,
-        fileName,
-        mimeType
-      );
-
-      // Если файл не соответствует ожиданиям, возвращаем специальную ошибку
-      if (!result.success && result.error === 'FILE_MISMATCH_NEEDS_REUPLOAD') {
-        return NextResponse.json(
-          { error: 'FILE_MISMATCH_NEEDS_REUPLOAD' },
-          { status: 422 } // Unprocessable Entity
-        );
-      }
-
-      if (result.success) {
-        console.log(`✅ Существующий файл успешно привязан к книге "${book.title}"`);
-
-        return NextResponse.json({
-          success: true,
-          message: `Существующий файл успешно привязан к книге "${book.title}"`,
-          fileUrl: result.fileUrl,
-          storagePath: result.storagePath
-        });
+        
+        // Проверяем тип файла
+        if (mimeType !== newMimeType) {
+          console.log(`⚠️ Тип файла отличается (существующий: ${mimeType}, новый: ${newMimeType}), возвращаем ошибку для повторной загрузки...`);
+          return NextResponse.json(
+            { error: 'FILE_MISMATCH_NEEDS_REUPLOAD' },
+            { status: 422 } // Unprocessable Entity
+          );
+        } else if (existingFileSize === newFileBuffer.length) {
+          console.log(`✅ Тип и размер файла совпадают, привязываем существующий файл...`);
+          // Привязываем существующий файл без повторной загрузки
+          const result = await fileLinkService.linkExistingFileToBook(
+            bookId,
+            s3Key,
+            fileName,
+            mimeType,
+            existingFileSize
+          );
+          
+          if (result.success) {
+            console.log(`✅ Существующий файл успешно привязан к книге "${book.title}"`);
+            return NextResponse.json({
+              success: true,
+              message: `Существующий файл успешно привязан к книге "${book.title}"`,
+              fileUrl: result.fileUrl,
+              storagePath: result.storagePath
+            });
+          } else {
+            console.error(`❌ Ошибка привязки существующего файла:`, result.error);
+            return NextResponse.json(
+              { error: result.error || 'Failed to link existing file' },
+              { status: 500 }
+            );
+          }
+        } else {
+          console.log(`⚠️ Размер файла отличается (существующий: ${existingFileSize}, новый: ${newFileBuffer.length}), возвращаем ошибку для повторной загрузки...`);
+          return NextResponse.json(
+            { error: 'FILE_MISMATCH_NEEDS_REUPLOAD' },
+            { status: 422 } // Unprocessable Entity
+          );
+        }
       } else {
-        console.error(`❌ Ошибка привязки существующего файла:`, result.error);
+        console.log(`❌ Файл ${fileName} не найден в S3`);
         return NextResponse.json(
-          { error: result.error || 'Failed to link existing file' },
-          { status: 500 }
+          { error: 'File not found in storage' },
+          { status: 404 }
         );
       }
 
