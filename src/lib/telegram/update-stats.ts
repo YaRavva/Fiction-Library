@@ -77,7 +77,9 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
       console.log('\n📚 Загрузка существующих книг из базы данных...');
       const { data: existingBooks, error: booksError } = await supabaseAdmin
         .from('books')
-        .select('id, title, author');
+        .select('id, title, author', { 
+          count: null // Убираем ограничение на количество записей
+        });
       
       if (booksError) {
         throw new Error(`Ошибка загрузки книг из базы данных: ${booksError.message}`);
