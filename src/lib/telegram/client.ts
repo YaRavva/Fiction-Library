@@ -213,11 +213,19 @@ export class TelegramService {
                   (window as any).updateFileSearchResults(totalLogMessage + '\n');
                 }
 
+                // Если получено меньше сообщений, чем batchSize, значит, больше сообщений нет
+                if (messages.length < batchSize) {
+                    break;
+                }
+                
                 // Устанавливаем offsetId для следующего запроса
-                // Берем ID последнего сообщения в пакете
-                const lastMessage = messages[messages.length - 1] as { id?: number };
-                if (lastMessage.id) {
-                    offsetId = lastMessage.id;
+                // Берем минимальный ID из текущего пакета для следующей итерации, так как Telegram API возвращает сообщения в порядке убывания ID
+                const messageIds = messages
+                    .map(msg => (msg as { id?: number }).id)
+                    .filter(id => id !== undefined && id > 0) as number[];
+                
+                if (messageIds.length > 0) {
+                    offsetId = Math.min(...messageIds) - 1; // Вычитаем 1, чтобы не дублировать уже обработанное сообщение
                 } else {
                     break;
                 }
