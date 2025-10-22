@@ -421,20 +421,24 @@ export class TelegramMetadataService {
                     continue;
                 }
 
-                // Проверяем наличие книги в БД по названию и автору ПЕРЕД обработкой медиа
+                // Проверяем наличие книги в БД по нормализованному названию и автору ПЕРЕД обработкой медиа
                 let bookExists = false;
                 let existingBookId = null;
                 try {
-                    // @ts-ignore
-                    const { data: foundBooks, error: findError } = await serverSupabase
-                        .from('books')
-                        .select('id')
-                        .eq('title', metadata.title)
-                        .eq('author', metadata.author);
+                    // Импортируем функцию нормализации текста
+                    const { checkForBookDuplicates, normalizeBookText } = await import('../../../lib/book-deduplication-service');
+                    
+                    // Используем улучшенную логику дедупликации
+                    const duplicateCheck = await checkForBookDuplicates(
+                        metadata.title,
+                        metadata.author,
+                        undefined, // publicationYear
+                        normalizeBookText
+                    );
 
-                    if (!findError && foundBooks && foundBooks.length > 0) {
+                    if (duplicateCheck.exists && duplicateCheck.book) {
                         bookExists = true;
-                        existingBookId = (foundBooks[0] as { id: string }).id;
+                        existingBookId = duplicateCheck.book.id;
                         console.log(`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем`);
                     }
                 } catch (checkError) {
@@ -641,25 +645,21 @@ export class TelegramMetadataService {
             for (const book of metadata) {
                 const msgId = book.messageId;
                 
-                // Проверяем наличие книги в БД по названию и автору
-                // @ts-ignore
-                const { data: foundBooks, error: findError } = await serverSupabase
-                    .from('books')
-                    .select('*')
-                    .eq('title', book.title)
-                    .eq('author', book.author);
-                    
-                if (findError) {
-                    errors++;
-                    details.push({ msgId, status: 'error', error: findError.message });
-                    continue;
-                }
+                // Проверяем наличие книги в БД по нормализованному названию и автору
+                const { checkForBookDuplicates, normalizeBookText, selectBestBookFromDuplicates, mergeBookData } = await import('../../../lib/book-deduplication-service');
+                
+                const duplicateCheck = await checkForBookDuplicates(
+                    book.title,
+                    book.author,
+                    undefined, // publicationYear
+                    normalizeBookText
+                );
                 
                 // Проверка на дублирование
-                if (foundBooks && foundBooks.length > 0) {
+                if (duplicateCheck.exists && duplicateCheck.book) {
                     // Книга уже существует, обновляем метаданные если нужно
                     // Используем улучшенный алгоритм выбора лучшей книги и объединения данных
-                    const existingBook: any = foundBooks[0];
+                    const existingBook: any = duplicateCheck.book;
                     let needUpdate = false;
                     const updateData: { [key: string]: unknown } = {};
                     

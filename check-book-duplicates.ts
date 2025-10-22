@@ -50,16 +50,50 @@ async function checkBookDuplicates() {
       }
     });
 
-    // Запрос для нахождения потенциальных дубликатов книг по автору и названию
-    const { data: duplicateGroups, error } = await supabase
-      .from('books')
-      .select('id, title, author, created_at')
-      .order('author')
-      .order('title');
+    // Получаем все книги из базы данных (без ограничения по количеству)
+    console.log('📥 Получаем все книги из базы данных...');
+    const allBooks = [];
+    let lastCreatedAt = null;
+    const batchSize = 1000; // Получаем по 1000 записей за раз
     
-    if (error) {
-      throw new Error(`Ошибка при получении книг: ${error.message}`);
+    while (true) {
+      let query = supabase
+        .from('books')
+        .select('id, title, author, created_at')
+        .order('created_at', { ascending: true })
+        .limit(batchSize);
+        
+      if (lastCreatedAt) {
+        query = query.gt('created_at', lastCreatedAt);
+      }
+      
+      const { data: batch, error } = await query;
+      
+      if (error) {
+        throw new Error(`Ошибка при получении книг: ${error.message}`);
+      }
+      
+      if (!batch || batch.length === 0) {
+        break;
+      }
+      
+      allBooks.push(...batch);
+      lastCreatedAt = batch[batch.length - 1].created_at;
+      
+      console.log(`  → Получено ${batch.length} книг, всего: ${allBooks.length}`);
+      
+      // Если получено меньше batch size, значит это последняя страница
+      if (batch.length < batchSize) {
+        break;
+      }
+      
+      // Небольшая пауза между запросами, чтобы не перегружать сервер
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
+    
+    console.log(`✅ Всего получено книг: ${allBooks.length}`);
+    
+    const duplicateGroups = allBooks;
 
     if (!duplicateGroups || duplicateGroups.length === 0) {
       console.log('⚠️ В базе данных нет книг для проверки');
@@ -108,17 +142,17 @@ async function checkBookDuplicates() {
     console.log('\n🔍 Выполняем альтернативную проверку дубликатов...');
     
     // Проверяем дубликаты, используя функцию окна
-    const { data: allBooks, error: fetchError } = await supabase
+    const { data: allBooksSql, error: fetchError } = await supabase
       .from('books')
       .select('id, title, author');
       
     if (fetchError) {
       console.error('Ошибка получения книг для SQL-анализа:', fetchError);
-    } else if (allBooks) {
+    } else if (allBooksSql) {
       // Группируем локально для нахождения дубликатов, используя нормализованные значения
-      const booksGrouped = new Map<string, typeof allBooks>();
+      const booksGrouped = new Map<string, typeof allBooksSql>();
       
-      for (const book of allBooks) {
+      for (const book of allBooksSql) {
         if (!book.title || !book.author) {
           continue;
         }
