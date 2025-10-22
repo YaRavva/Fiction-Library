@@ -5,17 +5,27 @@ import 'dotenv/config';
 function normalizeText(text: string): string {
   if (!text) return '';
   
-  let normalized = text.toLowerCase();
+  // Применяем Unicode нормализацию для устранения различий в представлении символов
+  let normalized = text.normalize('NFKC');
   
-  // Удаляем годы в скобках (в формате (2023), (2019) и т.д.)
+  // Приводим к нижнему регистру
+  normalized = normalized.toLowerCase();
+  
+  // Удаляем эмодзи
+  normalized = normalized.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
+  
+  // Удаляем годы в скобках (в формате (2023), (2019) и т.д.) и любые другие числа в скобках
   normalized = normalized.replace(/\(\d{4}\)/g, '');
   
-  // Удаляем текст "ru" (часто используется для обозначения языка)
-  normalized = normalized.replace(/\bru\b/g, '');
+  // Удаляем текст "ru", "ru", "en" и другие языковые обозначения
+  normalized = normalized.replace(/\b[rRyYоOuUeEaAnN]\s*[uU]\b/g, '');
+  
+  // Удаляем любые другие символы в скобках, кроме чисел (для обработки скобок с годами издания)
+  normalized = normalized.replace(/\((?!\d{4}\))[^\)]+\)/g, '');
   
   // Удаляем лишние пробелы
   normalized = normalized.trim().replace(/\s+/g, ' ');
-  
+
   return normalized;
 }
 
@@ -160,11 +170,16 @@ async function checkBookDuplicates() {
       console.log(`\n📊 Альтернативная проверка: ${alternativeDuplicateGroups.length} групп потенциальных дубликатов (${exactDuplicates.length} книг)`);
     }
     
-    if (duplicateGroupsList.length === 0) {
-      console.log('\n✅ Дубликатов книг не найдено');
-    } else {
-      console.log(`\n📈 Всего дублирующихся книг: ${duplicateGroupsList.reduce((sum, group) => sum + group.books.length, 0)}`);
-    }
+    // Подсчитываем общее количество дублирующихся книг
+    const totalDuplicateBooks1 = duplicateGroupsList.reduce((sum, group) => sum + group.books.length, 0);
+    const totalDuplicateBooks2 = Array.from(booksByAuthorTitle.entries())
+      .filter(([_, books]) => books.length > 1)
+      .reduce((sum, [_, books]) => sum + books.length, 0);
+    
+    console.log(`\n📊 Сводка:`);
+    console.log(`  - Основная проверка: ${duplicateGroupsList.length} групп дубликатов (${totalDuplicateBooks1} книг)`);
+    console.log(`  - Альтернативная проверка: ${Array.from(booksByAuthorTitle.entries()).filter(([_, books]) => books.length > 1).length} групп дубликатов (${totalDuplicateBooks2} книг)`);
+    console.log(`  - Всего дублирующихся книг: ${totalDuplicateBooks1}`);
     
   } catch (error) {
     console.error('❌ Ошибка при проверке дубликатов книг:', error);
