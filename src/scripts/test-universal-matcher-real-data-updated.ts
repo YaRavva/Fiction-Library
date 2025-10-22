@@ -1,4 +1,4 @@
-import { UniversalFileMatcher } from '../lib/universal-file-matcher';
+import { UniversalFileMatcher } from '../lib/universal-file-matcher-enhanced';
 import { serverSupabase } from '../lib/serverSupabase';
 import { TelegramFileService } from '../lib/telegram/file-service';
 
@@ -45,7 +45,7 @@ async function testUniversalMatcherOnRealData() {
     // Инициализируем TelegramFileService для получения файлов
     const fileService = await TelegramFileService.getInstance();
     
-    // Загружаем 2000 файлов из Telegram
+    // Загружаем 2000 файлов из Telegram (батчами по 1000)
     console.log('Загрузка файлов из Telegram...');
     const allFiles = [];
     
@@ -125,17 +125,13 @@ async function testUniversalMatcherOnRealData() {
       [indices[i], indices[j]] = [indices[j], indices[i]];
     }
     
-    console.log('\\nПоиск соответствий до получения 10 значений ниже порога и 10 выше порога...');
+    console.log('\\nАнализ всех файлов для поиска соответствий...');
     
-    const belowThresholdMatches = [];
-    const aboveThresholdMatches = [];
+    // Собираем все результаты сопоставления
+    const allMatches = [];
     
-    let currentIndex = 0;
-    
-    // Продолжаем до тех пор, пока не наберем по 10 значений в каждой категории
-    while ((belowThresholdMatches.length < 10 || aboveThresholdMatches.length < 10) && currentIndex < indices.length) {
-      const fileIndex = indices[currentIndex];
-      const file = allFiles[fileIndex];
+    for (let i = 0; i < allFiles.length; i++) {
+      const file = allFiles[i];
       
       // Находим наиболее подходящую книгу для файла
       let bestMatch = null;
@@ -153,54 +149,48 @@ async function testUniversalMatcherOnRealData() {
       }
       
       if (bestMatch) {
-        if (bestMatch.score >= 65 && aboveThresholdMatches.length < 10) {
-          aboveThresholdMatches.push({
-            file: file.file_name,
-            book: bestMatch.book,
-            score: bestMatch.score
-          });
-          console.log(`  🔍 Найдено соответствие ВЫШЕ порога: ${file.file_name} (оценка: ${bestMatch.score})`);
-        } else if (bestMatch.score < 65 && belowThresholdMatches.length < 10) {
-          belowThresholdMatches.push({
-            file: file.file_name,
-            book: bestMatch.book,
-            score: bestMatch.score
-          });
-          console.log(`  ⚠️  Найдено соответствие НИЖЕ порога: ${file.file_name} (оценка: ${bestMatch.score})`);
-        }
-      }
-      
-      currentIndex++;
-      
-      // Проверяем, достигли ли мы лимита файлов
-      if (currentIndex >= allFiles.length) {
-        console.log(`  ⚠️  Достигнут лимит файлов для анализа. Проанализировано ${currentIndex} файлов.`);
-        break;
+        allMatches.push({
+          file: file.file_name,
+          book: bestMatch.book,
+          score: bestMatch.score
+        });
       }
     }
     
-    // Выводим 10 записей ниже порога
-    console.log('\\n=== 10 записей НИЖЕ порога (с оценкой < 65) ===');
-    for (let i = 0; i < belowThresholdMatches.length; i++) {
-      console.log(`${i + 1}. ${belowThresholdMatches[i].file} -> ${belowThresholdMatches[i].book.author} - ${belowThresholdMatches[i].book.title} (оценка: ${belowThresholdMatches[i].score})`);
-    }
+    // Сортируем результаты по оценке
+    allMatches.sort((a, b) => b.score - a.score);
     
-    if (belowThresholdMatches.length === 0) {
+    // Разделяем на группы: ниже порога (меньше 65) и выше порога (65 и больше)
+    const belowThresholdMatches = allMatches.filter(match => match.score < 65);
+    const aboveThresholdMatches = allMatches.filter(match => match.score >= 65);
+    
+    // Берем по 10 записей из каждой группы (ближайших к порогу)
+    const belowThresholdToShow = belowThresholdMatches
+      .sort((a, b) => b.score - a.score) // Сортируем по убыванию, чтобы показать ближайшие к порогу
+      .slice(0, 10);
+      
+    const aboveThresholdToShow = aboveThresholdMatches
+      .sort((a, b) => a.score - b.score) // Сортируем по возрастанию, чтобы показать ближайшие к порогу
+      .slice(0, 10);
+    
+    // Выводим 10 записей ниже порога (ближайших к 65)
+    console.log('\\n=== 10 записей НИЖЕ порога (с оценкой < 65, ближайших к порогу) ===');
+    if (belowThresholdToShow.length > 0) {
+      for (let i = 0; i < belowThresholdToShow.length; i++) {
+        console.log(`${i + 1}. ${belowThresholdToShow[i].file} -> ${belowThresholdToShow[i].book.author} - ${belowThresholdToShow[i].book.title} (оценка: ${belowThresholdToShow[i].score})`);
+      }
+    } else {
       console.log('  Нет записей ниже порога');
-    } else if (belowThresholdMatches.length < 10) {
-      console.log(`  Найдено только ${belowThresholdMatches.length} записей ниже порога`);
     }
     
-    // Выводим 10 записей выше порога
-    console.log('\\n=== 10 записей ВЫШЕ порога (с оценка >= 65) ===');
-    for (let i = 0; i < aboveThresholdMatches.length; i++) {
-      console.log(`${i + 1}. ${aboveThresholdMatches[i].file} -> ${aboveThresholdMatches[i].book.author} - ${aboveThresholdMatches[i].book.title} (оценка: ${aboveThresholdMatches[i].score})`);
-    }
-    
-    if (aboveThresholdMatches.length === 0) {
+    // Выводим 10 записей выше порога (ближайших к 65)
+    console.log('\\n=== 10 записей ВЫШЕ порога (с оценкой >= 65, ближайших к порогу) ===');
+    if (aboveThresholdToShow.length > 0) {
+      for (let i = 0; i < aboveThresholdToShow.length; i++) {
+        console.log(`${i + 1}. ${aboveThresholdToShow[i].file} -> ${aboveThresholdToShow[i].book.author} - ${aboveThresholdToShow[i].book.title} (оценка: ${aboveThresholdToShow[i].score})`);
+      }
+    } else {
       console.log('  Нет записей выше порога');
-    } else if (aboveThresholdMatches.length < 10) {
-      console.log(`  Найдено только ${aboveThresholdMatches.length} записей выше порога`);
     }
     
     console.log('\\nТестирование универсального алгоритма завершено.');
