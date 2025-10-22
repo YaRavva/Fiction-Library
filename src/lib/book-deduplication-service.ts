@@ -72,18 +72,29 @@ export async function checkForBookDuplicates(
 
 /**
  * Функция для нормализации текста
- * Удаляет годы в скобках, текст "ru", приводит к нижнему регистру и убирает лишние пробелы
+ * Удаляет годы в скобках, текст "ru", эмодзи, приводит к нижнему регистру и убирает лишние пробелы
+ * Применяет Unicode нормализацию для устранения различий в представлении символов
  */
 export function normalizeBookText(text: string): string {
   if (!text) return '';
   
-  let normalized = text.toLowerCase();
+  // Применяем Unicode нормализацию для устранения различий в представлении символов
+  let normalized = text.normalize('NFKC');
   
-  // Удаляем годы в скобках (в формате (2023), (2019) и т.д.)
+  // Приводим к нижнему регистру
+  normalized = normalized.toLowerCase();
+  
+  // Удаляем эмодзи
+  normalized = normalized.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '');
+  
+  // Удаляем годы в скобках (в формате (2023), (2019) и т.д.) и любые другие числа в скобках
   normalized = normalized.replace(/\(\d{4}\)/g, '');
   
-  // Удаляем текст "ru" (часто используется для обозначения языка)
-  normalized = normalized.replace(/\bru\b/g, '');
+  // Удаляем текст "ru", "ru", "en" и другие языковые обозначения
+  normalized = normalized.replace(/\b[rRyYоOuUeEaAnN]\s*[uU]\b/g, '');
+  
+  // Удаляем любые другие символы в скобках, кроме чисел (для обработки скобок с годами издания)
+  normalized = normalized.replace(/\((?!\d{4}\))[^\)]+\)/g, '');
   
   // Удаляем лишние пробелы
   normalized = normalized.trim().replace(/\s+/g, ' ');
