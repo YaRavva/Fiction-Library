@@ -1,4 +1,4 @@
-import { UniversalFileMatcher } from './universal-file-matcher';
+import { UniversalFileMatcher } from './universal-file-matcher-enhanced';
 import { serverSupabase } from './serverSupabase';
 
 interface Book {
