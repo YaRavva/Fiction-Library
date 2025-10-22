@@ -658,6 +658,7 @@ export class TelegramMetadataService {
                 // Проверка на дублирование
                 if (foundBooks && foundBooks.length > 0) {
                     // Книга уже существует, обновляем метаданные если нужно
+                    // Используем улучшенный алгоритм выбора лучшей книги и объединения данных
                     const existingBook: any = foundBooks[0];
                     let needUpdate = false;
                     const updateData: { [key: string]: unknown } = {};
@@ -668,12 +669,16 @@ export class TelegramMetadataService {
                         needUpdate = true;
                     }
                     
-                    if (book.genres && book.genres.length > 0 && (!existingBook.genres || existingBook.genres.length === 0)) {
+                    if (book.genres && book.genres.length > 0 && 
+                        (!existingBook.genres || existingBook.genres.length === 0 || 
+                         (book.genres.length > existingBook.genres.length))) {
                         updateData.genres = book.genres;
                         needUpdate = true;
                     }
                     
-                    if (book.tags && book.tags.length > 0 && (!existingBook.tags || existingBook.tags.length === 0)) {
+                    if (book.tags && book.tags.length > 0 && 
+                        (!existingBook.tags || existingBook.tags.length === 0 || 
+                         (book.tags.length > existingBook.tags.length))) {
                         updateData.tags = book.tags;
                         needUpdate = true;
                     }
@@ -687,6 +692,15 @@ export class TelegramMetadataService {
                     // Обновляем telegram_post_id для связи с публикацией в Telegram
                     if (msgId && (!existingBook.telegram_post_id || existingBook.telegram_post_id === '')) {
                         updateData.telegram_post_id = String(msgId);
+                        needUpdate = true;
+                    }
+                    
+                    // Если у новой книги есть файл, а у существующей - нет, обновляем
+                    if (book.file_url && !existingBook.file_url) {
+                        updateData.file_url = book.file_url;
+                        updateData.file_size = book.file_size;
+                        updateData.file_format = book.file_format;
+                        updateData.telegram_file_id = book.telegram_file_id;
                         needUpdate = true;
                     }
                     
@@ -765,6 +779,8 @@ export class TelegramMetadataService {
                             skipReason = 'existing book has tags';
                         } else if (existingBook.cover_url && existingBook.cover_url !== '' && (!book.coverUrls || book.coverUrls.length === 0)) {
                             skipReason = 'existing book has cover';
+                        } else if (existingBook.file_url && existingBook.file_url !== '' && (!book.file_url || book.file_url === '')) {
+                            skipReason = 'existing book has file';
                         } else if (existingBook.telegram_post_id && existingBook.telegram_post_id !== '' && !msgId) {
                             skipReason = 'existing book has telegram post id';
                         } else {
