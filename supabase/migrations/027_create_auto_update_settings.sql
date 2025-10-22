@@ -1,4 +1,6 @@
 -- Миграция для создания таблицы настроек автообновления
+
+-- Создаем таблицу, если она не существует
 CREATE TABLE IF NOT EXISTS auto_update_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   enabled BOOLEAN DEFAULT FALSE,

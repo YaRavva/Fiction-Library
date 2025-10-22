@@ -30,17 +30,20 @@ export function SyncSettings({
   const [supabase] = useState(() => getBrowserSupabase())
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(bookWormAutoUpdate)
   const [timerValue, setTimerValue] = useState(bookWormInterval)
+  const [initialLoad, setInitialLoad] = useState(true) // Флаг для определения первоначальной загрузки
 
   // Загружаем настройки автообновления при монтировании компонента
   useEffect(() => {
     loadAutoUpdateSettings()
   }, [])
 
-  // Обновляем состояние при изменениях извне
+  // Обновляем состояние при изменениях извне (только после первоначальной загрузки)
   useEffect(() => {
-    setAutoUpdateEnabled(bookWormAutoUpdate)
-    setTimerValue(bookWormInterval)
-  }, [bookWormAutoUpdate, bookWormInterval])
+    if (!initialLoad) {
+      setAutoUpdateEnabled(bookWormAutoUpdate)
+      setTimerValue(bookWormInterval)
+    }
+  }, [bookWormAutoUpdate, bookWormInterval, initialLoad])
 
   const loadAutoUpdateSettings = async () => {
     try {
@@ -67,6 +70,8 @@ export function SyncSettings({
       }
     } catch (error) {
       console.error('Error loading auto update settings:', error)
+    } finally {
+      setInitialLoad(false) // Устанавливаем флаг после загрузки
     }
   }
 
@@ -89,9 +94,14 @@ export function SyncSettings({
 
       if (!response.ok) {
         console.error('Failed to save auto update settings:', response.statusText)
+        // Вызываем alert или показываем ошибку пользователю
+        alert('Ошибка сохранения настроек автообновления: ' + response.statusText)
+      } else {
+        console.log('Auto update settings saved successfully')
       }
     } catch (error) {
       console.error('Error saving auto update settings:', error)
+      alert('Ошибка соединения при сохранении настроек автообновления')
     }
   }
 
@@ -100,7 +110,7 @@ export function SyncSettings({
     setAutoUpdateEnabled(newChecked)
     handleToggleAutoUpdate(newChecked)
     
-    // Сохраняем изменения в базу данных
+    // Сохраняем изменения в базу данных только при изменении состояния чекбокса
     saveAutoUpdateSettings(newChecked, timerValue)
   }
 
@@ -109,8 +119,10 @@ export function SyncSettings({
     setTimerValue(newValue)
     setBookWormInterval(newValue)
     
-    // Сохраняем изменения в базу данных
-    saveAutoUpdateSettings(autoUpdateEnabled, newValue)
+    // Сохраняем изменения в базу данных ТОЛЬКО если автообновление включено
+    if (autoUpdateEnabled) {
+      saveAutoUpdateSettings(autoUpdateEnabled, newValue)
+    }
   }
 
   return (
