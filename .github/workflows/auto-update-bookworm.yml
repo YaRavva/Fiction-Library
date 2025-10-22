@@ -1,0 +1,21 @@
+name: Auto Update BookWorm
+
+on:
+  schedule:
+    # Выполнять каждые 30 минут (настраивается через переменную)
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Позволяет запускать вручную из GitHub UI
+
+jobs:
+  auto-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call BookWorm Auto Update API
+        run: |
+          curl -X POST "${{ secrets.BOOKWORM_API_URL }}/api/admin/book-worm/auto-update" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Token: ${{ secrets.BOOKWORM_GITHUB_ACTION_TOKEN }}" \
+            -d '{"source": "github-action"}'
+        env:
+          BOOKWORM_API_URL: ${{ secrets.BOOKWORM_API_URL }}
+          BOOKWORM_GITHUB_ACTION_TOKEN: ${{ secrets.BOOKWORM_GITHUB_ACTION_TOKEN }}

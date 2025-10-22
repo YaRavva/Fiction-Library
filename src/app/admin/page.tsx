@@ -165,6 +165,45 @@ export default function AdminPage() {
     setBookWormAutoUpdate(checked);
   };
 
+  // Функция для проверки необходимости автообновления (клиентская реализация как резервный вариант)
+  const checkAutoUpdate = async () => {
+    if (!bookWormAutoUpdate) return; // Не проверяем, если автообновление отключено
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/admin/book-worm/auto-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Auto update check completed:', data);
+      } else {
+        console.error('Auto update check failed:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error checking auto update:', error);
+    }
+  };
+
+  // Устанавливаем интервал для проверки автообновления (резервный вариант, если GitHub Actions не настроен)
+  useEffect(() => {
+    if (bookWormAutoUpdate) {
+      // Проверяем автообновление каждые 30 минут как резервный вариант (GitHub Actions обычно используется для основного автообновления)
+      const interval = setInterval(checkAutoUpdate, Math.max(30, bookWormInterval) * 60 * 1000);
+      
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [bookWormAutoUpdate, bookWormInterval]);
+
   // Функции для интерактивного поиска файлов
   const handleStartInteractiveSearch = () => {
     // Здесь будет логика запуска интерактивного поиска
