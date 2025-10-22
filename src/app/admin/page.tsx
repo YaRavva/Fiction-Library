@@ -211,30 +211,32 @@ export default function AdminPage() {
       if (response.ok) {
         // Если это режим обновления, отображаем подробный отчет
         if (mode === 'update' && data.result) {
-          // Используем подробный отчет из API, если он есть
-          const detailedReport = data.report || 
+          // Используем отформатированное сообщение из API, если оно есть
+          const detailedReport = data.formattedMessage || 
+            (data.report || 
             `🔄 Результаты работы синхронизации в режиме ОБНОВЛЕНИЯ:\n` +
             `=====================================================\n\n` +
             `📚 Метаданные:\n` +
-            `   ✅ Обработано: ${data.result.metadata.processed}\n` +
-            `   ➕ Добавлено: ${data.result.metadata.added}\n` +
-            `   🔄 Обновлено: ${data.result.metadata.updated}\n` +
-            `   ⚠️  Пропущено: ${data.result.metadata.skipped}\n` +
-            `   ❌ Ошибок: ${data.result.metadata.errors}\n\n` +
+            `   ✅ Обработано: ${data.result.metadata?.processed || 0}\n` +
+            `   ➕ Добавлено: ${data.result.metadata?.added || 0}\n` +
+            `   🔄 Обновлено: ${data.result.metadata?.updated || 0}\n` +
+            `   ⚠️  Пропущено: ${data.result.metadata?.skipped || 0}\n` +
+            `   ❌ Ошибок: ${data.result.metadata?.errors || 0}\n\n` +
             `📁 Файлы:\n` +
-            `   ✅ Обработано: ${data.result.files.processed}\n` +
-            `   🔗 Привязано: ${data.result.files.linked}\n` +
-            `   ⚠️  Пропущено: ${data.result.files.skipped}\n` +
-            `   ❌ Ошибок: ${data.result.files.errors}\n\n` +
+            `   ✅ Обработано: ${data.result.files?.processed || 0}\n` +
+            `   🔗 Привязано: ${data.result.files?.linked || 0}\n` +
+            `   ⚠️  Пропущено: ${data.result.files?.skipped || 0}\n` +
+            `   ❌ Ошибок: ${data.result.files?.errors || 0}\n\n` +
             `📊 Сводка:\n` +
-            `   Всего обработано элементов: ${data.result.metadata.processed + data.result.files.processed}\n` +
-            `   Успешных операций: ${data.result.metadata.added + data.result.metadata.updated + data.result.files.linked}\n` +
-            `   Ошибок: ${data.result.metadata.errors + data.result.files.errors}`;
+            `   Всего обработано элементов: ${(data.result.metadata?.processed || 0) + (data.result.files?.processed || 0)}\n` +
+            `   Успешных операций: ${(data.result.metadata?.added || 0) + (data.result.metadata?.updated || 0) + (data.result.files?.linked || 0)}\n` +
+            `   Ошибок: ${(data.result.metadata?.errors || 0) + (data.result.files?.errors || 0)}`);
           
           setLastBookWormReport(detailedReport);
         } else {
           // Для полной синхронизации или других случаев
-          const finalReport = `${report}✅ Синхронизация успешно запущена в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
+          const finalReport = data.formattedMessage || 
+            `${report}✅ Синхронизация успешно запущена в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
           setLastBookWormReport(finalReport)
         }
         
@@ -250,6 +252,7 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Sync error:', error)
       setError(`Ошибка при выполнении синхронизации: ${(error as Error).message}`)
+      // Обновляем отчет об ошибке
       const errorReport = `🔄 Запуск синхронизации в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n❌ Ошибка: ${(error as Error).message}`
       setLastBookWormReport(errorReport)
       

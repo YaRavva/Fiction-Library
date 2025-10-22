@@ -308,9 +308,6 @@ export class BookWormService {
                 console.log('  🆕 Синхронизация с начала, нет предыдущих обработанных сообщений');
             }
 
-            // 2. Загружаем все новые сообщения из канала с метаданными (с ID выше последнего обработанного)
-            console.log('📥 Загрузка новых сообщений из канала с метаданными...');
-            
             // Получаем канал с метаданными
             const channel = await this.telegramService.getMetadataChannel();
 
@@ -318,15 +315,60 @@ export class BookWormService {
             const channelId = typeof channel.id === 'object' && channel.id !== null ? 
                 (channel.id as { toString: () => string }).toString() : 
                 String(channel.id);
+
+            // Получаем максимальный ID сообщения в канале
+            console.log('📥 Получаем максимальный ID сообщения в канале...');
+            const messages = await this.telegramService.getMessages(channelId, 1, undefined);
+            let maxMessageId = 0;
+            if (messages.length > 0) {
+                const anyMsg = messages[0] as unknown as { [key: string]: unknown };
+                maxMessageId = parseInt(String(anyMsg.id), 10);
+                console.log(`  📌 Максимальный ID сообщения в канале: ${maxMessageId}`);
+            }
+
+            // Проверяем, есть ли новые сообщения для обработки
+            if (lastMessageId !== undefined && maxMessageId <= lastMessageId) {
+                console.log('  ℹ️  Новых сообщений для обработки нет. Пропускаем обновление.');
+                return {
+                    processed: 0,
+                    added: 0,
+                    updated: 0,
+                    matched: 0,
+                    message: `Синхронизация обновления завершена. Нет новых сообщений для обработки. Последнее обработанное сообщение ID: ${lastMessageId}`
+                };
+            }
+
+            // Определяем диапазон для загрузки сообщений
+            // В Telegram API offsetId используется для получения сообщений с ID меньше указанного
+            // Поэтому для получения сообщений с ID больше последнего обработанного, 
+            // нужно получить все сообщения и отфильтровать те, что имеют ID больше последнего обработанного
+            console.log(`📥 Получаем сообщения из канала с ID больше последнего обработанного (${lastMessageId})...`);
             
-            // Загружаем новые сообщения с учетом последнего обработанного ID и лимита 1000
-            console.log(`📥 Получаем сообщения из канала (лимит: 1000, offsetId: ${lastMessageId !== undefined ? lastMessageId : 'undefined'})...`);
+            // Загружаем сообщения, начиная с самого последнего (с наибольшим ID)
+            const newMessages = await this.telegramService.getMessages(channelId, 1000, undefined);
             
-            // Загружаем сообщения через Telegram API, начиная с последнего обработанного ID
-            // Используем offsetId для получения сообщений после определенного ID
-            const newMessages = await this.telegramService.getMessages(channelId, 1000, lastMessageId !== undefined ? lastMessageId : undefined);
+            // Фильтруем, чтобы оставить только сообщения с ID больше последнего обработанного
+            const filteredMessages = newMessages.filter(msg => {
+                const anyMsg = msg as unknown as { [key: string]: unknown };
+                const currentMsgId = parseInt(String(anyMsg.id), 10);
+                return currentMsgId > (lastMessageId || 0);
+            });
             
-            console.log(`✅ Получено ${newMessages.length} сообщений для обработки`);
+            console.log(`✅ После фильтрации: ${filteredMessages.length} новых сообщений (из ${newMessages.length} загруженных)`);
+            
+            // Если после фильтрации нет новых сообщений
+            if (filteredMessages.length === 0) {
+                console.log('  ℹ️  Нет новых сообщений для обработки. Завершаем синхронизацию.');
+                return {
+                    processed: 0,
+                    added: 0,
+                    updated: 0,
+                    matched: 0,
+                    message: `Синхронизация обновления завершена. Нет новых сообщений для обработки после фильтрации. Последнее обработанное сообщение ID: ${lastMessageId}`
+                };
+            }
+            
+
 
             // Импортируем новые сообщения как метаданные книг
             console.log('💾 Импортируем новые сообщения как метаданные книг...');
@@ -334,7 +376,7 @@ export class BookWormService {
             // Подготовим метаданные из новых сообщений
             const metadataList: BookMetadata[] = [];
             
-            for (const msg of newMessages) {
+            for (const msg of filteredMessages) {
                 const anyMsg = msg as unknown as { [key: string]: unknown };
                 console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
 
@@ -667,14 +709,14 @@ export class BookWormService {
             // 3. Загружаем все сообщения из канала с файлами (все 4249 батчами по 1000)
             console.log('📥 Загрузка всех файлов из Telegram...');
             const allFilesToProcess = [];
-            let offsetId: number | undefined = undefined; // Для файлов начинаем с начала, если не указано иное
+            let offsetIdFiles: number | undefined = undefined; // Для файлов начинаем с начала, если не указано иное
             let hasMoreFiles = true;
             let fileBatchIndex = 0;
             
             while (hasMoreFiles) {
                 fileBatchIndex++;
                 console.log(`📥 Получаем батч файлов ${fileBatchIndex} из Telegram (лимит: 1000)...`);
-                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetId);
+                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetIdFiles);
                 
                 if (filesBatch.length === 0) {
                     console.log('  📌 Больше нет файлов для загрузки');
@@ -684,7 +726,7 @@ export class BookWormService {
                 console.log(`  ✅ Получено ${filesBatch.length} файлов в батче ${fileBatchIndex}`);
                 allFilesToProcess.push(...filesBatch);
                 
-                // Устанавливаем offsetId для следующего батча
+                // Устанавливаем offsetIdFiles для следующего батча
                 if (filesBatch.length < 1000) {
                     hasMoreFiles = false;
                 } else {
@@ -694,7 +736,7 @@ export class BookWormService {
                         .filter(id => !isNaN(id) && id > 0);
                     
                     if (messageIds.length > 0) {
-                        offsetId = Math.min(...messageIds) - 1;
+                        offsetIdFiles = Math.min(...messageIds) - 1;
                     } else {
                         hasMoreFiles = false;
                     }
@@ -788,14 +830,14 @@ export class BookWormService {
             // 2. Загружаем все сообщения из канала с файлами (все 4249 батчами по 1000)
             console.log('📥 Загрузка всех файлов из Telegram...');
             const allFilesToProcess = [];
-            let offsetId: number | undefined = undefined;
+            let offsetIdFiles: number | undefined = undefined;
             let hasMoreFiles = true;
             let fileBatchIndex = 0;
             
             while (hasMoreFiles) {
                 fileBatchIndex++;
                 console.log(`📥 Получаем батч файлов ${fileBatchIndex} из Telegram (лимит: 1000)...`);
-                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetId);
+                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetIdFiles);
                 
                 if (filesBatch.length === 0) {
                     console.log('  📌 Больше нет файлов для загрузки');
@@ -805,7 +847,7 @@ export class BookWormService {
                 console.log(`  ✅ Получено ${filesBatch.length} файлов в батче ${fileBatchIndex}`);
                 allFilesToProcess.push(...filesBatch);
                 
-                // Устанавливаем offsetId для следующего батча
+                // Устанавливаем offsetIdFiles для следующего батча
                 if (filesBatch.length < 1000) {
                     hasMoreFiles = false;
                 } else {
@@ -815,7 +857,7 @@ export class BookWormService {
                         .filter(id => !isNaN(id) && id > 0);
                     
                     if (messageIds.length > 0) {
-                        offsetId = Math.min(...messageIds) - 1;
+                        offsetIdFiles = Math.min(...messageIds) - 1;
                     } else {
                         hasMoreFiles = false;
                     }

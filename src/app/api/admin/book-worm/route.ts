@@ -115,27 +115,44 @@ export async function POST(request: NextRequest) {
         // Создаем экземпляр сервиса
         const bookWorm = await BookWormService.getInstance();
         
-        // Выполняем синхронизацию асинхронно без ожидания
-        bookWorm.runUpdateSync()
-          .then((result) => {
-            console.log('Book Worm update sync completed successfully:', result);
-          })
-          .catch((error) => {
-            console.error('Book Worm update sync failed:', error);
-          });
+        // Выполняем синхронизацию и дожидаемся результата
+        const result = await bookWorm.runUpdateSync();
+        
+        // Форматируем сообщение красиво с иконками для вывода
+        const formattedMessage = `🔄 Книжный Червь - синхронизация обновления завершена:
 
-        // Возвращаем ответ сразу, не ожидая завершения операции
+📊 Обработано: ${result.processed}
+➕ Добавлено книг: ${result.added}
+🔄 Обновлено книг: ${result.updated}
+🔗 Привязано файлов: ${result.matched}
+🆔 Начато с сообщения ID: ${result.lastProcessedMessageId || 'начала'}
+
+💬 ${result.message}`;
+
+        console.log(formattedMessage);
+
         return NextResponse.json({
           success: true,
-          message: 'Book Worm update sync started',
+          message: 'Book Worm update sync completed',
           mode,
-          status: 'processing'
+          status: 'completed',
+          result,
+          formattedMessage // Включаем отформатированное сообщение в ответ
         });
         
       } catch (syncError: unknown) {
-        console.error('Book Worm sync error:', syncError);
-        const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown sync error occurred';
-        return NextResponse.json({ error: 'Sync error: ' + errorMessage }, { status: 500 });
+        const errorMessage = syncError instanceof Error ? syncError.message : 'Неизвестная ошибка синхронизации';
+        const errorFormattedMessage = `❌ Ошибка синхронизации Книжного Червя:
+        
+📝 Ошибка: ${errorMessage}
+📅 Время: ${new Date().toLocaleString('ru-RU')}`;
+
+        console.error(errorFormattedMessage);
+        
+        return NextResponse.json({ 
+          error: 'Sync error: ' + errorMessage,
+          formattedErrorMessage: errorFormattedMessage // Включаем отформатированное сообщение об ошибке в ответ
+        }, { status: 500 });
       }
     } else if (mode === 'full') {
       // Для режима "full" предлагаем использовать новый endpoint
