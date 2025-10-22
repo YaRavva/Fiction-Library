@@ -184,22 +184,20 @@ export async function POST(request: NextRequest) {
     if (!nextRunTime) {
       const updatedNextRun = new Date(now.getTime() + autoUpdateSettings.interval * 60000); // interval в минутах
       
-      // Обновляем настройки в базе данных
-      console.log('Attempting to update auto update settings after first check:', {
+      // Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
+      const settingsForDb = {
         enabled: autoUpdateSettings.enabled,
         interval: autoUpdateSettings.interval,
-        lastRun: autoUpdateSettings.lastRun,
-        nextRun: updatedNextRun.toISOString()
-      }); // Отладочный лог
+        last_run: autoUpdateSettings.lastRun,
+        next_run: updatedNextRun.toISOString()
+      };
+      
+      // Обновляем настройки в базе данных
+      console.log('Attempting to update auto update settings after first check:', settingsForDb); // Отладочный лог
       
       const { data, error: updateError } = await supabaseAdmin
         .from('auto_update_settings')
-        .upsert({
-          enabled: autoUpdateSettings.enabled,
-          interval: autoUpdateSettings.interval,
-          lastRun: autoUpdateSettings.lastRun,
-          nextRun: updatedNextRun.toISOString()
-        }, { onConflict: 'id' });
+        .upsert(settingsForDb, { onConflict: 'id' });
 
       if (updateError) {
         console.error('Error updating auto update settings:', updateError);
@@ -241,21 +239,19 @@ export async function POST(request: NextRequest) {
         const now = new Date();
         const nextRun = new Date(now.getTime() + autoUpdateSettings.interval * 60000); // interval в минутах
         
-        console.log('Attempting to update auto update settings after sync:', {
+        // Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
+        const settingsForDb = {
           enabled: true,
           interval: autoUpdateSettings.interval,
-          lastRun: now.toISOString(),
-          nextRun: nextRun.toISOString()
-        }); // Отладочный лог
+          last_run: now.toISOString(),
+          next_run: nextRun.toISOString()
+        };
+        
+        console.log('Attempting to update auto update settings after sync:', settingsForDb); // Отладочный лог
         
         const { data, error: updateError } = await supabaseAdmin
           .from('auto_update_settings')
-          .upsert({
-            enabled: true,
-            interval: autoUpdateSettings.interval,
-            lastRun: now.toISOString(),
-            nextRun: nextRun.toISOString()
-          }, { onConflict: 'id' });
+          .upsert(settingsForDb, { onConflict: 'id' });
 
         if (updateError) {
           console.error('Error updating auto update settings after sync:', updateError);
@@ -344,12 +340,21 @@ export async function PUT(request: NextRequest) {
       newSettings.nextRun = null;
     }
 
-    console.log('Attempting to save auto update settings:', newSettings); // Отладочный лог
+    // Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
+    const settingsForDb = {
+      id: newSettings.id,
+      enabled: newSettings.enabled,
+      interval: newSettings.interval,
+      last_run: newSettings.lastRun,
+      next_run: newSettings.nextRun
+    };
+    
+    console.log('Attempting to save auto update settings:', settingsForDb); // Отладочный лог
     
     // Сохраняем настройки в базе данных
     const { data, error: updateError } = await supabaseAdmin
       .from('auto_update_settings')
-      .upsert(newSettings, { onConflict: 'id' });
+      .upsert(settingsForDb, { onConflict: 'id' });
 
     if (updateError) {
       console.error('Error saving auto update settings:', updateError);
