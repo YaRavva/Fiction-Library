@@ -479,16 +479,20 @@ export class BookWormService {
                 let bookExists = false;
                 let existingBookId = null;
                 try {
-                    // @ts-ignore
-                    const { data: foundBooks, error: findError } = await serverSupabase
-                        .from('books')
-                        .select('id')
-                        .eq('title', metadata.title)
-                        .eq('author', metadata.author);
+                    // Импортируем функцию нормализации текста
+                    const { checkForBookDuplicates, normalizeBookText } = await import('../../../lib/book-deduplication-service');
+                    
+                    // Используем улучшенную логику дедупликации
+                    const duplicateCheck = await checkForBookDuplicates(
+                        metadata.title,
+                        metadata.author,
+                        undefined, // publicationYear
+                        normalizeBookText
+                    );
 
-                    if (!findError && foundBooks && foundBooks.length > 0) {
+                    if (duplicateCheck.exists && duplicateCheck.book) {
                         bookExists = true;
-                        existingBookId = (foundBooks[0] as { id: string }).id;
+                        existingBookId = duplicateCheck.book.id;
                         console.log(`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем`);
                     }
                 } catch (checkError) {
