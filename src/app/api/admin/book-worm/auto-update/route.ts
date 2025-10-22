@@ -185,7 +185,14 @@ export async function POST(request: NextRequest) {
       const updatedNextRun = new Date(now.getTime() + autoUpdateSettings.interval * 60000); // interval в минутах
       
       // Обновляем настройки в базе данных
-      const { error: updateError } = await supabaseAdmin
+      console.log('Attempting to update auto update settings after first check:', {
+        enabled: autoUpdateSettings.enabled,
+        interval: autoUpdateSettings.interval,
+        lastRun: autoUpdateSettings.lastRun,
+        nextRun: updatedNextRun.toISOString()
+      }); // Отладочный лог
+      
+      const { data, error: updateError } = await supabaseAdmin
         .from('auto_update_settings')
         .upsert({
           enabled: autoUpdateSettings.enabled,
@@ -201,6 +208,8 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      
+      console.log('Auto update settings updated successfully after first check:', data); // Отладочный лог
       
       console.log('Next run scheduled for:', updatedNextRun.toISOString());
       return NextResponse.json({
@@ -232,7 +241,14 @@ export async function POST(request: NextRequest) {
         const now = new Date();
         const nextRun = new Date(now.getTime() + autoUpdateSettings.interval * 60000); // interval в минутах
         
-        const { error: updateError } = await supabaseAdmin
+        console.log('Attempting to update auto update settings after sync:', {
+          enabled: true,
+          interval: autoUpdateSettings.interval,
+          lastRun: now.toISOString(),
+          nextRun: nextRun.toISOString()
+        }); // Отладочный лог
+        
+        const { data, error: updateError } = await supabaseAdmin
           .from('auto_update_settings')
           .upsert({
             enabled: true,
@@ -244,7 +260,7 @@ export async function POST(request: NextRequest) {
         if (updateError) {
           console.error('Error updating auto update settings after sync:', updateError);
         } else {
-          console.log('Auto update settings updated after sync. Next run:', nextRun.toISOString());
+          console.log('Auto update settings updated after sync:', data, '. Next run:', nextRun.toISOString());
         }
       })
       .catch((error) => {
@@ -328,8 +344,10 @@ export async function PUT(request: NextRequest) {
       newSettings.nextRun = null;
     }
 
+    console.log('Attempting to save auto update settings:', newSettings); // Отладочный лог
+    
     // Сохраняем настройки в базе данных
-    const { error: updateError } = await supabaseAdmin
+    const { data, error: updateError } = await supabaseAdmin
       .from('auto_update_settings')
       .upsert(newSettings, { onConflict: 'id' });
 
@@ -340,6 +358,8 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
+    
+    console.log('Auto update settings saved successfully:', data); // Отладочный лог
 
     console.log('Auto update settings updated:', newSettings);
 
