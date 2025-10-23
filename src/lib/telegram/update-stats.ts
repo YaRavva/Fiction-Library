@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { TelegramService } from './client';
 import { MetadataParser } from './parser';
+import { normalizeBookText } from '../book-deduplication-service';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -24,39 +25,74 @@ interface TelegramStats {
   updated_at: string;
 }
 
+// Вспомогательная функция для логирования в консоль и в окно результатов
+function logToBoth(message: string) {
+  console.log(message);
+  
+  // Отправляем сообщение в окно результатов, если функция доступна
+  if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+    try {
+      const timestamp = new Date().toLocaleTimeString('ru-RU');
+      const logMessage = `[${timestamp}] ${message}\n`;
+      (window as any).setStatsUpdateReport(logMessage);
+    } catch (error) {
+      console.warn('❌ Ошибка при отправке лога в окно результатов:', error);
+    }
+  }
+}
+
+// Вспомогательная функция для выполнения асинхронной операции с таймаутом и корректной отменой
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+
+    promise
+      .then(result => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch(error => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
+
 export async function updateTelegramStats(): Promise<TelegramStats | null> {
-  console.log('📊 Обновление статистики Telegram...');
+  logToBoth('📊 Обновление статистики Telegram...');
   
   try {
     // Получаем количество книг в базе данных
-    console.log('\n📚 Получение количества книг в базе данных...');
+    logToBoth('\n📚 Получение количества книг в базе данных...');
     const { count: booksInDatabase, error: booksCountError } = await supabaseAdmin
       .from('books')
       .select('*', { count: 'exact', head: true });
 
     if (booksCountError) {
-      console.error('❌ Ошибка при получении количества книг:', booksCountError);
+      logToBoth(`❌ Ошибка при получении количества книг: ${booksCountError}`);
       return null;
     }
 
-    console.log(`✅ Книг в базе данных: ${booksInDatabase || 0}`);
+    logToBoth(`✅ Книг в базе данных: ${booksInDatabase || 0}`);
 
     // Получаем количество книг без файлов
-    console.log('\n📁 Получение количества книг без файлов...');
+    logToBoth('\n📁 Получение количества книг без файлов...');
     const { count: booksWithoutFiles, error: booksWithoutFilesError } = await supabaseAdmin
       .from('books')
       .select('*', { count: 'exact', head: true })
       .is('file_url', null);
 
     if (booksWithoutFilesError) {
-      console.error('❌ Ошибка при получении количества книг без файлов:', booksWithoutFilesError);
+      logToBoth(`❌ Ошибка при получении количества книг без файлов: ${booksWithoutFilesError}`);
       return null;
     }
 
-    console.log(`✅ Книг без файлов: ${booksWithoutFiles || 0}`);
+    logToBoth(`✅ Книг без файлов: ${booksWithoutFiles || 0}`);
 
     // Получаем количество уникальных книг в Telegram канале
-    console.log('\n📡 Подсчет уникальных книг в Telegram канале...');
+    logToBoth('\n📡 Подсчет уникальных книг в Telegram канале...');
     let booksInTelegram = 0;
     
     try {
@@ -71,44 +107,28 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
           (channel.id as { toString: () => string }).toString() :
           String(channel.id);
       
-      console.log(`✅ Подключено к каналу ID: ${channelId}`);
+      logToBoth(`✅ Подключено к каналу ID: ${channelId}`);
       
-      // Получаем все книги из базы данных для сравнения
-      console.log('\n📚 Загрузка существующих книг из базы данных...');
-      const { data: existingBooks, error: booksError } = await supabaseAdmin
-        .from('books')
-        .select('id, title, author', { 
-          count: null // Убираем ограничение на количество записей
-        });
-      
-      if (booksError) {
-        throw new Error(`Ошибка загрузки книг из базы данных: ${booksError.message}`);
-      }
-      
-      console.log(`✅ Загружено ${existingBooks?.length || 0} существующих книг из базы данных`);
-      
-      // Получаем сообщения из Telegram канала и анализируем их
+      // Загружаем все сообщения из канала батчами по 10000 для подсчета уникальных книг в Telegram
       let offsetId: number | undefined = undefined;
-      const batchSize = 100;
+      const batchSize = 10000; // Увеличиваем размер батча до 10000
       const bookSet = new Set<string>(); // Для отслеживания уникальных книг в Telegram
       let processed = 0;
+      let batchNumber = 0;
       
-      console.log('\n📥 Начало сканирования Telegram канала...');
+      logToBoth(`\n📥 Начало сканирования Telegram канала батчами по ${batchSize} сообщений...`);
       
       while (true) {
+        batchNumber++;
+        logToBoth(`📦 Обработка батча ${batchNumber}...`);
+        
         try {
-          // Добавляем таймаут к вызову getMessages
+          // Выполняем получение сообщений с таймаутом 60 секунд для больших батчей
           const messagesPromise = telegramService.getMessages(channelId, batchSize, offsetId) as Promise<any[]>;
-          
-          // Устанавливаем таймаут в 30 секунд для получения сообщений
-          const messages = await Promise.race([
-            messagesPromise,
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('TIMEOUT: getMessages')), 30000)
-            )
-          ]) as any[];
+          const messages = await withTimeout(messagesPromise, 60000, 'TIMEOUT: getMessages');
 
           if (!messages || messages.length === 0) {
+            logToBoth(`✅ Больше нет сообщений для обработки`);
             break;
           }
 
@@ -131,7 +151,9 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
                 
                 // Проверяем, выглядит ли это как книга (есть автор и название)
                 if (metadata.author && metadata.title) {
-                  const bookKey = `${metadata.author}|${metadata.title}`;
+                  const normalizedAuthor = normalizeBookText(metadata.author);
+                  const normalizedTitle = normalizeBookText(metadata.title);
+                  const bookKey = `${normalizedAuthor}|${normalizedTitle}`;
                   
                   // Добавляем в набор уникальных книг
                   if (!bookSet.has(bookKey)) {
@@ -145,52 +167,72 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
             
             processed++;
             
-            // Показываем прогресс каждые 100 сообщений
-            if (processed % 100 === 0) {
-              console.log(`📊 Прогресс: ${processed} сообщений обработано, ${bookSet.size} уникальных книг найдено`);
+            // Показываем прогресс каждые 5000 сообщений
+            if (processed % 5000 === 0) {
+              logToBoth(`📊 Прогресс: ${processed} сообщений обработано, ${bookSet.size} уникальных книг найдено`);
             }
           }
+
+          logToBoth(`✅ Обработано ${messages.length} сообщений в батче ${batchNumber}, всего обработано: ${processed}, уникальных книг: ${bookSet.size}`);
 
           // Устанавливаем offsetId для следующей партии
           const lastMessage = messages[messages.length - 1];
           if (lastMessage && lastMessage.id) {
             offsetId = lastMessage.id;
           } else {
+            logToBoth(`✅ Не удалось получить ID последнего сообщения, завершаем сканирование`);
             break;
           }
 
           // Добавляем задержку, чтобы не перегружать Telegram API
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Увеличиваем задержку при работе с большими батчами
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (batchError) {
           if (batchError instanceof Error && batchError.message.includes('TIMEOUT')) {
-            console.error('⏰ Таймаут при получении сообщений, завершаем сканирование...');
+            logToBoth('⏰ Таймаут при получении сообщений, завершаем сканирование...');
             break;
           } else {
-            console.error('❌ Ошибка при получении пакета сообщений:', batchError);
+            logToBoth(`❌ Ошибка при получении пакета сообщений: ${batchError}`);
             break;
           }
         }
       }
       
       booksInTelegram = bookSet.size;
-      console.log(`✅ Найдено ${booksInTelegram} уникальных книг в Telegram`);
+      logToBoth(`✅ Найдено ${booksInTelegram} уникальных книг в Telegram`);
       
-      // Отключаем Telegram клиент с таймаутом
+      // Отключаем Telegram клиент с таймаутом 5 секунд
       if (telegramService && typeof telegramService.disconnect === 'function') {
-        await Promise.race([
-          telegramService.disconnect(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: disconnect')), 5000))
-        ]).catch(err => {
-          if (err.message !== 'TIMEOUT: disconnect') {
-            console.log('📱 Telegram клиент отключен');
+        try {
+          // Сохраняем результат в переменную, чтобы избежать потенциальных проблем с асинхронностью
+          const disconnectPromise = telegramService.disconnect();
+          await withTimeout(disconnectPromise, 5000, 'TIMEOUT: disconnect');
+          logToBoth('📱 Telegram клиент отключен');
+        } catch (disconnectError) {
+          if (disconnectError instanceof Error && disconnectError.message === 'TIMEOUT: disconnect') {
+            logToBoth('⚠️ Таймаут при отключении Telegram клиента');
           } else {
-            console.warn('⚠️ Таймаут при отключении Telegram клиента');
+            logToBoth(`❌ Ошибка при отключении Telegram клиента: ${disconnectError}`);
           }
-        });
+        }
+      }
+      
+        // Добавляем небольшую задержку, чтобы позволить внутренним асинхронным операциям завершиться
+      // Это может помочь предотвратить появление таймаутов после завершения основного процесса
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Принудительно отключаемся ещё раз, если клиент существует, для полной уверенности
+      if (telegramService && typeof telegramService.disconnect === 'function') {
+        try {
+          await telegramService.disconnect();
+          logToBoth('📱 Telegram клиент окончательно отключен');
+        } catch (finalDisconnectError) {
+          logToBoth(`⚠️ Ошибка при окончательном отключении: ${finalDisconnectError}`);
+        }
       }
       
     } catch (telegramError) {
-      console.error('❌ Ошибка при подсчете книг в Telegram:', telegramError);
+      logToBoth(`❌ Ошибка при подсчете книг в Telegram: ${telegramError}`);
       return null;
     }
 
@@ -198,7 +240,7 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
     const missingBooks = Math.max(0, booksInTelegram - (booksInDatabase || 0));
 
     // Сохраняем статистику в базе данных
-    console.log('\n💾 Сохранение статистики в базе данных...');
+    logToBoth('\n💾 Сохранение статистики в базе данных...');
     const statsData: TelegramStats = {
       books_in_database: booksInDatabase || 0,
       books_in_telegram: booksInTelegram,
@@ -207,7 +249,7 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
       updated_at: new Date().toISOString()
     };
 
-    console.log('Данные для сохранения:', statsData);
+    logToBoth(`Данные для сохранения: ${JSON.stringify(statsData)}`);
 
     // Обновляем или создаем запись в таблице telegram_stats
     const { error: upsertError } = await supabaseAdmin
@@ -215,26 +257,26 @@ export async function updateTelegramStats(): Promise<TelegramStats | null> {
       .upsert(statsData, { onConflict: 'id' });
 
     if (upsertError) {
-      console.error('❌ Ошибка при сохранении статистики:', upsertError);
+      logToBoth(`❌ Ошибка при сохранении статистики: ${upsertError}`);
       return null;
     }
 
-    console.log('✅ Статистика успешно сохранена в базу данных');
+    logToBoth('✅ Статистика успешно сохранена в базу данных');
     
     // Выводим итоговые результаты
-    console.log('\n📈 === ИТОГОВАЯ СТАТИСТИКА ===');
-    console.log(`📚 Книг в базе данных: ${statsData.books_in_database}`);
-    console.log(`📡 Книг в Telegram: ${statsData.books_in_telegram}`);
-    console.log(`❌ Отсутствующих книг: ${statsData.missing_books}`);
-    console.log(`📁 Книг без файлов: ${statsData.books_without_files}`);
-    console.log(`🕒 Последнее обновление: ${new Date(statsData.updated_at).toLocaleString()}`);
+    logToBoth('\n📈 === ИТОГОВАЯ СТАТИСТИКА ===');
+    logToBoth(`📚 Книг в базе данных: ${statsData.books_in_database}`);
+    logToBoth(`📡 Книг в Telegram: ${statsData.books_in_telegram}`);
+    logToBoth(`❌ Отсутствующих книг: ${statsData.missing_books}`);
+    logToBoth(`📁 Книг без файлов: ${statsData.books_without_files}`);
+    logToBoth(`🕒 Последнее обновление: ${new Date(statsData.updated_at).toLocaleString()}`);
     
-    console.log('\n✅ Обновление статистики завершено успешно');
+    logToBoth('\n✅ Обновление статистики завершено успешно');
     
     return statsData;
     
   } catch (error) {
-    console.error('❌ Ошибка при обновлении статистики:', error);
+    logToBoth(`❌ Ошибка при обновлении статистики: ${error}`);
     return null;
   }
 }
