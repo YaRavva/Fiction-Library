@@ -114,7 +114,7 @@ export class FileBookMatcherService {
   static matchFileWithBook(file: FileOption, book: Book): MatchResult | null {
     const result = UniversalFileMatcher.matchFileToBook(file, book);
     
-    if (result.score >= 65) { // Порог релевантности
+    if (result.score >= 60) { // Порог релевантности
       return {
         file,
         book,

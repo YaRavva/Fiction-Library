@@ -146,7 +146,7 @@ export class BookWormService {
                 (file.message_id && file.message_id === bestMatch.file.message_id)
             );
             
-            if (sourceFile && bestMatch.score >= 65) { // Используем тот же порог, что и в универсальном сервисе
+            if (sourceFile && bestMatch.score >= 60) { // Используем тот же порог, что и в универсальном сервисе
                 console.log(`    ✅ Найдено совпадение с рейтингом ${bestMatch.score}: ${sourceFile.filename}`);
                 console.log(`📊 Ранжирование совпадений:`);
                 for (let i = 0; i < Math.min(3, matches.length); i++) {

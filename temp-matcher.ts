@@ -89,7 +89,7 @@ export class UniversalFileMatcher {
     
     // Удаляем года в скобках
     normalized = normalized.replace(this.YEAR_REGEX, ' ');
-    
+
     // Удаляем языковые обозначения
     normalized = normalized.replace(this.LANG_REGEX, ' ');
 
@@ -98,7 +98,7 @@ export class UniversalFileMatcher {
     
     // Разделители: пробелы, дефисы, скобки, точки, запятые, другие специальные символы
     let words = normalized
-      .split(/[\s\-_\(\)\[\]\{\}\/\\.,\"'`~!@#$%^&\*+=\|;:<>?]+/)
+      .split(/[\s\-_\(\)\[\]\{\}\/\\.,\"'`\~!@#$%^&\*\+=\|;:<>?]+/)
       .map(word => word.trim())
       .filter(word => word.length > 1); // Убираем слова короче 2 символов
 
@@ -114,24 +114,6 @@ export class UniversalFileMatcher {
     
     // Повторно фильтруем после лемматизации (может быть создано короткое слово в результате лемматизации)
     return lemmatizedWords.filter(word => word.length > 1);
-  }
-
-  /**
-   * Извлекает слова из книги (название и автор)
-   */
-  public static extractBookWords(book: BookWithoutFile): WordExtractionResult {
-    // Для книг извлекаем слова с учетом специфики названий с циклами
-    const titleWords = this.extractBookTitleWords(book.title || '');
-    const authorWords = this.extractWords(book.author || '');
-    
-    // Объединяем слова из названия и автора
-    const allWords = [...new Set([...titleWords, ...authorWords])]; // Уникальные слова
-    
-    return {
-      allWords,
-      titleWords,
-      authorWords
-    };
   }
 
   /**
@@ -311,15 +293,15 @@ export class UniversalFileMatcher {
     //   // Высокое совпадение автора и частичное совпадение названия
     //   score += 10;
     // }
-    
+
     // УДАЛЕНО: Не добавляем бонусы за полное совпадение слов из книги с файлом
     // Старый код:
     // const allBookAuthorWordsMatch = bookAuthorWords.length > 0 && 
     //   bookAuthorWords.every(bookAuthorWord => fileAuthorWords.includes(bookAuthorWord));
-    // 
+    //
     // const allBookTitleWordsMatch = bookTitleWords.length > 0 && 
     //   bookTitleWords.every(bookTitleWord => fileTitleWords.includes(bookTitleWord));
-    // 
+    //
     // if (allBookAuthorWordsMatch && allBookTitleWordsMatch) {
     //   // Все слова из автора и названия книги присутствуют в файле - большой бонус
     //   score += 30;
@@ -327,7 +309,7 @@ export class UniversalFileMatcher {
     //   // Все слова из автора или названия присутствуют в файле - средний бонус
     //   score += 20;
     // }
-    
+
     // Бонус за совпадение 2 и более слов в названии
     if (titleMatchCount >= 2) {
       score += titleMatchCount * 12; // Увеличенный бонус 12 баллов за каждое совпавшее слово в названии
@@ -492,7 +474,7 @@ export class UniversalFileMatcher {
     }
     
     // Если не найден явный разделитель, возвращаем первые 3 слова как потенциального автора
-    const words = nameWithoutExt.split(/[\s\-_\(\)\[\]\{\}\/\\.,\"'`~!@#$%^&\*+=\|;:<>?]+/);
+    const words = nameWithoutExt.split(/[\s\-_\(\)\[\]\{\}\/\\.,\"'`\~!@#$%^&\*\+=\|;:<>?]+/);
     return words.slice(0, 3).join(' ');
   }
 
@@ -531,7 +513,7 @@ export class UniversalFileMatcher {
   public static findMatchingFiles(book: BookWithoutFile, files: FileOption[]): FileOption[] {
     const results = files
       .map(file => this.matchFileToBook(file, book))
-      .filter(result => result.score >= 60) // Порог 60
+      .filter(result => result.score >= 50) // Порог 50
       .sort((a, b) => b.score - a.score); // Сортировка по оценке (лучшие первые)
 
     return results.slice(0, 15).map(result => result.file); // Возвращаем топ-15 файлов
@@ -540,7 +522,7 @@ export class UniversalFileMatcher {
   /**
    * Проверяет, релевантен ли конкретный файл книге (для одиночной проверки)
    */
-  public static isFileRelevant(file: FileOption, book: BookWithoutFile, minScore: number = 60): boolean {
+  public static isFileRelevant(file: FileOption, book: BookWithoutFile, minScore: number = 50): boolean {
     const result = this.matchFileToBook(file, book);
     return result.score >= minScore;
   }
