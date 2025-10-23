@@ -143,7 +143,7 @@ export function TelegramStatsSection() {
         try {
           (window as any).setStatsUpdateReport(errorReport);
         } catch (error) {
-          console.error('❌ Error sending message to results window:', error);
+          console.error('❌ Ошибка при отправке сообщения в окно результатов:', error);
         }
       }
       
@@ -195,7 +195,7 @@ export function TelegramStatsSection() {
         try {
           (window as any).setStatsUpdateReport(progressReport);
         } catch (error) {
-          console.error('❌ Error sending message to results window:', error);
+          console.error('❌ Ошибка при отправке сообщения в окно результатов:', error);
         }
       }
 
@@ -306,7 +306,7 @@ export function TelegramStatsSection() {
         try {
           (window as any).setStatsUpdateReport(errorReport);
         } catch (error) {
-          console.error('❌ Error sending message to results window:', error);
+          console.error('❌ Ошибка при отправке сообщения в окно результатов:', error);
         }
       }
     }
