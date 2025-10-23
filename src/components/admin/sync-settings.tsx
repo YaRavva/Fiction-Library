@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { FileSearchManager } from './file-search-manager'
 import { getBrowserSupabase } from '@/lib/browserSupabase'
+import { RefreshCw, Search, Trash2 } from 'lucide-react';
 
 interface SyncSettingsProps {
   bookWormRunning: boolean
@@ -31,6 +32,9 @@ export function SyncSettings({
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(bookWormAutoUpdate)
   const [timerValue, setTimerValue] = useState(bookWormInterval)
   const [initialLoad, setInitialLoad] = useState(true) // Флаг для определения первоначальной загрузки
+  const [searching, setSearching] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Загружаем настройки автообновления при монтировании компонента
   useEffect(() => {
@@ -125,12 +129,156 @@ export function SyncSettings({
     }
   }
 
+  const handleSearchDuplicates = async () => {
+    try {
+      setError(null);
+      setSearching(true);
+      
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error('Сессия не найдена');
+      }
+
+      // Показываем начальный прогресс в результатах
+      const timestamp = new Date().toLocaleTimeString('ru-RU');
+      const progressReport = `[${timestamp}] 🔍 Начат поиск дубликатов книг...\n`;
+      
+      // Используем правильную функцию для передачи логов в админ-панель
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(progressReport);
+        } catch (error) {
+          console.error('❌ Ошибка при отправке сообщения в окно результатов:', error);
+        }
+      }
+
+      const response = await fetch('/api/admin/duplicates', {
+        headers: {
+          'Authorization': `Bearer ${session.data.session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Отправляем результаты в окно результатов
+      const resultTimestamp = new Date().toLocaleTimeString('ru-RU');
+      let resultReport = `[${resultTimestamp}] ✅ Поиск дубликатов завершен!\n`;
+      resultReport += `📊 Найдено ${data.duplicateGroups.length} групп потенциальных дубликатов\n`;
+      resultReport += `💡 Потенциальных дубликатов: ${data.stats.potentialDuplicates}\n`;
+      resultReport += `📈 Примерное количество уникальных книг: ${data.stats.uniqueBooksEstimate}\n`;
+      
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(resultReport);
+        } catch (error) {
+          console.error('❌ Error sending results to window:', error);
+        }
+      }
+
+    } catch (err) {
+      console.error('Error searching duplicates:', err);
+      setError(`Ошибка при поиске дубликатов: ${(err as Error).message}`);
+      
+      // Отправляем ошибку в окно результатов
+      const errorTimestamp = new Date().toLocaleTimeString('ru-RU');
+      const errorReport = `[${errorTimestamp}] ❌ Ошибка поиска дубликатов: ${(err as Error).message}\n`;
+      
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(errorReport);
+        } catch (error) {
+          console.error('❌ Error sending error to results window:', error);
+        }
+      }
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleRemoveDuplicates = async () => {
+    try {
+      setError(null);
+      setRemoving(true);
+      
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error('Сессия не найдена');
+      }
+
+      // Показываем начальный прогресс в результатах
+      const timestamp = new Date().toLocaleTimeString('ru-RU');
+      const progressReport = `[${timestamp}] 🗑️ Начато удаление дубликатов книг...\n`;
+      
+      // Используем правильную функцию для передачи логов в админ-панель
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(progressReport);
+        } catch (error) {
+          console.error('❌ Ошибка при отправке сообщения в окно результатов:', error);
+        }
+      }
+
+      const response = await fetch('/api/admin/duplicates', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.data.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Отправляем результаты в окно результатов
+      const resultTimestamp = new Date().toLocaleTimeString('ru-RU');
+      let resultReport = `[${resultTimestamp}] ✅ Удаление дубликатов завершено!\n`;
+      resultReport += `📊 Удалено: ${data.deletedCount} книг\n`;
+      if (data.totalErrors > 0) {
+        resultReport += `⚠️ Ошибок: ${data.totalErrors}\n`;
+      }
+      resultReport += `📋 ${data.message}\n`;
+      
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(resultReport);
+        } catch (error) {
+          console.error('❌ Error sending results to window:', error);
+        }
+      }
+
+    } catch (err) {
+      console.error('Error removing duplicates:', err);
+      setError(`Ошибка при удалении дубликатов: ${(err as Error).message}`);
+      
+      // Отправляем ошибку в окно результатов
+      const errorTimestamp = new Date().toLocaleTimeString('ru-RU');
+      const errorReport = `[${errorTimestamp}] ❌ Ошибка удаления дубликатов: ${(err as Error).message}\n`;
+      
+      if (typeof window !== 'undefined' && (window as any).setStatsUpdateReport) {
+        try {
+          (window as any).setStatsUpdateReport(errorReport);
+        } catch (error) {
+          console.error('❌ Error sending error to results window:', error);
+        }
+      }
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   return (
     <div className="w-full p-6">
       <div className="w-full space-y-4">
         <h1 className="text-2xl font-semibold tracking-tight">Синхронизация</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-start justify-center">
           {/* Синхронизация книг и файлов */}
           <div className="space-y-3 w-full">
             <h2 className="text-base font-medium">Синхронизация книг и файлов</h2>
@@ -193,6 +341,57 @@ export function SyncSettings({
           <div className="space-y-3 w-full">
             <h2 className="text-base font-medium">Полуавтоматический поиск файлов</h2>
             <FileSearchManager />
+          </div>
+
+          {/* Поиск и удаление дубликатов */}
+          <div className="space-y-3 w-full">
+            <h2 className="text-base font-medium">Поиск и удаление дубликатов</h2>
+            <div className="space-y-3 w-full">
+              <div className="flex flex-wrap items-center gap-4">
+                <Button
+                  onClick={handleSearchDuplicates}
+                  disabled={searching || removing}
+                  size="default"
+                >
+                  {searching ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Поиск...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4 mr-2" />
+                      Поиск дубликатов
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  onClick={handleRemoveDuplicates}
+                  disabled={searching || removing}
+                  variant="outline"
+                  size="default"
+                >
+                  {removing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Удаление...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Удалить дубликаты
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {error && (
+                <div className="text-destructive text-sm p-2 bg-destructive/10 rounded">
+                  {error}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

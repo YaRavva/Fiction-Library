@@ -57,7 +57,7 @@ export function FileSearchManager() {
         (window as any).updateFileSearchResults(logMessage);
         console.log('✅ Message sent to results window:', message);
       } catch (error) {
-        console.error('❌ Error sending message to results window:', error);
+        console.error('❌ Ошибка при отправке сообщения в окно результатов:', error);
         console.error('Available window properties:', Object.keys(window || {}));
       }
     } else {

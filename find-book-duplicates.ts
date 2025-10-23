@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { normalizeBookText, removeBookDuplicates } from '../lib/book-deduplication-service';
+import { normalizeBookText, checkForBookDuplicates, selectBestBookFromDuplicates, removeBookDuplicates } from '../lib/book-deduplication-service';
 import 'dotenv/config';
 
 // Функция для форматированного вывода в консоль и в окно результатов (если доступно)
@@ -34,8 +34,8 @@ function logMessage(message: string, type: 'info' | 'success' | 'warning' | 'err
   }
 }
 
-async function runRemoveDuplicates() {
-  logMessage('Запуск процесса удаления дубликатов книг...', 'info');
+async function runDeduplication() {
+  logMessage('Запуск процесса дедупликации книг...');
   
   // Проверяем наличие необходимых переменных окружения
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -102,7 +102,7 @@ async function runRemoveDuplicates() {
 
     logMessage(`Всего получено книг: ${allBooks.length}`, 'success');
 
-    // Группируем книги по автору и названию для поиска дубликатов
+    // Группируем книги по автору и названию для поиска потенциальных дубликатов
     const booksByAuthorTitle = new Map<string, typeof allBooks>();
     
     for (const book of allBooks) {
@@ -120,7 +120,7 @@ async function runRemoveDuplicates() {
       booksByAuthorTitle.get(key)?.push(book);
     }
 
-    // Находим группы с более чем одной книгой (дубликаты)
+    // Находим группы с более чем одной книгой (потенциальные дубликаты)
     const duplicateGroups = Array.from(booksByAuthorTitle.entries())
       .filter(([_, books]) => books.length > 1)
       .map(([key, books]) => ({ 
@@ -129,65 +129,57 @@ async function runRemoveDuplicates() {
         books 
       }));
 
-    logMessage(`Найдено ${duplicateGroups.length} групп дубликатов книг:`);
+    logMessage(`Найдено ${duplicateGroups.length} групп потенциальных дубликатов книг:`);
 
-    if (duplicateGroups.length === 0) {
-      logMessage('Дубликатов не найдено, завершение работы', 'success');
-      return;
-    }
-
-    // Подтверждение перед удалением
-    logMessage('ВНИМАНИЕ: Начнется процесс удаления дубликатов!', 'warning');
-    logMessage('Будет оставлена по одной книге из каждой группы (новейшая)', 'info');
-    logMessage(`Всего будет удалено дубликатов: ${duplicateGroups.reduce((sum, group) => sum + (group.books.length - 1), 0)}`, 'info');
-
-    const confirmation = process.argv[2];
-    if (confirmation !== '--confirm') {
-      logMessage('Процесс остановлен. Для подтверждения удаления используйте:', 'error');
-      logMessage('   npx tsx remove-book-duplicates.ts --confirm', 'error');
-      return;
-    }
-
-    logMessage('Начинаем процесс удаления дубликатов...', 'info');
-
-    let totalDeleted = 0;
-    let totalErrors = 0;
-
+    let totalDuplicatesFound = 0;
     for (const group of duplicateGroups) {
-      logMessage(`Обработка группы: "${group.author}" - "${group.title}"`);
-      logMessage(`  Найдено книг: ${group.books.length}`);
+      logMessage(`Автор: "${group.author}", Название: "${group.title}"`);
+      logMessage(`  Количество книг в группе: ${group.books.length}`);
+      totalDuplicatesFound += group.books.length - 1; // Исключаем одну оставшуюся книгу
       
-      // Выполняем удаление дубликатов в группе
-      const result = await removeBookDuplicates(group.books);
-      
-      logMessage(`  ${result.message}`);
-      
-      totalDeleted += result.deletedCount;
-      if (result.message.includes('ошибок:')) {
-        const errorMatch = result.message.match(/ошибок: (\d+)/);
-        if (errorMatch) {
-          totalErrors += parseInt(errorMatch[1]);
-        }
+      // Показываем информацию о каждой книге в группе
+      for (let i = 0; i < group.books.length; i++) {
+        const book = group.books[i];
+        logMessage(`    ${i + 1}. ID: ${book.id}, Дата создания: ${book.created_at}, Файл: ${book.file_url ? 'ДА' : 'НЕТ'}`);
       }
     }
 
-    logMessage(`Удаление дубликатов завершено!`, 'success');
-    logMessage(`Всего удалено: ${totalDeleted} книг`, 'success');
-    if (totalErrors > 0) {
-      logMessage(`Ошибок: ${totalErrors}`, 'error');
+    if (duplicateGroups.length === 0) {
+      logMessage('Дубликатов не найдено', 'success');
+      return;
     }
+
+    logMessage(`Всего найдено дубликатов: ${totalDuplicatesFound}`, 'success');
+
+    // Предлагаем пользователю запустить процесс удаления
+    logMessage('Хотите запустить процесс удаления дубликатов? (оставляя по одной книге из каждой группы, новейшую) [y/N]:', 'info');
     
+    // В целях безопасности в этом скрипте мы не будем автоматически удалять
+    // Пользователь должен запустить отдельный скрипт для выполнения удаления
+    logMessage('Для выполнения удаления дубликатов запустите скрипт с подтверждением.', 'info');
+    logMessage('Рекомендуемый процесс:', 'info');
+    logMessage('   1. Просмотрите найденные дубликаты выше', 'info');
+    logMessage('   2. При необходимости внесите корректировки вручную', 'info');
+    logMessage('   3. Запустите отдельный процесс удаления при необходимости', 'info');
+    
+    // Выводим статистику
+    logMessage('Сводка:', 'info');
+    logMessage(`  - Всего книг в базе: ${allBooks.length}`, 'info');
+    logMessage(`  - Групп дубликатов: ${duplicateGroups.length}`, 'info');
+    logMessage(`  - Найдено дубликатов: ${totalDuplicatesFound}`, 'info');
+    logMessage(`  - Оценка уникальных книг: ${allBooks.length - totalDuplicatesFound}`, 'info');
+
   } catch (error) {
-    logMessage(`Ошибка при выполнении удаления дубликатов: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`, 'error');
+    logMessage(`Ошибка при выполнении дедупликации: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`, 'error');
     throw error;
   }
 }
 
-// Запускаем процесс удаления дубликатов
-runRemoveDuplicates()
+// Запускаем процесс дедупликации
+runDeduplication()
   .then(() => {
-    logMessage('Процесс удаления дубликатов завершен', 'success');
+    logMessage('Проверка дедупликации завершена', 'success');
   })
   .catch((error) => {
-    logMessage(`Процесс удаления дубликатов завершен с ошибкой: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`, 'error');
+    logMessage(`Проверка дедупликации завершена с ошибкой: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`, 'error');
   });
