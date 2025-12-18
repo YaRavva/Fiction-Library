@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dlx shadcn@latest mcp init:*)",
+      "Bash(npx shadcn@latest mcp:*)",
+      "Bash(npx shadcn@latest:*)"
+    ]
+  }
+}
