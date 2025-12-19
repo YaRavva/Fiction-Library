@@ -64,36 +64,47 @@ function BookContent() {
     loadBook()
   }, [bookId, router, supabase])
 
-  const handleDownload = (book: Book) => {
+  const handleDownload = async (book: Book) => {
     if (book.file_url) {
-      // Create a custom filename in the format "author - title.ext"
-      // Use the actual file format instead of defaulting to .zip
-      const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-      const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
-      // Get the file extension from the file_url or file_format field
-      const fileExtension = book.file_format && book.file_format !== '' ? 
-        book.file_format : 
-        (book.file_url ? book.file_url.split('/').pop()?.split('.').pop() : 'zip');
-      const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
-      
-      // Fetch the file and trigger download with custom filename
-      fetch(book.file_url)
-        .then(response => response.blob())
-        .then(blob => {
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-        })
-        .catch(error => {
-          console.error('Error downloading file:', error);
-          // Fallback to opening in new tab if download fails
-          window.open(book.file_url!, '_blank');
-        });
+      try {
+        // Используем API endpoint для скачивания, который правильно переименовывает файл
+        const response = await fetch(`/api/download/${book.id}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to download: ${response.statusText}`);
+        }
+        
+        // Получаем имя файла из заголовка Content-Disposition
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `${book.id}.${book.file_format || 'zip'}`;
+        
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = decodeURIComponent(filenameMatch[1].replace(/['"]/g, ''));
+          }
+        }
+        
+        // Скачиваем файл с правильным именем
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        // Увеличиваем счетчик скачиваний (API endpoint уже делает это, но на всякий случай)
+        await incrementDownloads(book.id);
+      } catch (error) {
+        console.error('Error downloading file:', error);
+        // Fallback: открываем файл в новой вкладке
+        if (book.file_url) {
+          window.open(book.file_url, '_blank');
+        }
+      }
     }
   }
 

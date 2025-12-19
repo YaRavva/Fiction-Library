@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverSupabase } from '@/lib/serverSupabase'
-import { slugify } from '@/lib/slugify'
+import { slugifyTitleCase, slugifySentenceCase } from '@/lib/slugify'
 
 export async function GET(
   request: Request,
@@ -62,25 +62,27 @@ export async function GET(
     
     if (hasValidTitle && hasValidAuthor) {
       // Если и title, и author валидны, используем их для формирования имени файла
-      const sanitizedTitle = slugify(bookData.title);
-      const sanitizedAuthor = slugify(bookData.author);
+      // Для автора: все слова с заглавной (Title Case)
+      // Для названия: только первое слово с заглавной (Sentence Case)
+      const sanitizedTitle = slugifySentenceCase(bookData.title);
+      const sanitizedAuthor = slugifyTitleCase(bookData.author);
       const fileExtension = bookData.file_format && bookData.file_format !== '' ?
         bookData.file_format : 'zip';
-      filename = `${sanitizedAuthor}-${sanitizedTitle}.${fileExtension}`.toLowerCase();
+      filename = `${sanitizedAuthor}-${sanitizedTitle}.${fileExtension}`;
       
       // Проверяем, не оказались ли sanitizedTitle или sanitizedAuthor пустыми после slugify
       if (!sanitizedTitle || !sanitizedAuthor) {
         console.info(`Пустые значения после slugify для книги ${bookId}, используем bookId как имя файла`);
         const fileExtension = bookData.file_format && bookData.file_format !== '' ?
           bookData.file_format : 'zip';
-        filename = `${bookId}.${fileExtension}`.toLowerCase();
+        filename = `${bookId}.${fileExtension}`;
       }
     } else {
       // Если title или author отсутствуют или пустые, используем bookId как имя файла
       console.info(`Отсутствуют title или author для книги ${bookId}, используем bookId как имя файла`);
       const fileExtension = bookData.file_format && bookData.file_format !== '' ?
         bookData.file_format : 'zip';
-      filename = `${bookId}.${fileExtension}`.toLowerCase();
+      filename = `${bookId}.${fileExtension}`;
     }
 
     // Обновляем счетчик скачиваний в базе данных
@@ -100,10 +102,15 @@ export async function GET(
     }
 
     // Отправляем содержимое файла клиенту
+    // Используем RFC 5987 для правильной поддержки кириллицы в именах файлов
+    const encodedFilename = encodeURIComponent(filename);
+    const utf8Filename = `UTF-8''${encodedFilename}`;
+    
     return new NextResponse(fileContent, {
       headers: {
         'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+        // Используем оба формата: filename для совместимости, filename* для UTF-8
+        'Content-Disposition': `attachment; filename="${filename}"; filename*=${utf8Filename}`,
       },
     })
   } catch (error) {

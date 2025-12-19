@@ -209,23 +209,43 @@ function ReaderContent() {
                 variant="ghost" 
                 size="icon"
                 onClick={async () => {
-                  if (book.file_url) {
-                    // Create a custom filename in the format "author - title.ext"
-                    const sanitizedTitle = book.title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-                    const sanitizedAuthor = book.author.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-                    const fileExtension = book.file_format && book.file_format !== '' ? 
-                      book.file_format : 
-                      (book.storage_path ? book.storage_path.split('.').pop() : 'fb2')
-                    const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`
-                    
-                    // Create a link element with download attribute to trigger download with custom filename
-                    const a = document.createElement('a')
-                    a.href = book.file_url
-                    a.download = filename
-                    a.target = '_blank'
-                    document.body.appendChild(a)
-                    a.click()
-                    document.body.removeChild(a)
+                  if (book.file_url && book.id) {
+                    try {
+                      // Используем API endpoint для скачивания, который правильно переименовывает файл
+                      const response = await fetch(`/api/download/${book.id}`);
+                      
+                      if (!response.ok) {
+                        throw new Error(`Failed to download: ${response.statusText}`);
+                      }
+                      
+                      // Получаем имя файла из заголовка Content-Disposition
+                      const contentDisposition = response.headers.get('Content-Disposition');
+                      let filename = `${book.id}.${book.file_format || 'fb2'}`;
+                      
+                      if (contentDisposition) {
+                        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (filenameMatch && filenameMatch[1]) {
+                          filename = decodeURIComponent(filenameMatch[1].replace(/['"]/g, ''));
+                        }
+                      }
+                      
+                      // Скачиваем файл с правильным именем
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = filename;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                    } catch (error) {
+                      console.error('Error downloading file:', error);
+                      // Fallback: открываем файл в новой вкладке
+                      if (book.file_url) {
+                        window.open(book.file_url, '_blank');
+                      }
+                    }
                   }
                 }}
               >
