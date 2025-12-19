@@ -64,6 +64,44 @@ function BookContent() {
     loadBook()
   }, [bookId, router, supabase])
 
+  // Функция для парсинга имени файла из заголовка Content-Disposition
+  const parseContentDisposition = (contentDisposition: string | null): string | null => {
+    if (!contentDisposition) return null;
+    
+    // Сначала пытаемся извлечь из filename* (RFC 5987) - приоритет
+    const filenameStarMatch = contentDisposition.match(/filename\*=([^;]+)/i);
+    if (filenameStarMatch) {
+      const value = filenameStarMatch[1].trim();
+      // Формат: UTF-8''encoded-filename
+      const parts = value.split("''");
+      if (parts.length === 2) {
+        try {
+          return decodeURIComponent(parts[1]);
+        } catch (e) {
+          console.warn('Failed to decode filename*:', e);
+        }
+      }
+    }
+    
+    // Затем пытаемся извлечь из filename (обычный формат)
+    const filenameMatch = contentDisposition.match(/filename=([^;]+)/i);
+    if (filenameMatch) {
+      let value = filenameMatch[1].trim();
+      // Убираем кавычки если есть
+      if ((value.startsWith('"') && value.endsWith('"')) || 
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      try {
+        return decodeURIComponent(value);
+      } catch (e) {
+        return value;
+      }
+    }
+    
+    return null;
+  }
+
   const handleDownload = async (book: Book) => {
     if (book.file_url) {
       try {
@@ -76,14 +114,15 @@ function BookContent() {
         
         // Получаем имя файла из заголовка Content-Disposition
         const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `${book.id}.${book.file_format || 'zip'}`;
+        let filename = parseContentDisposition(contentDisposition);
         
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-          if (filenameMatch && filenameMatch[1]) {
-            filename = decodeURIComponent(filenameMatch[1].replace(/['"]/g, ''));
-          }
+        // Если не удалось извлечь из заголовка, используем fallback
+        if (!filename) {
+          filename = `${book.id}.${book.file_format || 'zip'}`;
+          console.warn('Could not parse filename from Content-Disposition, using fallback:', filename);
         }
+        
+        console.log('Downloading file with filename:', filename);
         
         // Скачиваем файл с правильным именем
         const blob = await response.blob();
