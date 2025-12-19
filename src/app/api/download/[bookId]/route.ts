@@ -103,14 +103,20 @@ export async function GET(
 
     // Отправляем содержимое файла клиенту
     // Используем RFC 5987 для правильной поддержки кириллицы в именах файлов
+    // Экранируем имя файла для использования в заголовке
+    const safeFilename = filename.replace(/"/g, '\\"');
     const encodedFilename = encodeURIComponent(filename);
     const utf8Filename = `UTF-8''${encodedFilename}`;
+    // Используем оба формата: filename для совместимости (в кавычках), filename* для UTF-8
+    const contentDisposition = `attachment; filename="${safeFilename}"; filename*=${utf8Filename}`;
+    
+    console.log(`[Download API] Book ID: ${bookId}, Generated filename: "${filename}"`);
+    console.log(`[Download API] Content-Disposition: ${contentDisposition}`);
     
     return new NextResponse(fileContent, {
       headers: {
         'Content-Type': 'application/octet-stream',
-        // Используем оба формата: filename для совместимости, filename* для UTF-8
-        'Content-Disposition': `attachment; filename="${filename}"; filename*=${utf8Filename}`,
+        'Content-Disposition': contentDisposition,
       },
     })
   } catch (error) {
