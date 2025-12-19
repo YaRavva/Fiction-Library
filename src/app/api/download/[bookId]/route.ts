@@ -4,14 +4,20 @@ import { slugifyTitleCase, slugifySentenceCase } from '@/lib/slugify'
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ bookId: string }> | { bookId: string } }
+  { params }: { params: { bookId: string } | Promise<{ bookId: string }> }
 ) {
-  // В Next.js 15+ params может быть промисом
-  const resolvedParams = await Promise.resolve(params);
-  const bookId = resolvedParams.bookId;
   const supabase = serverSupabase
 
   try {
+    // В Next.js 15+ params может быть промисом, обрабатываем оба случая
+    let bookId: string;
+    if (params instanceof Promise) {
+      const resolvedParams = await params;
+      bookId = resolvedParams.bookId;
+    } else {
+      bookId = params.bookId;
+    }
+    
     console.log(`[Download API] Request for book ID: ${bookId}`);
     // Получаем информацию о книге
     interface BookInfo {
