@@ -6,7 +6,24 @@ export async function GET(
   request: Request,
   { params }: { params: { bookId: string } }
 ) {
-  const bookId = params.bookId;
+  let bookId: string;
+  try {
+    bookId = params?.bookId;
+    if (!bookId) {
+      console.error(`[Download API] bookId is missing in params:`, params);
+      return NextResponse.json(
+        { error: 'Book ID is required' },
+        { status: 400 }
+      );
+    }
+  } catch (paramsError) {
+    console.error(`[Download API] Error accessing params:`, paramsError);
+    return NextResponse.json(
+      { error: 'Invalid request parameters' },
+      { status: 400 }
+    );
+  }
+  
   const supabase = serverSupabase
 
   try {
@@ -93,8 +110,17 @@ export async function GET(
         // Для автора: все слова с заглавной (Title Case)
         // Для названия: только первое слово с заглавной (Sentence Case)
         console.log(`[Download API] Applying slugify functions...`);
-        const sanitizedTitle = slugifySentenceCase(bookData.title);
-        const sanitizedAuthor = slugifyTitleCase(bookData.author);
+        let sanitizedTitle: string;
+        let sanitizedAuthor: string;
+        
+        try {
+          sanitizedTitle = slugifySentenceCase(bookData.title);
+          sanitizedAuthor = slugifyTitleCase(bookData.author);
+        } catch (slugifyErr) {
+          console.error(`[Download API] Error in slugify functions:`, slugifyErr);
+          throw slugifyErr;
+        }
+        
         const fileExtension = bookData.file_format && bookData.file_format !== '' ?
           bookData.file_format : 'zip';
         filename = `${sanitizedAuthor}-${sanitizedTitle}.${fileExtension}`;
@@ -122,7 +148,7 @@ export async function GET(
         filename = `${bookId}.${fileExtension}`;
       }
     } catch (slugifyError) {
-      console.error(`[Download API] Error in slugify:`, slugifyError);
+      console.error(`[Download API] Error in filename generation:`, slugifyError);
       const fileExtension = bookData.file_format && bookData.file_format !== '' ?
         bookData.file_format : 'zip';
       filename = `${bookId}.${fileExtension}`;
