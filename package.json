@@ -6,7 +6,10 @@
     "dev": "cross-env NODE_NO_WARNINGS=1 next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "memory-bank:update": "tsx scripts/update-memory-bank.ts",
+    "memory-bank:check": "tsx scripts/update-memory-bank.ts --check-only",
+    "memory-bank:setup-hooks": "tsx scripts/setup-git-hooks.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.908.0",

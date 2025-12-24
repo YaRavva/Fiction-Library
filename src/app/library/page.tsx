@@ -41,6 +41,8 @@ import { BooksTable } from '@/components/books/books-table'
 import { BookCardLarge } from '@/components/books/book-card-large'
 import { Book as SupabaseBook } from '@/lib/supabase'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { AdvancedSearch } from '@/components/books/advanced-search'
+import { AdvancedSearchService, AdvancedSearchFilters } from '@/lib/services/advancedSearchService'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +78,8 @@ function LibraryContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalBooks, setTotalBooks] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>('large-cards')
+  const [advancedSearchService] = useState(() => new AdvancedSearchService(supabase))
+  const [isAdvancedSearch, setIsAdvancedSearch] = useState(false)
   
   // Инициализируем viewMode из URL параметра view
   useEffect(() => {
@@ -394,6 +398,34 @@ function LibraryContent() {
     searchBooks(searchQuery, 1)
   }
 
+  const handleAdvancedSearch = useCallback(async (filters: AdvancedSearchFilters) => {
+    setLoading(true)
+    setIsAdvancedSearch(true)
+    setCurrentPage(1)
+    
+    try {
+      const result = await advancedSearchService.searchBooks(filters, 1, booksPerPage === 0 ? 0 : booksPerPage)
+      
+      if (result.error) {
+        console.error('Advanced search error:', result.error)
+      } else {
+        setBooks(result.data)
+        setTotalBooks(result.count)
+      }
+    } catch (error) {
+      console.error('Advanced search failed:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [advancedSearchService, booksPerPage])
+
+  const handleAdvancedSearchReset = useCallback(() => {
+    setIsAdvancedSearch(false)
+    setSearchQuery('')
+    setCurrentPage(1)
+    loadBooks(1)
+  }, [loadBooks])
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
@@ -581,6 +613,15 @@ function LibraryContent() {
       </header>
 
       <main className="container py-6">
+        {/* Advanced Search */}
+        <div className="mb-6">
+          <AdvancedSearch
+            onSearch={handleAdvancedSearch}
+            onReset={handleAdvancedSearchReset}
+            isLoading={loading}
+          />
+        </div>
+
         {/* Controls */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
           <div className="flex items-center gap-2">
