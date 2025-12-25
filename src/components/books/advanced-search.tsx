@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Типы согласно systemPatterns.md
-interface AdvancedSearchFilters {
+export interface AdvancedSearchFilters {
   query: string
   author: string
   series: string
@@ -33,17 +33,13 @@ interface AdvancedSearchProps {
   className?: string
 }
 
-// Компонент следует паттернам из systemPatterns.md:
-// - PascalCase для компонента
-// - Четкое разделение props и state
-// - Использование shadcn/ui компонентов из techContext.md
+// Компонент следует паттернам из systemPatterns.md
 export function AdvancedSearch({ 
   onSearch, 
   onReset, 
   isLoading = false, 
   className = '' 
 }: AdvancedSearchProps) {
-  // State management согласно React паттернам
   const [isOpen, setIsOpen] = useState(false)
   const [filters, setFilters] = useState<AdvancedSearchFilters>({
     query: '',
@@ -60,7 +56,6 @@ export function AdvancedSearch({
     sortOrder: 'desc'
   })
 
-  // Обработчики событий согласно React паттернам
   const handleFilterChange = useCallback((key: keyof AdvancedSearchFilters, value: any) => {
     setFilters(prev => ({
       ...prev,
