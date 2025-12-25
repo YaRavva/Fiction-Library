@@ -41,8 +41,8 @@ import { BooksTable } from '@/components/books/books-table'
 import { BookCardLarge } from '@/components/books/book-card-large'
 import { Book as SupabaseBook } from '@/lib/supabase'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { AdvancedSearch } from '@/components/books/advanced-search'
-import { AdvancedSearchService, AdvancedSearchFilters } from '@/lib/services/advancedSearchService'
+import { AdvancedSearch, AdvancedSearchFilters } from '@/components/books/advanced-search'
+import { AdvancedSearchService } from '@/lib/services/advancedSearchService'
 
 export const dynamic = 'force-dynamic'
 

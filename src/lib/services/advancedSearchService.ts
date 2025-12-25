@@ -97,9 +97,10 @@ export class AdvancedSearchService {
       query = query.ilike('author', `%${filters.author}%`)
     }
 
-    // Фильтр по серии
+    // Фильтр по серии - ищем через связанную таблицу series
     if (filters.series.trim()) {
-      query = query.ilike('series_title', `%${filters.series}%`)
+      // Поиск по названию серии через JOIN
+      query = query.or(`series.title.ilike.%${filters.series}%`)
     }
 
     // Фильтр по жанру
@@ -134,11 +135,12 @@ export class AdvancedSearchService {
 
     // Фильтр по тегам
     if (filters.tags.length > 0) {
-      // Используем OR для поиска по тегам и жанрам
+      // Создаем условия для каждого тега
       const tagConditions = filters.tags.map(tag => 
         `tags.cs.{${tag}},genres.cs.{${tag}}`
-      ).join(',')
-      query = query.or(tagConditions)
+      )
+      // Объединяем все условия через OR
+      query = query.or(tagConditions.join(','))
     }
 
     return query
