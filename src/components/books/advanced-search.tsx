@@ -211,16 +211,16 @@ export function AdvancedSearch({
                         От
                       </Label>
                       <Select
-                        value={filters.minRating?.toString() || ''}
+                        value={filters.minRating?.toString() || 'any'}
                         onValueChange={(value) => 
-                          handleFilterChange('minRating', value ? parseInt(value) : null)
+                          handleFilterChange('minRating', value === 'any' ? null : parseInt(value))
                         }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Мин" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Любой</SelectItem>
+                          <SelectItem value="any">Любой</SelectItem>
                           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
                             <SelectItem key={rating} value={rating.toString()}>
                               {rating}
@@ -234,16 +234,16 @@ export function AdvancedSearch({
                         До
                       </Label>
                       <Select
-                        value={filters.maxRating?.toString() || ''}
+                        value={filters.maxRating?.toString() || 'any'}
                         onValueChange={(value) => 
-                          handleFilterChange('maxRating', value ? parseInt(value) : null)
+                          handleFilterChange('maxRating', value === 'any' ? null : parseInt(value))
                         }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Макс" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Любой</SelectItem>
+                          <SelectItem value="any">Любой</SelectItem>
                           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rating => (
                             <SelectItem key={rating} value={rating.toString()}>
                               {rating}
@@ -304,16 +304,16 @@ export function AdvancedSearch({
                     Наличие файла
                   </Label>
                   <Select
-                    value={filters.hasFile === null ? '' : filters.hasFile.toString()}
+                    value={filters.hasFile === null ? 'any' : filters.hasFile.toString()}
                     onValueChange={(value) => 
-                      handleFilterChange('hasFile', value === '' ? null : value === 'true')
+                      handleFilterChange('hasFile', value === 'any' ? null : value === 'true')
                     }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Любые книги" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Любые книги</SelectItem>
+                      <SelectItem value="any">Любые книги</SelectItem>
                       <SelectItem value="true">Только с файлами</SelectItem>
                       <SelectItem value="false">Только без файлов</SelectItem>
                     </SelectContent>
