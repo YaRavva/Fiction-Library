@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
-import { Figtree } from "next/font/google";
+import { Comfortaa } from "next/font/google";
 
-const figtree = Figtree({
-  subsets: ["latin"],
-  variable: "--font-figtree",
+const comfortaa = Comfortaa({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-comfortaa",
   display: "swap",
 });
 
@@ -20,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" suppressHydrationWarning className={figtree.variable}>
-      <body className={figtree.className}>
+    <html lang="ru" suppressHydrationWarning className={comfortaa.variable}>
+      <body className={comfortaa.className}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

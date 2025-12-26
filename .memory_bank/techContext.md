@@ -40,7 +40,7 @@
 - **Base Color**: stone (теплый серый)
 - **Theme**: amber (accent цвет - золотисто-оранжевый)
 - **Icon Library**: phosphor (для новых компонентов через CLI)
-- **Font**: Figtree (Google Fonts через Next.js font optimization)
+- **Font**: Comfortaa (Google Fonts через Next.js font optimization, поддержка латиницы и кириллицы)
 - **Radius**: default (0.5rem)
 - **CSS Variables**: OKLCH цветовое пространство
 
@@ -467,9 +467,10 @@ const nextConfig = {
 - **Стиль**: nova (shadcn/ui)
 - **Base Color**: stone (теплый серый)
 - **Accent Theme**: amber (золотисто-оранжевый)
-- **Шрифт**: Figtree (Google Fonts)
+- **Шрифт**: Comfortaa (Google Fonts, поддержка латиницы и кириллицы)
 - **Темы**: Поддержка светлой и темной тем
 - **Кастомные цвета**: Определены в CSS переменных (OKLCH цветовое пространство)
+- **Primary Foreground**: белый цвет для кнопок в светлой теме
 
 ## Мониторинг и логирование
 
