@@ -35,6 +35,15 @@
 }
 ```
 
+**shadcn/ui конфигурация** (`components.json`):
+- **Style**: nova (более мягкие углы и тени)
+- **Base Color**: stone (теплый серый)
+- **Theme**: amber (accent цвет - золотисто-оранжевый)
+- **Icon Library**: phosphor (для новых компонентов через CLI)
+- **Font**: Figtree (Google Fonts через Next.js font optimization)
+- **Radius**: default (0.5rem)
+- **CSS Variables**: OKLCH цветовое пространство
+
 ### UI Компоненты (Radix UI + shadcn/ui)
 ```json
 {
@@ -89,6 +98,8 @@
   "lucide-react": "^0.544.0"
 }
 ```
+
+**Примечание**: В проекте используются иконки из `lucide-react`. Параметр `iconLibrary: phosphor` в `components.json` влияет только на новые компоненты, добавляемые через CLI `shadcn`.
 
 ## Конфигурация баз данных
 
@@ -453,9 +464,12 @@ const nextConfig = {
 ```
 
 ### Tailwind конфигурация
-- **Стиль**: new-york (shadcn/ui)
+- **Стиль**: nova (shadcn/ui)
+- **Base Color**: stone (теплый серый)
+- **Accent Theme**: amber (золотисто-оранжевый)
+- **Шрифт**: Figtree (Google Fonts)
 - **Темы**: Поддержка светлой и темной тем
-- **Кастомные цвета**: Определены в CSS переменных
+- **Кастомные цвета**: Определены в CSS переменных (OKLCH цветовое пространство)
 
 ## Мониторинг и логирование
 
