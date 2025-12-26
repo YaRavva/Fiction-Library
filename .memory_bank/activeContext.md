@@ -34,13 +34,15 @@
 ### Фаза 6: Обновление темы shadcn/ui (Завершена ✅)
 - [x] Обновить `components.json`: style=nova, baseColor=stone, iconLibrary=phosphor
 - [x] Обновить `globals.css` с цветами темы Nova (stone base + amber accent)
-- [x] Добавить шрифт Figtree в `layout.tsx`
+- [x] Добавить шрифт Comfortaa в `layout.tsx` (заменен на Comfortaa из Google Fonts)
 - [x] Обновить документацию в Memory Bank
+- [x] Исправить цвет текста кнопки Default на белый в светлой теме
 
 **Результаты**:
 - ✅ Тема изменена с new-york/neutral на nova/stone/amber
-- ✅ Добавлен шрифт Figtree для всего проекта
+- ✅ Шрифт заменен на Comfortaa (поддержка латиницы и кириллицы)
 - ✅ Обновлены CSS переменные в OKLCH формате
+- ✅ Цвет текста кнопки Default в светлой теме изменен на белый
 - ✅ Документация синхронизирована с изменениями
 
 ### Фаза 5: Исправление ошибок UI (Завершена ✅)
