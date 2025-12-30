@@ -14,9 +14,10 @@ import { Separator } from '@/components/ui/separator';
 
 import { TelegramStatsSection } from '@/components/admin/telegram-stats';
 import { FileSearchManager } from '@/components/admin/file-search-manager';
-import { SyncSettings } from '@/components/admin/sync-settings';
+import { SyncSettingsShadix } from '@/components/admin/sync-settings-shadix';
 import { getValidSession } from '@/lib/auth-helpers';
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { PageTransition } from '@/components/ui/page-transition'
 import { Checkbox } from '@/components/ui/checkbox'
 
 interface UserProfile {
@@ -379,7 +380,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <PageTransition>
+      <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-12 items-center justify-between">
@@ -454,7 +456,7 @@ export default function AdminPage() {
 
         {/* Синхронизация */}
         <div className="mb-6">
-          <SyncSettings
+          <SyncSettingsShadix
             bookWormRunning={bookWormRunning}
             bookWormMode={bookWormMode}
             bookWormInterval={bookWormInterval}
@@ -494,6 +496,7 @@ export default function AdminPage() {
           </Button>
         </div>
       </div>
-    </div>
+      </div>
+    </PageTransition>
   )
 }

@@ -36,12 +36,13 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import { ViewModeToggle } from '@/components/books/view-mode-toggle'
-import { BookCardSmall } from '@/components/books/book-card-small'
+import { BookCardSmallShadix } from '@/components/books/book-card-small-shadix'
 import { BooksTable } from '@/components/books/books-table'
-import { BookCardLarge } from '@/components/books/book-card-large'
+import { BookCardLargeShadix } from '@/components/books/book-card-large-shadix'
 import { Book as SupabaseBook } from '@/lib/supabase'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { AdvancedSearch, AdvancedSearchFilters } from '@/components/books/advanced-search'
+import { PageTransition, ContentTransition, ListTransition } from '@/components/ui/page-transition'
 import { AdvancedSearchService } from '@/lib/services/advancedSearchService'
 
 export const dynamic = 'force-dynamic'
@@ -547,7 +548,8 @@ function LibraryContent() {
   const totalPages = booksPerPage === 0 ? 1 : Math.ceil(totalBooks / booksPerPage)
 
   return (
-    <div className="min-h-screen bg-background">
+    <PageTransition>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b">
         <div className="container flex h-16 items-center justify-between px-4">
@@ -702,43 +704,45 @@ function LibraryContent() {
           </div>
         ) : (
           <>
-            {viewMode === 'table' ? (
-              <BooksTable 
-                books={books} 
-                onBookClick={handleBookClick}
-                onDownload={handleDownload}
-                onReadClick={handleRead}
-                onTagClick={handleTagClick}
-              />
-            ) : viewMode === 'small-cards' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {books.map((book) => (
-                  <BookCardSmall
-                    key={book.id}
-                    book={book}
-                    onClick={() => router.push(`/library/book?id=${book.id}`)}
-                    onRead={handleRead}
-                    onDownload={handleDownload}
-                    onTagClick={handleTagClick}
-                    onSelect={undefined}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6">
-                {books.map((book) => (
-                  <BookCardLarge
-                    key={book.id}
-                    book={book}
-                    onDownload={handleDownload}
-                    onRead={handleRead}
-                    onTagClick={handleTagClick}
-                    userProfile={userProfile}
-                    onFileClear={handleClearFile}
-                  />
-                ))}
-              </div>
-            )}
+            <ContentTransition loading={loading}>
+              {viewMode === 'table' ? (
+                <BooksTable 
+                  books={books} 
+                  onBookClick={handleBookClick}
+                  onDownload={handleDownload}
+                  onReadClick={handleRead}
+                  onTagClick={handleTagClick}
+                />
+              ) : viewMode === 'small-cards' ? (
+                <ListTransition className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {books.map((book) => (
+                    <BookCardSmallShadix
+                      key={book.id}
+                      book={book}
+                      onClick={() => router.push(`/library/book?id=${book.id}`)}
+                      onRead={handleRead}
+                      onDownload={handleDownload}
+                      onTagClick={handleTagClick}
+                      onSelect={undefined}
+                    />
+                  ))}
+                </ListTransition>
+              ) : (
+                <ListTransition className="grid grid-cols-1 gap-6">
+                  {books.map((book) => (
+                    <BookCardLargeShadix
+                      key={book.id}
+                      book={book}
+                      onDownload={handleDownload}
+                      onRead={handleRead}
+                      onTagClick={handleTagClick}
+                      userProfile={userProfile}
+                      onFileClear={handleClearFile}
+                    />
+                  ))}
+                </ListTransition>
+              )}
+            </ContentTransition>
 
             {/* Pagination */}
             {booksPerPage > 0 && totalPages > 1 && (
@@ -807,7 +811,8 @@ function LibraryContent() {
           </>
         )}
       </main>
-    </div>
+      </div>
+    </PageTransition>
   )
 }
 
