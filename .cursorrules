@@ -63,7 +63,8 @@
 
 ### Технологический Стек (СТРОГО)
 - **Frontend**: Next.js 15.5.9 + React 19 + TypeScript
-- **UI**: shadcn/ui + Tailwind CSS 4.0
+- **UI**: shadcn/ui (nova style, stone base, amber accent) + Tailwind CSS 4.0
+- **Font**: Comfortaa (Google Fonts, поддержка латиницы и кириллицы)
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Cloud.ru S3
 - **Integration**: Telegram API (GramJS)
