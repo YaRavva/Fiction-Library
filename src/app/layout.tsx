@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
+import { ToasterProvider } from "@/components/providers/toaster-provider";
 
 export const metadata: Metadata = {
   title: "Fiction Library - Электронная библиотека",
@@ -14,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -22,6 +23,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <ToasterProvider />
         </ThemeProvider>
       </body>
     </html>
