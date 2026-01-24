@@ -1,347 +1,427 @@
-import { Book } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import Image from 'next/image'
-import { BookOpen, Download, X } from 'lucide-react'
+import { BookOpen, Download, Heart, X } from "lucide-react";
+import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { getBrowserSupabase } from '@/lib/browserSupabase'
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getBrowserSupabase } from "@/lib/browserSupabase";
+import type { Book } from "@/lib/supabase";
 
 interface BookCardLargeProps {
-  book: Book & {
-    series?: {
-      id: string
-      title: string
-      author: string
-      series_composition?: { title: string; year: number }[]
-      cover_urls?: string[]
-    }
-  }
-  onDownload: (book: Book) => void
-  onRead: (book: Book) => void
-  onTagClick?: (tag: string) => void
-  userProfile?: {
-    id: string
-    role: string
-  } | null
-  onFileClear?: (bookId: string) => void
+	book: Book & {
+		series?: {
+			id: string;
+			title: string;
+			author: string;
+			series_composition?: { title: string; year: number }[];
+			cover_urls?: string[];
+		};
+	};
+	onDownload: (book: Book) => void;
+	onRead: (book: Book) => void;
+	onTagClick?: (tag: string) => void;
+	userProfile?: {
+		id: string;
+		role: string;
+	} | null;
+	onFileClear?: (bookId: string) => void;
+	onAuthorClick?: (author: string) => void;
+	isLiked?: boolean;
+	onLikeToggle?: () => void;
 }
 
-export function BookCardLarge({ book, onDownload, onRead, onTagClick, userProfile, onFileClear }: BookCardLargeProps) {
-  const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null
-  const seriesComposition = book.series?.series_composition
-  const seriesCoverUrls = book.series?.cover_urls
+export function BookCardLarge({
+	book,
+	onDownload,
+	onRead,
+	onTagClick,
+	userProfile,
+	onFileClear,
+	onAuthorClick,
+	isLiked,
+	onLikeToggle,
+}: BookCardLargeProps) {
+	const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null;
+	const seriesComposition = book.series?.series_composition;
+	const seriesCoverUrls = book.series?.cover_urls;
 
-  const handleClearFile = async () => {
-    if (onFileClear) {
-      // Используем переданную функцию для очистки файла
-      onFileClear(book.id);
-    } else {
-      // Если не передана функция onFileClear, реализуем логику здесь
-      try {
-        const supabase = getBrowserSupabase();
-        
-        // Очищаем привязку файла к книге
-        const { error } = await supabase
-          .from('books')
-          .update({
-            file_url: null,
-            file_size: null,
-            file_format: null,
-            telegram_file_id: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', book.id);
+	const handleClearFile = async () => {
+		if (onFileClear) {
+			// Используем переданную функцию для очистки файла
+			onFileClear(book.id);
+		} else {
+			// Если не передана функция onFileClear, реализуем логику здесь
+			try {
+				const supabase = getBrowserSupabase();
 
-        if (error) {
-          console.error('❌ Ошибка при очистке файла:', error);
-          alert('Ошибка при очистке файла');
-        } else {
-          alert('Файл успешно очищен!');
-          // Вместо перезагрузки страницы, обновляем состояние через callback
-          // Если нет callback, то перезагружаем страницу
-          if (!onFileClear) {
-            window.location.reload();
-          }
-        }
-      } catch (error) {
-        console.error('❌ Ошибка:', error);
-        alert('Произошла ошибка при очистке файла');
-      }
-    }
-  };
+				// Очищаем привязку файла к книге
+				const { error } = await supabase
+					.from("books")
+					.update({
+						file_url: null,
+						file_size: null,
+						file_format: null,
+						telegram_file_id: null,
+						updated_at: new Date().toISOString(),
+					})
+					.eq("id", book.id);
 
-  return (
-    // Replaced shadcn/ui Card with custom div for full layout control
-    <div 
-      key={book.id} 
-      className="w-full max-w-3xl mx-auto border rounded-lg bg-card text-card-foreground overflow-hidden"
-    >
-      <div className="p-3"> {/* Using same padding as small cards */}
-        {/* Header with author, title and action buttons */}
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm">
-              <span className="font-semibold">Автор:</span> {book.author}
-            </div>
-            <div className="text-sm">
-              <span className="font-semibold">Название:</span> {book.title}
-            </div>
-          </div>
-          
-          {/* Action buttons in top right corner */}
-          <div className="flex gap-1 ml-2">
-            {(userProfile?.role === 'admin' || process.env.NODE_ENV === 'development') && book.file_url && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="icon" 
-                      variant="outline" 
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      disabled={!book.file_url}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Вы уверены, что хотите очистить файл для книги "${book.title}"?`)) {
-                          handleClearFile();
-                        }
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Удалить файл книги</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="icon" 
-                    variant="outline" 
-                    className="h-8 w-8 p-0"
-                    disabled={!book.file_url}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRead(book);
-                    }}
-                  >
-                    <BookOpen className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Читать</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="icon" 
-                    variant="outline" 
-                    className="h-8 w-8 p-0"
-                    disabled={!book.file_url}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDownload(book);
-                    }}
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Скачать</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
+				if (error) {
+					console.error("❌ Ошибка при очистке файла:", error);
+					alert("Ошибка при очистке файла");
+				} else {
+					alert("Файл успешно очищен!");
+					// Вместо перезагрузки страницы, обновляем состояние через callback
+					// Если нет callback, то перезагружаем страницу
+					if (!onFileClear) {
+						window.location.reload();
+					}
+				}
+			} catch (error) {
+				console.error("❌ Ошибка:", error);
+				alert("Произошла ошибка при очистке файла");
+			}
+		}
+	};
 
-        <div className="space-y-3">
-          {/* Жанр */}
-          {book.genres && book.genres.length > 0 && (
-            <div className="text-sm">
-              <span className="font-semibold">Жанр:</span>{' '}
-              <span className="inline-flex flex-wrap gap-1">
-                {book.genres.map((genre, idx) => (
-                  <Badge
-                    key={`${book.id}-genre-${idx}`}
-                    variant="secondary"
-                    className="text-xs cursor-pointer hover:bg-secondary/80"
-                    onClick={() => onTagClick && onTagClick(genre)}
-                  >
-                    #{genre}
-                  </Badge>
-                ))}
-              </span>
-            </div>
-          )}
+	return (
+		// Replaced shadcn/ui Card with custom div for full layout control
+		<div
+			key={book.id}
+			className="w-full mx-auto border rounded-lg bg-card text-card-foreground overflow-hidden"
+		>
+			<div className="p-3">
+				{" "}
+				{/* Using same padding as small cards */}
+				{/* Header with author, title and action buttons */}
+				<div className="flex justify-between items-start mb-3">
+					<div className="flex-1 min-w-0">
+						<div className="text-sm">
+							<span className="font-semibold">Автор:</span>{" "}
+							<span
+								className={
+									onAuthorClick
+										? "cursor-pointer hover:text-primary hover:underline transition-all"
+										: ""
+								}
+								onClick={(e) => {
+									if (onAuthorClick) {
+										e.stopPropagation();
+										onAuthorClick(book.author);
+									}
+								}}
+							>
+								{book.author}
+							</span>
+						</div>
+						<div className="text-sm">
+							<span className="font-semibold">Название:</span> {book.title}
+						</div>
+					</div>
 
-          {/* Рейтинг */}
-          {book.rating && book.rating > 0 && (
-            <div className="text-sm">
-              <span className="font-semibold">Рейтинг:</span> {book.rating.toFixed(2)}{' '}
-              {ratingTag && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs cursor-pointer hover:bg-secondary/80"
-                  onClick={() => onTagClick && onTagClick(ratingTag.substring(1))} // Remove # prefix
-                >
-                  {ratingTag}
-                </Badge>
-              )}
-            </div>
-          )}
+					{/* Action buttons in top right corner */}
+					<div className="flex gap-1 ml-2">
+						{onLikeToggle && (
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											size="icon"
+											variant="outline"
+											className={`h-8 w-8 p-0 ${isLiked ? "text-red-500 hover:text-red-600 border-red-200 bg-red-50" : "text-muted-foreground hover:text-red-500"}`}
+											onClick={(e) => {
+												e.stopPropagation();
+												onLikeToggle();
+											}}
+										>
+											<Heart
+												className={`h-4 w-4 ${isLiked ? "fill-current" : ""}`}
+											/>
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p>
+											{isLiked
+												? "Убрать из избранного"
+												: "Добавить в избранное"}
+										</p>
+									</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
+						)}
 
-          {/* Описание */}
-          {book.description && (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">
-              {book.description}
-            </p>
-          )}
+						{(userProfile?.role === "admin" ||
+							process.env.NODE_ENV === "development") &&
+							book.file_url && (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												size="icon"
+												variant="outline"
+												className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+												disabled={!book.file_url}
+												onClick={(e) => {
+													e.stopPropagation();
+													if (
+														confirm(
+															`Вы уверены, что хотите очистить файл для книги "${book.title}"?`,
+														)
+													) {
+														handleClearFile();
+													}
+												}}
+											>
+												<X className="h-4 w-4" />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Удалить файл книги</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							)}
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="icon"
+										variant="outline"
+										className="h-8 w-8 p-0"
+										disabled={!book.file_url}
+										onClick={(e) => {
+											e.stopPropagation();
+											onRead(book);
+										}}
+									>
+										<BookOpen className="h-4 w-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Читать</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="icon"
+										variant="outline"
+										className="h-8 w-8 p-0"
+										disabled={!book.file_url}
+										onClick={(e) => {
+											e.stopPropagation();
+											onDownload(book);
+										}}
+									>
+										<Download className="h-4 w-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Скачать</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</div>
+				</div>
+				<div className="space-y-3">
+					{/* Жанр */}
+					{book.genres && book.genres.length > 0 && (
+						<div className="text-sm">
+							<span className="font-semibold">Жанр:</span>{" "}
+							<span className="inline-flex flex-wrap gap-1">
+								{book.genres.map((genre, idx) => (
+									<Badge
+										key={`${book.id}-genre-${idx}`}
+										variant="secondary"
+										className="text-xs cursor-pointer hover:bg-secondary/80"
+										onClick={() => onTagClick?.(genre)}
+									>
+										#{genre}
+									</Badge>
+								))}
+							</span>
+						</div>
+					)}
 
-          {/* Состав серии */}
-          {seriesComposition && seriesComposition.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold">Состав:</div>
-              <ol className="text-sm space-y-1 list-decimal list-inside">
-                {seriesComposition.map((item, idx) => (
-                  <li key={`${book.id}-series-${idx}`}>
-                    {item.title} ({item.year})
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
+					{/* Рейтинг */}
+					{book.rating && book.rating > 0 && (
+						<div className="text-sm">
+							<span className="font-semibold">Рейтинг:</span>{" "}
+							{book.rating.toFixed(2)}{" "}
+							{ratingTag && (
+								<Badge
+									variant="secondary"
+									className="text-xs cursor-pointer hover:bg-secondary/80"
+									onClick={() => onTagClick?.(ratingTag.substring(1))} // Remove # prefix
+								>
+									{ratingTag}
+								</Badge>
+							)}
+						</div>
+					)}
 
-          {/* Обложки - only at the bottom of the card */}
-          {(book.cover_url || (seriesCoverUrls && seriesCoverUrls.length > 0)) && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-1 gap-2">
-                {/* Если есть обложки серии, показываем их */}
-                {seriesCoverUrls && seriesCoverUrls.length > 0 ? (
-                  seriesCoverUrls.map((coverUrl, idx) => {
-                    // Определяем, является ли обложка широкой (тройной) по соотношению сторон
-                    const isWideCover = () => {
-                      // Проверяем по URL (старый способ)
-                      if (coverUrl.includes('cc917838ccbb10846543e') || // цикл Луна
-                          coverUrl.includes('3109e8fdf303b46ee64f1')) { // цикл Одаренные
-                        return true;
-                      }
+					{/* Описание */}
+					{book.description && (
+						<p className="text-sm leading-relaxed whitespace-pre-wrap">
+							{book.description}
+						</p>
+					)}
 
-                      // TODO: В будущем можно добавить динамическую проверку размеров изображения
-                      // Пока что для тестирования считаем широкими обложки с определенными характеристиками
-                      return false;
-                    };
+					{/* Состав серии */}
+					{seriesComposition && seriesComposition.length > 0 && (
+						<div className="space-y-2">
+							<div className="text-sm font-semibold">Состав:</div>
+							<ol className="text-sm space-y-1 list-decimal list-inside">
+								{seriesComposition.map((item, idx) => (
+									<li key={`${book.id}-series-${idx}`}>
+										{item.title} ({item.year})
+									</li>
+								))}
+							</ol>
+						</div>
+					)}
 
-                    const wideCover = isWideCover();
+					{/* Обложки - only at the bottom of the card */}
+					{(book.cover_url ||
+						(seriesCoverUrls && seriesCoverUrls.length > 0)) && (
+						<div className="space-y-2">
+							<div className="grid grid-cols-1 gap-2">
+								{/* Если есть обложки серии, показываем их */}
+								{seriesCoverUrls && seriesCoverUrls.length > 0
+									? seriesCoverUrls.map((coverUrl, idx) => {
+											// Определяем, является ли обложка широкой (тройной) по соотношению сторон
+											const isWideCover = () => {
+												// Проверяем по URL (старый способ)
+												if (
+													coverUrl.includes("cc917838ccbb10846543e") || // цикл Луна
+													coverUrl.includes("3109e8fdf303b46ee64f1")
+												) {
+													// цикл Одаренные
+													return true;
+												}
 
-                    return (
-                      <div key={`${book.id}-cover-${idx}`} className="relative w-full overflow-hidden rounded border bg-muted">
-                        {wideCover ? (
-                          // Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
-                          // Используем object-cover для обрезки по краям
-                          <div className="relative w-full" style={{ aspectRatio: '2/3' }}>
-                            <Image
-                              src={coverUrl}
-                              alt={`Обложка ${idx + 1}`}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                              sizes="(max-width: 640px) 100vw, 384px"
-                            />
-                          </div>
-                        ) : (
-                          // Для одинарных обложек используем фиксированную высоту 480px с блюром по бокам
-                          <div className="relative w-full h-[480px]">
-                            {/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
-                            <div className="absolute inset-0">
-                              <Image
-                                src={coverUrl}
-                                alt={`Обложка ${idx + 1}`}
-                                fill
-                                className="object-cover scale-110 blur-sm opacity-30"
-                                unoptimized
-                                sizes="(max-width: 640px) 100vw, 384px"
-                              />
-                            </div>
-                            {/* Основная обложка по центру */}
-                            <div className="relative w-full h-full flex items-center justify-center">
-                              <div style={{ 
-                                height: '480px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center' 
-                              }}>
-                                <img
-                                  src={coverUrl}
-                                  alt={`Обложка ${idx + 1}`}
-                                  style={{
-                                    maxHeight: '480px',
-                                    maxWidth: '100%',
-                                    objectFit: 'contain'
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  // Если нет обложек серии, но есть обложка книги
-                  book.cover_url && (
-                    <div className="relative w-full overflow-hidden rounded border bg-muted">
-                      {/* Контейнер фиксированной высоты 480px */}
-                      <div className="relative w-full h-[480px]">
-                        {/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
-                        <div className="absolute inset-0">
-                          <Image
-                            src={book.cover_url}
-                            alt={book.title}
-                            fill
-                            className="object-cover scale-110 blur-sm opacity-30"
-                            unoptimized
-                            sizes="(max-width: 640px) 100vw, 384px"
-                          />
-                        </div>
-                        {/* Основная обложка по центру */}
-                        <div className="relative w-full h-full flex items-center justify-center">
-                          <div style={{ 
-                            height: '480px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center' 
-                          }}>
-                            <img
-                              src={book.cover_url}
-                              alt={book.title}
-                              style={{
-                                maxHeight: '480px',
-                                maxWidth: '100%',
-                                objectFit: 'contain'
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+												// TODO: В будущем можно добавить динамическую проверку размеров изображения
+												// Пока что для тестирования считаем широкими обложки с определенными характеристиками
+												return false;
+											};
+
+											const wideCover = isWideCover();
+
+											return (
+												<div
+													key={`${book.id}-cover-${idx}`}
+													className="relative w-full overflow-hidden rounded border bg-muted"
+												>
+													{wideCover ? (
+														// Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
+														// Используем object-cover для обрезки по краям
+														<div
+															className="relative w-full"
+															style={{ aspectRatio: "2/3" }}
+														>
+															<Image
+																src={coverUrl}
+																alt={`Обложка ${idx + 1}`}
+																fill
+																priority
+																className="object-cover"
+																unoptimized
+																sizes="(max-width: 640px) 100vw, 384px"
+															/>
+														</div>
+													) : (
+														// Для одинарных обложек используем фиксированную высоту 480px с блюром по бокам
+														<div className="relative w-full h-[480px]">
+															{/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
+															<div className="absolute inset-0">
+																<Image
+																	src={coverUrl}
+																	alt={`Обложка ${idx + 1}`}
+																	fill
+																	priority
+																	className="object-cover scale-110 blur-sm opacity-30"
+																	unoptimized
+																	sizes="(max-width: 640px) 100vw, 384px"
+																/>
+															</div>
+															{/* Основная обложка по центру */}
+															<div className="relative w-full h-full flex items-center justify-center">
+																<div
+																	style={{
+																		height: "480px",
+																		display: "flex",
+																		alignItems: "center",
+																		justifyContent: "center",
+																	}}
+																>
+																	<img
+																		src={coverUrl}
+																		alt={`Обложка ${idx + 1}`}
+																		style={{
+																			maxHeight: "480px",
+																			maxWidth: "100%",
+																			objectFit: "contain",
+																		}}
+																	/>
+																</div>
+															</div>
+														</div>
+													)}
+												</div>
+											);
+										})
+									: // Если нет обложек серии, но есть обложка книги
+										book.cover_url && (
+											<div className="relative w-full overflow-hidden rounded border bg-muted">
+												{/* Контейнер фиксированной высоты 480px */}
+												<div className="relative w-full h-[480px]">
+													{/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
+													<div className="absolute inset-0">
+														<Image
+															src={book.cover_url}
+															alt={book.title}
+															fill
+															priority
+															className="object-cover scale-110 blur-sm opacity-30"
+															unoptimized
+															sizes="(max-width: 640px) 100vw, 384px"
+														/>
+													</div>
+													{/* Основная обложка по центру */}
+													<div className="relative w-full h-full flex items-center justify-center">
+														<div
+															style={{
+																height: "480px",
+																display: "flex",
+																alignItems: "center",
+																justifyContent: "center",
+															}}
+														>
+															<img
+																src={book.cover_url}
+																alt={book.title}
+																style={{
+																	maxHeight: "480px",
+																	maxWidth: "100%",
+																	objectFit: "contain",
+																}}
+															/>
+														</div>
+													</div>
+												</div>
+											</div>
+										)}
+							</div>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
 }

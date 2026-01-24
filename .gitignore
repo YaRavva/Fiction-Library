@@ -53,3 +53,5 @@ logs
 
 # KiloCode specific files
 .kilocode/
+
+stitch_mcp_config.json

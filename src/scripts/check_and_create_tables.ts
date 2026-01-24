@@ -1,24 +1,27 @@
-import { serverSupabase } from '../lib/serverSupabase';
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
+import { serverSupabase } from "../lib/serverSupabase";
 
 dotenv.config();
 
 async function checkAndCreateTables() {
-  try {
-    console.log('🔍 Checking if telegram_processed_messages table exists...');
-    
-    // Try to query the table to see if it exists
-    const { data, error } = await serverSupabase
-      .from('telegram_processed_messages')
-      .select('count')
-      .limit(1);
-    
-    if (error) {
-      if (error.code === '42P01') { // Undefined table error
-        console.log('❌ Table telegram_processed_messages does not exist. Creating it...');
-        
-        // Create the table
-        const createTableQuery = `
+	try {
+		console.log("🔍 Checking if telegram_processed_messages table exists...");
+
+		// Try to query the table to see if it exists
+		const { data, error } = await serverSupabase
+			.from("telegram_processed_messages")
+			.select("count")
+			.limit(1);
+
+		if (error) {
+			if (error.code === "42P01") {
+				// Undefined table error
+				console.log(
+					"❌ Table telegram_processed_messages does not exist. Creating it...",
+				);
+
+				// Create the table
+				const createTableQuery = `
           CREATE TABLE IF NOT EXISTS telegram_processed_messages (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             message_id TEXT NOT NULL,
@@ -38,19 +41,21 @@ async function checkAndCreateTables() {
           
           CREATE INDEX IF NOT EXISTS idx_books_metadata_processed ON books(metadata_processed);
         `;
-        
-        // We can't execute raw SQL with Supabase client, so we'll need to use the Supabase CLI or dashboard
-        console.log('⚠️ Please run the following SQL in your Supabase SQL editor:');
-        console.log(createTableQuery);
-      } else {
-        console.error('❌ Error checking table:', error);
-      }
-    } else {
-      console.log('✅ Table telegram_processed_messages exists');
-    }
-  } catch (error) {
-    console.error('❌ Error:', error);
-  }
+
+				// We can't execute raw SQL with Supabase client, so we'll need to use the Supabase CLI or dashboard
+				console.log(
+					"⚠️ Please run the following SQL in your Supabase SQL editor:",
+				);
+				console.log(createTableQuery);
+			} else {
+				console.error("❌ Error checking table:", error);
+			}
+		} else {
+			console.log("✅ Table telegram_processed_messages exists");
+		}
+	} catch (error) {
+		console.error("❌ Error:", error);
+	}
 }
 
 checkAndCreateTables();

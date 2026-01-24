@@ -1,14 +1,14 @@
 {
-  "permissions": {
-    "ask": [
-      "Read(!C:\\Users\\Ravva\\Fiction-Library/**)",
-      "Edit(!C:\\Users\\Ravva\\Fiction-Library/**)"
-    ],
-    "allow": [
-      "Read(C:\\Users\\Ravva\\Fiction-Library/**)",
-      "Edit(C:\\Users\\Ravva\\Fiction-Library/**)"
-    ]
-  },
-  "memoryImport": {},
-  "monitoring": {}
+	"permissions": {
+		"ask": [
+			"Read(!C:\\Users\\Ravva\\Fiction-Library/**)",
+			"Edit(!C:\\Users\\Ravva\\Fiction-Library/**)"
+		],
+		"allow": [
+			"Read(C:\\Users\\Ravva\\Fiction-Library/**)",
+			"Edit(C:\\Users\\Ravva\\Fiction-Library/**)"
+		]
+	},
+	"memoryImport": {},
+	"monitoring": {}
 }

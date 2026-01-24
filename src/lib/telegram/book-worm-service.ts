@@ -1,947 +1,791 @@
-import { TelegramMetadataService } from './metadata-service';
-import { TelegramFileService } from './file-service';
-import { serverSupabase } from '../serverSupabase';
-import { TelegramService } from './client';
-import { MetadataParser, BookMetadata, Message } from './parser';
-import { EnhancedFileProcessingService } from './file-processing-service-enhanced';
-import { FileBookMatcherService } from '../file-book-matcher-service';
-import { putObject } from '../s3-service';
+import {
+	checkForBookDuplicates,
+	normalizeBookText,
+} from "../book-deduplication-service";
+import { FileBookMatcherService } from "../file-book-matcher-service";
+import { putObject } from "../s3-service";
+import { serverSupabase } from "../serverSupabase";
+import { TelegramService } from "./client";
+import { EnhancedFileProcessingService } from "./file-processing-service-enhanced";
+import { TelegramFileService } from "./file-service";
+import { TelegramMetadataService } from "./metadata-service";
+import { type BookMetadata, MetadataParser } from "./parser";
 
 interface Book {
-    id: string;
-    title: string;
-    author: string;
-    telegram_post_id: number | null;
-    file_url?: string | null;
-    telegram_file_id?: string | null;
+	id: string;
+	title: string;
+	author: string;
+	telegram_post_id: number | null;
+	file_url?: string | null;
+	telegram_file_id?: string | null;
 }
 
 export class BookWormService {
-    private static instance: BookWormService;
-    private telegramService: TelegramService | null = null;
-    private metadataService: TelegramMetadataService | null = null;
-    private fileService: TelegramFileService | null = null;
-    private enhancedFileService: EnhancedFileProcessingService | null = null;
+	private static instance: BookWormService;
+	private telegramService: TelegramService | null = null;
+	private metadataService: TelegramMetadataService | null = null;
+	private fileService: TelegramFileService | null = null;
+	private enhancedFileService: EnhancedFileProcessingService | null = null;
 
-    private constructor() {}
+	private constructor() {}
 
-    public static async getInstance(): Promise<BookWormService> {
-        if (!BookWormService.instance) {
-            BookWormService.instance = new BookWormService();
-            await BookWormService.instance.initialize();
-        }
-        return BookWormService.instance;
-    }
+	public static async getInstance(): Promise<BookWormService> {
+		if (!BookWormService.instance) {
+			BookWormService.instance = new BookWormService();
+			await BookWormService.instance.initialize();
+		}
+		return BookWormService.instance;
+	}
 
-    private async initialize() {
-        this.telegramService = await TelegramService.getInstance();
-        this.metadataService = await TelegramMetadataService.getInstance();
-        this.fileService = await TelegramFileService.getInstance();
-        this.enhancedFileService = await EnhancedFileProcessingService.getInstance();
-    }
+	private async initialize() {
+		this.telegramService = await TelegramService.getInstance();
+		this.metadataService = await TelegramMetadataService.getInstance();
+		this.fileService = await TelegramFileService.getInstance();
+		this.enhancedFileService =
+			await EnhancedFileProcessingService.getInstance();
+	}
 
-    /**
-     * Запускает процесс BookWorm для обработки новых сообщений
-     */
-    public async startBookWorm(): Promise<void> {
-        console.log('🚀 Запуск BookWorm сервиса...');
-        try {
-            // Загружаем файлы для сопоставления
-            console.log('📥 Загрузка файлов из Telegram...');
-            const allFilesToProcess = await this.fileService!.getFilesToProcess(2000); // Загружаем 2000 файлов
-            console.log(`📊 Загружено ${allFilesToProcess.length} файлов для сопоставления`);
+	/**
+	 * Запускает процесс BookWorm для обработки новых сообщений
+	 */
+	public async startBookWorm(): Promise<void> {
+		console.log("🚀 Запуск BookWorm сервиса...");
+		try {
+			// Загружаем файлы для сопоставления
+			console.log("📥 Загрузка файлов из Telegram...");
+			if (!this.fileService) throw new Error("FileService not initialized");
+			const allFilesToProcess = await this.fileService.getFilesToProcess(2000); // Загружаем 2000 файлов
+			console.log(
+				`📊 Загружено ${allFilesToProcess.length} файлов для сопоставления`,
+			);
 
-            // Получаем все книги, которые уже есть в базе данных
-            console.log('📚 Загрузка книг из базы данных...');
-            const { data: books, error: booksError } = await serverSupabase
-                .from('books')
-                .select('id, title, author, telegram_post_id, file_url, telegram_file_id')
-                .not('title', 'is', null)
-                .not('author', 'is', null);
+			// Получаем все книги, которые уже есть в базе данных
+			console.log("📚 Загрузка книг из базы данных...");
+			const { data: books, error: booksError } = await serverSupabase
+				.from("books")
+				.select(
+					"id, title, author, telegram_post_id, file_url, telegram_file_id",
+				)
+				.not("title", "is", null)
+				.not("author", "is", null);
 
-            if (booksError) {
-                throw new Error(`Ошибка при загрузке книг: ${booksError.message}`);
-            }
+			if (booksError) {
+				throw new Error(`Ошибка при загрузке книг: ${booksError.message}`);
+			}
 
-            if (!books || books.length === 0) {
-                console.log('⚠️  В базе данных нет книг для сопоставления');
-                return;
-            }
+			if (!books || books.length === 0) {
+				console.log("⚠️  В базе данных нет книг для сопоставления");
+				return;
+			}
 
-            console.log(`✅ Загружено ${books.length} книг для сопоставления`);
+			console.log(`✅ Загружено ${books.length} книг для сопоставления`);
 
-            // Для каждой книги ищем соответствующий файл
-            let processedCount = 0;
-            let matchedCount = 0;
+			// Для каждой книги ищем соответствующий файл
+			let processedCount = 0;
+			let matchedCount = 0;
 
-            for (const book of books) {
-                processedCount++;
-                console.log(`
+			for (const book of books) {
+				processedCount++;
+				console.log(`
 📖 Обработка книги: "${book.title}" автора ${book.author} (${processedCount}/${books.length})`);
 
-                // Проверяем, есть ли уже файл для этой книги
-                if (book.file_url || book.telegram_file_id) {
-                    console.log(`  ✅ У книги уже есть файл, пропускаем`);
-                    continue;
-                }
+				// Проверяем, есть ли уже файл для этой книги
+				if (book.file_url || book.telegram_file_id) {
+					console.log(`  ✅ У книги уже есть файл, пропускаем`);
+					continue;
+				}
 
-                // Ищем соответствующий файл для книги
-                const matchingFile = await this.findMatchingFile(book, allFilesToProcess);
-                
-                if (matchingFile) {
-                    console.log(`    📨 Найден соответствующий файл: ${matchingFile.filename}`);
-                    console.log(`    📨 Message ID файла: ${matchingFile.messageId}`);
-                    
-                    try {
-                        // Обрабатываем найденный файл
-                        const result = await this.enhancedFileService!.processSingleFileById(parseInt(matchingFile.messageId as string, 10));
-                        console.log(`    ✅ Файл успешно обработан и привязан к книге`);
-                        matchedCount++;
-                    } catch (processError) {
-                        console.error(`    ❌ Ошибка обработки файла:`, processError);
-                    }
-                } else {
-                    console.log(`  ⚠️  Соответствующий файл не найден`);
-                }
-            }
+				// Ищем соответствующий файл для книги
+				const matchingFile = await this.findMatchingFile(
+					book,
+					allFilesToProcess,
+				);
 
-            console.log(`
+				if (matchingFile) {
+					console.log(
+						`    📨 Найден соответствующий файл: ${matchingFile.filename}`,
+					);
+					console.log(`    📨 Message ID файла: ${matchingFile.messageId}`);
+
+					try {
+						// Обрабатываем найденный файл
+						const _result =
+							await this.enhancedFileService?.processSingleFileById(
+								parseInt(matchingFile.messageId as string, 10),
+							);
+						console.log(`    ✅ Файл успешно обработан и привязан к книге`);
+						matchedCount++;
+					} catch (processError) {
+						console.error(`    ❌ Ошибка обработки файла:`, processError);
+					}
+				} else {
+					console.log(`  ⚠️  Соответствующий файл не найден`);
+				}
+			}
+
+			console.log(`
 🏁 BookWorm завершен. Обработано: ${processedCount}, найдено совпадений: ${matchedCount}`);
-        } catch (error) {
-            console.error('❌ Ошибка в BookWorm сервисе:', error);
-            throw error;
-        }
-    }
+		} catch (error) {
+			console.error("❌ Ошибка в BookWorm сервисе:", error);
+			throw error;
+		}
+	}
 
-    /**
-     * Находит соответствующий файл для книги с использованием универсального алгоритма релевантного поиска
-     */
-    private async findMatchingFile(book: Book, files: any[]): Promise<any | null> {
-        // Проверяем, что у книги есть название и автор
-        if (!book.title || !book.author || book.title.trim() === '' || book.author.trim() === '') {
-            console.log(`    ️  Книга не имеет названия или автора, пропускаем`);
-            return null;
-        }
+	/**
+	 * Находит соответствующий файл для книги с использованием универсального алгоритма релевантного поиска
+	 */
+	private async findMatchingFile(
+		book: Book,
+		files: any[],
+	): Promise<any | null> {
+		// Проверяем, что у книги есть название и автор
+		if (
+			!book.title ||
+			!book.author ||
+			book.title.trim() === "" ||
+			book.author.trim() === ""
+		) {
+			console.log(`    ️  Книга не имеет названия или автора, пропускаем`);
+			return null;
+		}
 
-        console.log(`    🔍 Поиск файла для книги: "${book.title}" автора ${book.author}`);
+		console.log(
+			`    🔍 Поиск файла для книги: "${book.title}" автора ${book.author}`,
+		);
 
-        // Преобразуем файлы для сопоставления
-        const filesForMatching = files.map((file: any) => ({
-            message_id: file.messageId || file.message_id || 0,
-            file_name: file.filename || '',
-            mime_type: file.mime_type || 'unknown',
-            file_size: file.file_size || file.size || undefined
-        }));
+		// Преобразуем файлы для сопоставления
+		const filesForMatching = files.map((file: any) => ({
+			message_id: file.messageId || file.message_id || 0,
+			file_name: file.filename || "",
+			mime_type: file.mime_type || "unknown",
+			file_size: file.file_size || file.size || undefined,
+		}));
 
-        // Используем универсальный сервис для сопоставления
-        const matches = FileBookMatcherService.findBestMatchesForBook(
-            { id: book.id, title: book.title, author: book.author }, 
-            filesForMatching
-        );
+		// Используем универсальный сервис для сопоставления
+		const matches = FileBookMatcherService.findBestMatchesForBook(
+			{ id: book.id, title: book.title, author: book.author },
+			filesForMatching,
+		);
 
-        if (matches.length > 0) {
-            // Берем лучшее совпадение (оно уже отсортировано по убыванию релевантности)
-            const bestMatch = matches[0];
-            
-            // Найдем соответствующий файл из исходного списка
-            const sourceFile = files.find((file: any) => 
-                (file.messageId && file.messageId === bestMatch.file.message_id) ||
-                (file.message_id && file.message_id === bestMatch.file.message_id)
-            );
-            
-            if (sourceFile && bestMatch.score >= 60) { // Используем тот же порог, что и в универсальном сервисе
-                console.log(`    ✅ Найдено совпадение с рейтингом ${bestMatch.score}: ${sourceFile.filename}`);
-                console.log(`📊 Ранжирование совпадений:`);
-                for (let i = 0; i < Math.min(3, matches.length); i++) {
-                    const match = matches[i];
-                    const matchSourceFile = files.find((file: any) => 
-                        (file.messageId && file.messageId === match.file.message_id) ||
-                        (file.message_id && file.message_id === match.file.message_id)
-                    );
-                    if (matchSourceFile) {
-                        console.log(`    ${i + 1}. "${book.title}" автора ${book.author} (счет: ${match.score})`);
-                    }
-                }
-                
-                return sourceFile;
-            } else if (sourceFile) {
-                console.log(`    ⚠️  Найдено совпадение, но оценка ниже порога (${bestMatch.score} < 65): ${sourceFile.filename}`);
-            }
-        }
+		if (matches.length > 0) {
+			// Берем лучшее совпадение (оно уже отсортировано по убыванию релевантности)
+			const bestMatch = matches[0];
 
-        console.log(`    ⚠️  Совпадения не найдены или совпадение недостаточно точное`);
-        return null;
-    }
+			// Найдем соответствующий файл из исходного списка
+			const sourceFile = files.find(
+				(file: any) =>
+					(file.messageId && file.messageId === bestMatch.file.message_id) ||
+					(file.message_id && file.message_id === bestMatch.file.message_id),
+			);
 
-    /**
-     * Обрабатывает пакет метаданных
-     */
-    private async processMetadataBatch(messages: unknown[]): Promise<{
-        processed: number;
-        added: number;
-        updated: number;
-        errors: number;
-    }> {
-        // Метод оставлен без изменений
-        console.log('Processing metadata batch...');
-        return {
-            processed: 0,
-            added: 0,
-            updated: 0,
-            errors: 0
-        };
-    }
+			if (sourceFile && bestMatch.score >= 60) {
+				// Используем тот же порог, что и в универсальном сервисе
+				console.log(
+					`    ✅ Найдено совпадение с рейтингом ${bestMatch.score}: ${sourceFile.filename}`,
+				);
+				console.log(`📊 Ранжирование совпадений:`);
+				for (let i = 0; i < Math.min(3, matches.length); i++) {
+					const match = matches[i];
+					const matchSourceFile = files.find(
+						(file: any) =>
+							(file.messageId && file.messageId === match.file.message_id) ||
+							(file.message_id && file.message_id === match.file.message_id),
+					);
+					if (matchSourceFile) {
+						console.log(
+							`    ${i + 1}. "${book.title}" автора ${book.author} (счет: ${match.score})`,
+						);
+					}
+				}
 
-    /**
-     * Загружает метаданные из Telegram канала
-     */
-    /**
-     * Загружает метаданные из Telegram канала
-     * @param fullSync Если true, выполняет полную синхронизацию без ограничений
-     */
-    public async loadMetadataFromTelegram(fullSync: boolean = false): Promise<void> {
-        console.log('📥 Загрузка метаданных из Telegram...');
-        try {
-            if (!this.telegramService || !this.metadataService) {
-                throw new Error('TelegramService или MetadataService не инициализированы');
-            }
+				return sourceFile;
+			} else if (sourceFile) {
+				console.log(
+					`    ⚠️  Найдено совпадение, но оценка ниже порога (${bestMatch.score} < 65): ${sourceFile.filename}`,
+				);
+			}
+		}
 
-            // Получаем канал с метаданными
-            const channel = await this.telegramService.getMetadataChannel();
-            console.log(`✅ Подключено к каналу: ${channel.title || channel.username}`);
+		console.log(
+			`    ⚠️  Совпадения не найдены или совпадение недостаточно точное`,
+		);
+		return null;
+	}
 
-            // Инициализируем загрузку метаданных
-            const limit = fullSync ? 5000 : 1000; // Для полной синхронизации больше лимит
-            const { processed, added, updated, errors } = await this.metadataService.syncBooks(limit);
+	/**
+	 * Загружает метаданные из Telegram канала
+	 */
+	/**
+	 * Загружает метаданные из Telegram канала
+	 * @param fullSync Если true, выполняет полную синхронизацию без ограничений
+	 */
+	public async loadMetadataFromTelegram(
+		fullSync: boolean = false,
+	): Promise<void> {
+		console.log("📥 Загрузка метаданных из Telegram...");
+		try {
+			if (!this.telegramService || !this.metadataService) {
+				throw new Error(
+					"TelegramService или MetadataService не инициализированы",
+				);
+			}
 
-            console.log(`
+			// Получаем канал с метаданными
+			const channel = await this.telegramService.getMetadataChannel();
+			console.log(
+				`✅ Подключено к каналу: ${channel.title || channel.username}`,
+			);
+
+			// Инициализируем загрузку метаданных
+			const limit = fullSync ? 5000 : 1000; // Для полной синхронизации больше лимит
+			const { processed, added, updated, errors } =
+				await this.metadataService.syncBooks(limit);
+
+			console.log(`
 📊 Результаты загрузки:`);
-            console.log(`  Обработано сообщений: ${processed}`);
-            console.log(`  Добавлено книг: ${added}`);
-            console.log(`  Обновлено книг: ${updated}`);
-            console.log(`  Ошибок: ${errors}`);
-        } catch (error) {
-            console.error('❌ Ошибка при загрузке метаданных:', error);
-            throw error;
-        }
-    }
+			console.log(`  Обработано сообщений: ${processed}`);
+			console.log(`  Добавлено книг: ${added}`);
+			console.log(`  Обновлено книг: ${updated}`);
+			console.log(`  Ошибок: ${errors}`);
+		} catch (error) {
+			console.error("❌ Ошибка при загрузке метаданных:", error);
+			throw error;
+		}
+	}
 
-    /**
-     * Загружает файлы из Telegram и сопоставляет их с книгами
-     */
-    public async loadAndMatchFiles(): Promise<void> {
-        console.log('📥 Загрузка и сопоставление файлов из Telegram...');
-        try {
-            if (!this.fileService) {
-                throw new Error('FileService не инициализирован');
-            }
+	/**
+	 * Загружает файлы из Telegram и сопоставляет их с книгами
+	 */
+	public async loadAndMatchFiles(): Promise<void> {
+		console.log("📥 Загрузка и сопоставление файлов из Telegram...");
+		try {
+			if (!this.fileService) {
+				throw new Error("FileService не инициализирован");
+			}
 
-            // Загружаем все файлы из Telegram
-            console.log('📁 Получение списка файлов из Telegram...');
-            const files = await this.fileService.getFilesToProcess(2000); // Загружаем 2000 файлов
-            console.log(`✅ Получено ${files.length} файлов`);
+			// Загружаем все файлы из Telegram
+			console.log("📁 Получение списка файлов из Telegram...");
+			const files = await this.fileService.getFilesToProcess(2000); // Загружаем 2000 файлов
+			console.log(`✅ Получено ${files.length} файлов`);
 
-            // Получаем книги без файлов
-            const { data: booksWithoutFiles, error: booksError } = await serverSupabase
-                .from('books')
-                .select('id, title, author')
-                .is('file_url', null)
-                .not('title', 'is', null)
-                .not('author', 'is', null);
+			// Получаем книги без файлов
+			const { data: booksWithoutFiles, error: booksError } =
+				await serverSupabase
+					.from("books")
+					.select("id, title, author")
+					.is("file_url", null)
+					.not("title", "is", null)
+					.not("author", "is", null);
 
-            if (booksError) {
-                throw new Error(`Ошибка при загрузке книг без файлов: ${booksError.message}`);
-            }
+			if (booksError) {
+				throw new Error(
+					`Ошибка при загрузке книг без файлов: ${booksError.message}`,
+				);
+			}
 
-            console.log(`📚 Найдено ${booksWithoutFiles?.length || 0} книг без файлов`);
+			console.log(
+				`📚 Найдено ${booksWithoutFiles?.length || 0} книг без файлов`,
+			);
 
-            if (booksWithoutFiles && booksWithoutFiles.length > 0 && files.length > 0) {
-                // Для каждой книги ищем соответствующий файл
-                for (const book of booksWithoutFiles) {
-                    console.log(`
+			if (
+				booksWithoutFiles &&
+				booksWithoutFiles.length > 0 &&
+				files.length > 0
+			) {
+				// Для каждой книги ищем соответствующий файл
+				for (const book of booksWithoutFiles) {
+					console.log(`
 📖 Поиск файла для: "${book.title}" автора ${book.author}`);
 
-                    const matchingFile = await this.findMatchingFile(book, files);
-                    if (matchingFile) {
-                        console.log(`  ✅ Найден файл: ${matchingFile.filename}`);
-                        // Здесь можно добавить логику для загрузки и связывания файла с книгой
-                    } else {
-                        console.log(`  ❌ Файл не найден`);
-                    }
-                }
-            } else {
-                console.log('Нет книг без файлов или файлов для сопоставления');
-            }
-        } catch (error) {
-            console.error('❌ Ошибка при загрузке и сопоставлении файлов:', error);
-            throw error;
-        }
-    }
+					const matchingFile = await this.findMatchingFile(book, files);
+					if (matchingFile) {
+						console.log(`  ✅ Найден файл: ${matchingFile.filename}`);
+						// Здесь можно добавить логику для загрузки и связывания файла с книгой
+					} else {
+						console.log(`  ❌ Файл не найден`);
+					}
+				}
+			} else {
+				console.log("Нет книг без файлов или файлов для сопоставления");
+			}
+		} catch (error) {
+			console.error("❌ Ошибка при загрузке и сопоставлении файлов:", error);
+			throw error;
+		}
+	}
 
-    /**
-     * Запускает синхронизацию обновления книг (режим update)
-     */
-    public async runUpdateSync(): Promise<any> {
-        console.log('🔄 Запуск синхронизации обновления книг...');
-        
-        try {
-            // Проверяем, что сервисы инициализированы
-            if (!this.fileService || !this.metadataService || !this.telegramService) {
-                throw new Error('Необходимые сервисы не инициализированы. Убедитесь, что BookWormService создан через getInstance().');
-            }
+	/**
+	 * Запускает синхронизацию обновления книг (режим update)
+	 */
+	public async runUpdateSync(): Promise<any> {
+		console.log("🔄 Запуск синхронизации обновления книг...");
 
-            // 1. Получаем ID последнего обработанного сообщения
-            console.log('🔍 Получаем ID последнего обработанного сообщения...');
-            const { data: lastProcessed, error: lastProcessedError } = await serverSupabase
-                .from('telegram_processed_messages')
-                .select('message_id')
-                .not('message_id', 'is', null)
-                .order('message_id', { ascending: false })
-                .limit(1)
-                .single();
+		try {
+			// Проверяем, что сервисы инициализированы
+			if (!this.fileService || !this.metadataService || !this.telegramService) {
+				throw new Error(
+					"Необходимые сервисы не инициализированы. Убедитесь, что BookWormService создан через getInstance().",
+				);
+			}
 
-            let lastMessageId: number | undefined = undefined;
-            if (lastProcessed && lastProcessed.message_id) {
-                lastMessageId = parseInt(lastProcessed.message_id, 10);
-                console.log(`  📌 Последнее обработанное сообщение: ${lastMessageId}`);
-            } else {
-                console.log('  🆕 Синхронизация с начала, нет предыдущих обработанных сообщений');
-            }
+			// 1. Получаем ID последнего обработанного сообщения
+			console.log("🔍 Получаем ID последнего обработанного сообщения...");
+			const { data: lastProcessed } = await serverSupabase
+				.from("telegram_processed_messages")
+				.select("message_id")
+				.not("message_id", "is", null)
+				.order("message_id", { ascending: false })
+				.limit(1)
+				.single();
 
-            // Получаем канал с метаданными
-            const channel = await this.telegramService.getMetadataChannel();
+			let lastMessageId: number | undefined;
+			if (lastProcessed && (lastProcessed as any).message_id) {
+				lastMessageId = parseInt((lastProcessed as any).message_id, 10);
+				console.log(`  📌 Последнее обработанное сообщение: ${lastMessageId}`);
+			} else {
+				console.log(
+					"  🆕 Синхронизация с начала, нет предыдущих обработанных сообщений",
+				);
+			}
 
-            // Convert BigInteger to string for compatibility
-            const channelId = typeof channel.id === 'object' && channel.id !== null ? 
-                (channel.id as { toString: () => string }).toString() : 
-                String(channel.id);
+			// Получаем канал с метаданными
+			const channel = await this.telegramService.getMetadataChannel();
+			const channelId =
+				typeof channel.id === "object" && channel.id !== null
+					? (channel.id as { toString: () => string }).toString()
+					: String(channel.id);
 
-            // Получаем максимальный ID сообщения в канале
-            console.log('📥 Получаем максимальный ID сообщения в канале...');
-            const messages = await this.telegramService.getMessages(channelId, 1, undefined);
-            let maxMessageId = 0;
-            if (messages.length > 0) {
-                const anyMsg = messages[0] as unknown as { [key: string]: unknown };
-                maxMessageId = parseInt(String(anyMsg.id), 10);
-                console.log(`  📌 Максимальный ID сообщения в канале: ${maxMessageId}`);
-            }
+			// Получаем новые сообщения используя minId для эффективности
+			// reverse: true означает получение от старых к новым (что важно для хронологии, но minId обычно лучше работает)
+			// minId исключает само сообщение с minId
+			console.log(
+				`📥 Получаем новые сообщения из канала (после ID ${lastMessageId || 0})...`,
+			);
 
-            // Проверяем, есть ли новые сообщения для обработки
-            if (lastMessageId !== undefined && maxMessageId <= lastMessageId) {
-                console.log('  ℹ️  Новых сообщений для обработки нет. Пропускаем обновление.');
-                return {
-                    processed: 0,
-                    added: 0,
-                    updated: 0,
-                    matched: 0,
-                    message: `Синхронизация обновления завершена. Нет новых сообщений для обработки. Последнее обработанное сообщение ID: ${lastMessageId}`
-                };
-            }
+			const newMessages = (await this.telegramService.getMessages(
+				channelId,
+				200, // Лимит на пакет
+				undefined, // offsetId не используем, так как используем minId
+				{
+					minId: lastMessageId,
+					reverse: true, // Сортировка от старых к новым
+				},
+			)) as any[]; // Type assertion for compatibility
 
-            // Определяем диапазон для загрузки сообщений
-            // В Telegram API offsetId используется для получения сообщений с ID меньше указанного
-            // Поэтому для получения сообщений с ID больше последнего обработанного, 
-            // нужно получить все сообщения и отфильтровать те, что имеют ID больше последнего обработанного
-            console.log(`📥 Получаем сообщения из канала с ID больше последнего обработанного (${lastMessageId})...`);
-            
-            // Загружаем сообщения, начиная с самого последнего (с наибольшим ID)
-            const newMessages = await this.telegramService.getMessages(channelId, 1000, undefined);
-            
-            // Фильтруем, чтобы оставить только сообщения с ID больше последнего обработанного
-            const filteredMessages = newMessages.filter(msg => {
-                const anyMsg = msg as unknown as { [key: string]: unknown };
-                const currentMsgId = parseInt(String(anyMsg.id), 10);
-                return currentMsgId > (lastMessageId || 0);
-            });
-            
-            console.log(`✅ После фильтрации: ${filteredMessages.length} новых сообщений (из ${newMessages.length} загруженных)`);
-            
-            // Если после фильтрации нет новых сообщений
-            if (filteredMessages.length === 0) {
-                console.log('  ℹ️  Нет новых сообщений для обработки. Завершаем синхронизацию.');
-                return {
-                    processed: 0,
-                    added: 0,
-                    updated: 0,
-                    matched: 0,
-                    message: `Синхронизация обновления завершена. Нет новых сообщений для обработки после фильтрации. Последнее обработанное сообщение ID: ${lastMessageId}`
-                };
-            }
-            
+			if (newMessages.length === 0) {
+				console.log(
+					"  ℹ️  Нет новых сообщений для обработки. Завершаем синхронизацию.",
+				);
+				return {
+					processed: 0,
+					added: 0,
+					updated: 0,
+					matched: 0,
+					message: `Синхронизация обновления завершена. Нет новых сообщений. Последний ID: ${lastMessageId}`,
+				};
+			}
 
+			console.log(
+				`✅ Получено ${newMessages.length} новых сообщений для обработки`,
+			);
 
-            // Импортируем новые сообщения как метаданные книг
-            console.log('💾 Импортируем новые сообщения как метаданные книг...');
-            
-            // Подготовим метаданные из новых сообщений
-            const metadataList: BookMetadata[] = [];
-            
-            for (const msg of filteredMessages) {
-                const anyMsg = msg as unknown as { [key: string]: unknown };
-                console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
+			// Импортируем новые сообщения как метаданные книг
+			console.log("💾 Обработка сообщений и подготовка метаданных...");
 
-                // Пропускаем сообщения без текста
-                if (!(msg as { text?: string }).text) {
-                    console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит текста, пропускаем`);
-                    
-                    // Проверяем, не отмечено ли уже сообщение как обработанное
-                    const { data: processedCheck, error: checkError } = await serverSupabase
-                        .from('telegram_processed_messages')
-                        .select('message_id')
-                        .eq('message_id', String(anyMsg.id));
-                    
-                    if (checkError) {
-                        console.warn(`  ⚠️ Ошибка при проверке статуса обработки сообщения ${anyMsg.id}:`, checkError);
-                    }
-                    
-                    // Добавляем запись в telegram_processed_messages, только если её ещё нет
-                    if (!processedCheck || processedCheck.length === 0) {
-                        const { error: insertError } = await serverSupabase
-                            .from('telegram_processed_messages')
-                            .insert({
-                                message_id: String(anyMsg.id),
-                                channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                                processed_at: new Date().toISOString()
-                            });
-                        
-                        if (insertError) {
-                            console.warn(`  ⚠️ Ошибка при добавлении в telegram_processed_messages для сообщения ${anyMsg.id}:`, insertError);
-                        }
-                    } else {
-                        // Обновляем существующую запись, если нужно обновить данные
-                        const { error: updateError } = await serverSupabase
-                            .from('telegram_processed_messages')
-                            .update({
-                                channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                                processed_at: new Date().toISOString()
-                            })
-                            .eq('message_id', String(anyMsg.id));
-                        
-                        if (updateError) {
-                            console.warn(`  ⚠️ Ошибка при обновлении telegram_processed_messages для сообщения ${anyMsg.id}:`, updateError);
-                        }
-                    }
-                    
-                    continue;
-                }
+			// Параллельная обработка сообщений чанками (по 5 одновременно)
+			const messageChunks = this.chunkArray(newMessages, 5);
+			const metadataList: BookMetadata[] = [];
+			const details: unknown[] = [];
+			const detailedLogs: string[] = []; // Collect logs here
 
-                // Парсим текст сообщения
-                const metadata = MetadataParser.parseMessage((msg as { text: string }).text);
-                // Добавляем ID сообщения в метаданные
-                metadata.messageId = anyMsg.id as number;
+			let processedCount = 0;
+			for (const chunk of messageChunks) {
+				// Запускаем параллельную обработку чанка
+				const results = await Promise.all(
+					chunk.map((msg) => this.processSingleMessage(msg)),
+				);
 
-                // Проверяем, что у книги есть название и автор
-                if (!metadata.title || !metadata.author || metadata.title.trim() === '' || metadata.author.trim() === '') {
-                    console.log(`  ⚠️  Пропускаем сообщение ${anyMsg.id} (отсутствует название или автор)`);
-                    
-                    // Проверяем, не отмечено ли уже сообщение как обработанное
-                    const { data: processedCheck, error: checkError } = await serverSupabase
-                        .from('telegram_processed_messages')
-                        .select('message_id')
-                        .eq('message_id', String(anyMsg.id));
-                    
-                    if (checkError) {
-                        console.warn(`  ⚠️ Ошибка при проверке статуса обработки сообщения ${anyMsg.id}:`, checkError);
-                    }
-                    
-                    // Добавляем запись в telegram_processed_messages, только если её ещё нет
-                    if (!processedCheck || processedCheck.length === 0) {
-                        const { error: insertError } = await serverSupabase
-                            .from('telegram_processed_messages')
-                            .insert({
-                                message_id: String(anyMsg.id),
-                                channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                                processed_at: new Date().toISOString()
-                            });
-                        
-                        if (insertError) {
-                            console.warn(`  ⚠️ Ошибка при добавлении в telegram_processed_messages для сообщения ${anyMsg.id}:`, insertError);
-                        }
-                    } else {
-                        // Обновляем существующую запись, если нужно обновить данные
-                        const { error: updateError } = await serverSupabase
-                            .from('telegram_processed_messages')
-                            .update({
-                                channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                                processed_at: new Date().toISOString()
-                            })
-                            .eq('message_id', String(anyMsg.id));
-                        
-                        if (updateError) {
-                            console.warn(`  ⚠️ Ошибка при обновлении telegram_processed_messages для сообщения ${anyMsg.id}:`, updateError);
-                        }
-                    }
-                    
-                    continue;
-                }
+				// Собираем результаты
+				for (const res of results) {
+					if (res.metadata) {
+						metadataList.push(res.metadata);
+					}
+					if (res.details) {
+						details.push(res.details);
+					}
+					if (res.log) {
+						detailedLogs.push(res.log);
+					}
+				}
 
-                // Проверяем наличие книги в БД по названию и автору ПЕРЕД обработкой медиа
-                let bookExists = false;
-                let existingBookId = null;
-                try {
-                    // Импортируем функцию нормализации текста
-                    const { checkForBookDuplicates, normalizeBookText } = await import('../../../lib/book-deduplication-service');
-                    
-                    // Используем улучшенную логику дедупликации
-                    const duplicateCheck = await checkForBookDuplicates(
-                        metadata.title,
-                        metadata.author,
-                        undefined, // publicationYear
-                        normalizeBookText
-                    );
+				processedCount += chunk.length;
+				console.log(
+					`  ⏳ Обработано ${processedCount}/${newMessages.length} сообщений...`,
+				);
+			}
 
-                    if (duplicateCheck.exists && duplicateCheck.book) {
-                        bookExists = true;
-                        existingBookId = duplicateCheck.book.id;
-                        console.log(`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем`);
-                    }
-                } catch (checkError) {
-                    console.warn(`  ⚠️ Ошибка при проверке существования книги:`, checkError);
-                }
+			console.log(
+				`📊 Всего подготовлено метаданных для импорта: ${metadataList.length}`,
+			);
 
-                // Пропускаем сообщение, если книга уже существует
-                if (bookExists) {
-                    // Проверяем, не отмечено ли уже сообщение как обработанное
-                    const { data: processedCheck, error: checkError } = await serverSupabase
-                        .from('telegram_processed_messages')
-                        .select('message_id')
-                        .eq('message_id', String(anyMsg.id));
-                    
-                    if (checkError) {
-                        console.warn(`  ⚠️ Ошибка при проверке статуса обработки сообщения ${anyMsg.id}:`, checkError);
-                    }
-                    
-                    // Добавляем запись в telegram_processed_messages, только если её ещё нет
-                    if (!processedCheck || processedCheck.length === 0) {
-                        const { error: insertError } = await serverSupabase
-                            .from('telegram_processed_messages')
-                            .insert({
-                                message_id: String(anyMsg.id),
-                                channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                                book_id: existingBookId,
-                                processed_at: new Date().toISOString()
-                            });
-                        
-                        if (insertError) {
-                            console.warn(`  ⚠️ Ошибка при добавлении в telegram_processed_messages для сообщения ${anyMsg.id}:`, insertError);
-                        }
-                    } else {
-                        // Обновляем существующую запись, если нужно обновить данные
-                        const { error: updateError } = await serverSupabase
-                            .from('telegram_processed_messages')
-                            .update({
-                                channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                                book_id: existingBookId,
-                                processed_at: new Date().toISOString()
-                            })
-                            .eq('message_id', String(anyMsg.id));
-                        
-                        if (updateError) {
-                            console.warn(`  ⚠️ Ошибка при обновлении telegram_processed_messages для сообщения ${anyMsg.id}:`, updateError);
-                        }
-                    }
-                    
-                    continue;
-                }
+			// Импортируем все метаданные с дедупликацией (Batch Insert/Update)
+			console.log("💾 Импортируем метаданные в базу данных...");
+			const resultImport =
+				await this.metadataService.importMetadataWithDeduplication(
+					metadataList,
+				);
 
-                // Если мы дошли до этой точки, это потенциальная новая книга
-                // Извлекаем URL обложек из медиа-файлов сообщения
-                const coverUrls: string[] = [];
+			console.log("✅ Импорт новых метаданных завершен");
 
-                // Проверяем наличие медиа в сообщении
-                if (anyMsg.media) {
-                    console.log(`  📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`);
-                    
-                    // Функция для повторных попыток загрузки с увеличенным таймаутом
-                    const downloadWithRetry = async (media: unknown, maxRetries = 3) => {
-                        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                            try {
-                                console.log(`    → Попытка загрузки ${attempt}/${maxRetries}...`);
-                                if (!this.telegramService) {
-                                    throw new Error('Telegram client not initialized');
-                                }
-                                const result = await Promise.race([
-                                    this.telegramService.downloadMedia(media),
-                                    new Promise<never>((_, reject) => 
-                                        setTimeout(() => reject(new Error(`Timeout: Downloading media took too long (attempt ${attempt}/${maxRetries})`)), 60000)) // Увеличиваем до 60 секунд
-                                ]);
-                                return result;
-                            } catch (err: unknown) {
-                                console.warn(`    ⚠️ Попытка ${attempt} не удалась:`, err instanceof Error ? err.message : 'Unknown error');
-                                if (attempt === maxRetries) {
-                                    throw err; // Если все попытки неудачны, выбрасываем ошибку
-                                }
-                                // Ждем перед следующей попыткой
-                                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-                            }
-                        }
-                    };
-                    
-                    // Если это веб-превью (MessageMediaWebPage) - основной случай для обложек
-                    if ((anyMsg.media as { className: string }).className === 'MessageMediaWebPage' && (anyMsg.media as { webpage?: { photo?: unknown } }).webpage?.photo) {
-                        console.log(`  → Веб-превью с фото`);
-                        try {
-                            console.log(`  → Скачиваем фото из веб-превью...`);
-                            const result = await downloadWithRetry((anyMsg.media as { webpage: { photo: unknown } }).webpage.photo);
-                            const photoBuffer = result instanceof Buffer ? result : null;
-                            if (photoBuffer) {
-                                const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-                                console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
-                                if (!coversBucket) {
-                                  throw new Error('S3_COVERS_BUCKET_NAME environment variable is not set.');
-                                }
-                                await putObject(photoKey, Buffer.from(photoBuffer), coversBucket);
-                                const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
-                                coverUrls.push(photoUrl);
-                                console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-                            } else {
-                                console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
-                            }
-                        } catch (err: unknown) {
-                            console.error(`  ❌ Ошибка загрузки обложки из веб-превью:`, err instanceof Error ? err.message : 'Unknown error');
-                        }
-                    }
-                    // Если это одно фото (MessageMediaPhoto)
-                    else if ((anyMsg.media as { photo?: unknown }).photo) {
-                        console.log(`  → Одиночное фото`);
-                        try {
-                            console.log(`  → Скачиваем фото...`);
-                            const result = await downloadWithRetry(msg);
-                            const photoBuffer = result instanceof Buffer ? result : null;
-                            if (photoBuffer) {
-                                const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-                                console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
-                                if (!coversBucket) {
-                                  throw new Error('S3_COVERS_BUCKET_NAME environment variable is not set.');
-                                }
-                                await putObject(photoKey, Buffer.from(photoBuffer), coversBucket);
-                                const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
-                                coverUrls.push(photoUrl);
-                                console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-                            } else {
-                                console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
-                            }
-                        } catch (err: unknown) {
-                            console.error(`  ❌ Ошибка загрузки обложки:`, err instanceof Error ? err.message : 'Unknown error');
-                        }
-                    }
-                    // Если это документ с изображением
-                    else if ((anyMsg.media as { document?: unknown }).document) {
-                        const mimeType = (anyMsg.media as { document: { mimeType?: string } }).document.mimeType;
-                        if (mimeType && mimeType.startsWith('image/')) {
-                            console.log(`  → Одиночное изображение (документ: ${mimeType})`);
-                            try {
-                                console.log(`  → Скачиваем изображение...`);
-                                const result = await downloadWithRetry(msg);
-                                const photoBuffer = result instanceof Buffer ? result : null;
-                                if (photoBuffer) {
-                                    const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-                                    console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-                                    const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
-                                    if (!coversBucket) {
-                                      throw new Error('S3_COVERS_BUCKET_NAME environment variable is not set.');
-                                    }
-                                    await putObject(photoKey, Buffer.from(photoBuffer), coversBucket);
-                                    const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
-                                    coverUrls.push(photoUrl);
-                                    console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-                                } else {
-                                    console.warn(`  ⚠️ Не удалось скачать изображение (пустой буфер)`);
-                                }
-                            } catch (err: unknown) {
-                                console.error(`  ❌ Ошибка загрузки обложки:`, err instanceof Error ? err.message : 'Unknown error');
-                            }
-                        }
-                    }
-                }
+			// Объединяем details и статистику
+			const combinedDetails = [...details, ...resultImport.details];
+			const totalSkipped =
+				resultImport.skipped +
+				details.filter((d) => (d as any).status === "skipped").length;
 
-                // Добавляем метаданные в список
-                metadataList.push({
-                    ...metadata,
-                    coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || []
-                });
-                
-                // Проверяем, не отмечено ли уже сообщение как обработанное
-                const { data: processedCheck, error: checkError } = await serverSupabase
-                    .from('telegram_processed_messages')
-                    .select('message_id')
-                    .eq('message_id', String(anyMsg.id));
-                
-                if (checkError) {
-                    console.warn(`  ⚠️ Ошибка при проверке статуса обработки сообщения ${anyMsg.id}:`, checkError);
-                }
-                
-                // Добавляем запись в telegram_processed_messages, только если её ещё нет
-                if (!processedCheck || processedCheck.length === 0) {
-                    const { error: insertError } = await serverSupabase
-                        .from('telegram_processed_messages')
-                        .insert({
-                            message_id: String(anyMsg.id),
-                            channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                            processed_at: new Date().toISOString()
-                        });
-                    
-                    if (insertError) {
-                        console.warn(`  ⚠️ Ошибка при добавлении в telegram_processed_messages для сообщения ${anyMsg.id}:`, insertError);
-                    }
-                } else {
-                    // Обновляем существующую запись, если нужно обновить данные
-                    const { error: updateError } = await serverSupabase
-                        .from('telegram_processed_messages')
-                        .update({
-                            channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || '', // Используем пустую строку вместо null
-                            processed_at: new Date().toISOString()
-                        })
-                        .eq('message_id', String(anyMsg.id));
-                    
-                    if (updateError) {
-                        console.warn(`  ⚠️ Ошибка при обновлении telegram_processed_messages для сообщения ${anyMsg.id}:`, updateError);
-                    }
-                }
-            }
+			// Выводим сводку
+			console.log("\n📊 СВОДКА СИНХРОНИЗАЦИИ:");
+			console.log(`   ========================================`);
+			console.log(`   Обработано сообщений: ${newMessages.length}`);
+			console.log(`   Добавлено книг: ${resultImport.added}`);
+			console.log(`   Обновлено книг: ${resultImport.updated}`);
+			console.log(`   Пропущено: ${totalSkipped}`);
+			console.log(`   Ошибок: ${resultImport.errors}`);
 
-            console.log(`📊 Всего подготовлено метаданных для импорта: ${metadataList.length}`);
-            
-            // Импортируем все метаданные с дедупликацией
-            console.log('💾 Импортируем метаданные с дедупликацией...');
-            const resultImport = await this.metadataService.importMetadataWithDeduplication(metadataList);
-            
-            console.log('✅ Импорт новых метаданных завершен');
+			return {
+				processed:
+					resultImport.processed + newMessages.length - metadataList.length, // Total processed messages
+				added: resultImport.added,
+				updated: resultImport.updated,
+				skipped: totalSkipped,
+				errors: resultImport.errors,
+				details: combinedDetails,
+				matched: 0, // Files logic separated or handled implicitly later
+				lastProcessedMessageId: lastMessageId,
+				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Processed: ${newMessages.length}`,
+				detailedLogs: detailedLogs.sort((a, b) => {
+					// Sort logs by ID if they start with [ID:...]
+					const idA = parseInt(a.match(/\[ID:(\d+)\]/)?.[1] || "0");
+					const idB = parseInt(b.match(/\[ID:(\d+)\]/)?.[1] || "0");
+					return idA - idB;
+				}),
+			};
+		} catch (error) {
+			console.error("❌ Ошибка в синхронизации обновления:", error);
+			throw error;
+		}
+	}
 
-            // 3. Загружаем все сообщения из канала с файлами (все 4249 батчами по 1000)
-            console.log('📥 Загрузка всех файлов из Telegram...');
-            const allFilesToProcess = [];
-            let offsetIdFiles: number | undefined = undefined; // Для файлов начинаем с начала, если не указано иное
-            let hasMoreFiles = true;
-            let fileBatchIndex = 0;
-            
-            while (hasMoreFiles) {
-                fileBatchIndex++;
-                console.log(`📥 Получаем батч файлов ${fileBatchIndex} из Telegram (лимит: 1000)...`);
-                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetIdFiles);
-                
-                if (filesBatch.length === 0) {
-                    console.log('  📌 Больше нет файлов для загрузки');
-                    break;
-                }
-                
-                console.log(`  ✅ Получено ${filesBatch.length} файлов в батче ${fileBatchIndex}`);
-                allFilesToProcess.push(...filesBatch);
-                
-                // Устанавливаем offsetIdFiles для следующего батча
-                if (filesBatch.length < 1000) {
-                    hasMoreFiles = false;
-                } else {
-                    // Берем минимальный ID из текущего батча для следующей итерации
-                    const messageIds = filesBatch
-                        .map(item => parseInt(String(item.messageId), 10))
-                        .filter(id => !isNaN(id) && id > 0);
-                    
-                    if (messageIds.length > 0) {
-                        offsetIdFiles = Math.min(...messageIds) - 1;
-                    } else {
-                        hasMoreFiles = false;
-                    }
-                }
-            }
-            
-            console.log(`📊 Всего загружено файлов: ${allFilesToProcess.length}`);
+	private chunkArray<T>(array: T[], size: number): T[][] {
+		const chunked: T[][] = [];
+		for (let i = 0; i < array.length; i += size) {
+			chunked.push(array.slice(i, i + size));
+		}
+		return chunked;
+	}
 
-            // 4. Находим все книги в БД без файлов и запускаем универсальный алгоритм привязки файлов
-            console.log('📚 Поиск книг без файлов в базе данных...');
-            const { data: booksWithoutFiles, error: booksError } = await serverSupabase
-                .from('books')
-                .select('id, title, author, telegram_post_id, file_url, telegram_file_id')
-                .is('file_url', null) // Только книги без файлов
-                .not('title', 'is', null)
-                .not('author', 'is', null);
+	private async processSingleMessage(msg: any): Promise<{
+		metadata?: BookMetadata;
+		details?: any;
+		log?: string;
+	}> {
+		const anyMsg = msg as unknown as { [key: string]: unknown };
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const msgText = (msg as { text?: string }).text;
 
-            if (booksError) {
-                throw new Error(`Ошибка при загрузке книг без файлов: ${booksError.message}`);
-            }
+		// Пропускаем сообщения без текста
+		if (!msgText) {
+			// Маркируем как обработанное
+			await this.markMessageAsProcessed(String(anyMsg.id));
+			return {
+				details: {
+					msgId: anyMsg.id,
+					status: "skipped",
+					reason: "no text content",
+				},
+				log: `⚪ [ID:${anyMsg.id}] Пропущено (нет текста)`,
+			};
+		}
 
-            if (!booksWithoutFiles || booksWithoutFiles.length === 0) {
-                console.log('⚠️  Нет книг без файлов для сопоставления');
-                return { processed: resultImport.processed, added: resultImport.added, updated: resultImport.updated, matched: 0, message: `Update sync completed. Processed ${resultImport.processed} books, added ${resultImport.added}, updated ${resultImport.updated}, no files matched.` };
-            }
+		// Парсим текст сообщения
+		const metadata = MetadataParser.parseMessage(msgText);
+		metadata.messageId = anyMsg.id as number;
 
-            console.log(`✅ Найдено ${booksWithoutFiles.length} книг без файлов для сопоставления`);
+		// Пропускаем неполные метаданные
+		if (!metadata.title || !metadata.author) {
+			await this.markMessageAsProcessed(String(anyMsg.id));
+			return {
+				details: {
+					msgId: anyMsg.id,
+					status: "skipped",
+					reason: "missing title or author",
+				},
+				log: `⚪ [ID:${anyMsg.id}] Пропущено (неполные метаданные)`,
+			};
+		}
 
-            // Для каждой книги без файла ищем соответствующий файл
-            let processedCount = 0;
-            let matchedCount = 0;
+		// Проверяем дубликаты
+		try {
+			const duplicateCheck = await checkForBookDuplicates(
+				metadata.title,
+				metadata.author,
+				normalizeBookText,
+			);
 
-            for (const book of booksWithoutFiles) {
-                processedCount++;
-                console.log(`
+			if (
+				duplicateCheck.exists &&
+				duplicateCheck.books &&
+				duplicateCheck.books.length > 0
+			) {
+				const existingBook = duplicateCheck.books[0];
+				// Книга уже есть - маркируем сообщение как обработанное и пропускаем
+				await this.markMessageAsProcessed(String(anyMsg.id), existingBook.id);
+				return {
+					details: {
+						msgId: anyMsg.id,
+						status: "skipped",
+						reason: "book already exists",
+						bookId: existingBook.id,
+					},
+					log: `🟡 [ID:${anyMsg.id}] Уже существует: "${metadata.title}" - ${metadata.author}`,
+				};
+			}
+		} catch (err) {
+			console.warn(`Error checking duplicate for ${metadata.title}:`, err);
+		}
+
+		// Загружаем обложки (параллельно это происходит для разных сообщений благодаря Promise.all в runUpdateSync)
+		const coverUrls: string[] = [];
+		if (anyMsg.media) {
+			try {
+				const coverUrl = await this.downloadCover(msg);
+				if (coverUrl) {
+					coverUrls.push(coverUrl);
+				}
+			} catch (e) {
+				console.warn(`Failed to download cover for msg ${anyMsg.id}:`, e);
+			}
+		}
+
+		return {
+			metadata: {
+				...metadata,
+				coverUrls: coverUrls.length > 0 ? coverUrls : metadata.coverUrls || [],
+			},
+			log: `🟢 [ID:${anyMsg.id}] Новая книга: "${metadata.title}" - ${metadata.author}${coverUrls.length > 0 ? " (с обложкой)" : ""}`,
+		};
+	}
+
+	private async markMessageAsProcessed(
+		messageId: string,
+		bookId?: string,
+	): Promise<void> {
+		const processedData = {
+			message_id: messageId,
+			channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || "",
+			processed_at: new Date().toISOString(),
+			book_id: bookId || null,
+		};
+
+		const { error } = await serverSupabase
+			.from("telegram_processed_messages")
+			.upsert(processedData, { onConflict: "message_id" });
+
+		if (error) {
+			console.warn(`Error marking message ${messageId} as processed:`, error);
+		}
+	}
+
+	private async downloadCover(msg: any): Promise<string | null> {
+		if (!this.telegramService) return null;
+
+		// Логика загрузки с повторами и таймаутом
+		// (упрощенная версия, чтобы не дублировать огромный блок)
+		try {
+			const result = await Promise.race([
+				this.telegramService.downloadMedia(msg),
+				new Promise<null>((resolve) => setTimeout(() => resolve(null), 30000)),
+			]);
+
+			if (!result || !(result instanceof Buffer)) return null;
+
+			const anyMsg = msg as { id: number };
+			const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
+			const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
+
+			if (!coversBucket) return null;
+
+			await putObject(photoKey, Buffer.from(result), coversBucket);
+			return `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
+		} catch (e) {
+			return null; // Silent fail for cover
+		}
+	}
+
+	/**
+	 * Запускает полную синхронизацию книг (режим full)
+	 */
+	public async runFullSync(): Promise<any> {
+		console.log("🔄 Запуск полной синхронизации книг...");
+
+		try {
+			// Проверяем, что сервисы инициализированы
+			if (!this.fileService || !this.metadataService || !this.telegramService) {
+				throw new Error(
+					"Необходимые сервисы не инициализированы. Убедитесь, что BookWormService создан через getInstance().",
+				);
+			}
+
+			// 1. Индексируем все сообщения из канала с метаданными для полной проверки
+			console.log("📥 Индексация всех сообщений из канала с метаданными...");
+			const detailedLogs: string[] = [];
+			const onLog = (msg: string) => detailedLogs.push(msg);
+
+			const indexResult = await this.metadataService.indexAllMessages(
+				10000,
+				onLog,
+			); // Увеличиваем размер пакета для более эффективной загрузки
+
+			// 2. Загружаем все сообщения из канала с файлами (все 4249 батчами по 1000)
+			console.log("📥 Загрузка всех файлов из Telegram...");
+			const allFilesToProcess = [];
+			let offsetIdFiles: number | undefined;
+			let hasMoreFiles = true;
+			let fileBatchIndex = 0;
+
+			while (hasMoreFiles) {
+				fileBatchIndex++;
+				console.log(
+					`📥 Получаем батч файлов ${fileBatchIndex} из Telegram (лимит: 1000)...`,
+				);
+				const filesBatch = await this.fileService.getFilesToProcess(
+					1000,
+					offsetIdFiles,
+				);
+
+				if (filesBatch.length === 0) {
+					console.log("  📌 Больше нет файлов для загрузки");
+					break;
+				}
+
+				console.log(
+					`  ✅ Получено ${filesBatch.length} файлов в батче ${fileBatchIndex}`,
+				);
+				allFilesToProcess.push(...filesBatch);
+
+				// Устанавливаем offsetIdFiles для следующего батча
+				if (filesBatch.length < 1000) {
+					hasMoreFiles = false;
+				} else {
+					// Берем минимальный ID из текущего батча для следующей итерации
+					const messageIds = filesBatch
+						.map((item) => parseInt(String(item.messageId), 10))
+						.filter((id) => !Number.isNaN(id) && id > 0);
+
+					if (messageIds.length > 0) {
+						offsetIdFiles = Math.min(...messageIds) - 1;
+					} else {
+						hasMoreFiles = false;
+					}
+				}
+			}
+
+			console.log(`📊 Всего загружено файлов: ${allFilesToProcess.length}`);
+
+			// 3. Находим все книги в БД без файлов и запускаем универсальный алгоритм привязки файлов
+			console.log("📚 Поиск книг без файлов в базе данных...");
+			const { data: booksWithoutFiles, error: booksError } =
+				await serverSupabase
+					.from("books")
+					.select(
+						"id, title, author, telegram_post_id, file_url, telegram_file_id",
+					)
+					.is("file_url", null) // Только книги без файлов
+					.not("title", "is", null)
+					.not("author", "is", null);
+
+			if (booksError) {
+				throw new Error(
+					`Ошибка при загрузке книг без файлов: ${booksError.message}`,
+				);
+			}
+
+			if (!booksWithoutFiles || booksWithoutFiles.length === 0) {
+				console.log("⚠️  Нет книг без файлов для сопоставления");
+				return {
+					processed: indexResult.indexed,
+					added: 0,
+					updated: 0,
+					matched: 0,
+					message: `Full sync completed. Indexed ${indexResult.indexed} messages, no books without files found for file matching.`,
+				};
+			}
+
+			console.log(
+				`✅ Найдено ${booksWithoutFiles.length} книг без файлов для сопоставления`,
+			);
+
+			// Для каждой книги без файла ищем соответствующий файл
+			let processedCount = 0;
+			let matchedCount = 0;
+
+			for (const book of booksWithoutFiles) {
+				processedCount++;
+				console.log(`
 📖 Обработка книги: "${book.title}" автора ${book.author} (${processedCount}/${booksWithoutFiles.length})`);
 
-                // Ищем соответствующий файл для книги, используя универсальный алгоритм
-                const matchingFile = await this.findMatchingFile(book, allFilesToProcess);
-                
-                if (matchingFile) {
-                    console.log(`    📨 Найден соответствующий файл: ${matchingFile.filename}`);
-                    console.log(`    📨 Message ID файла: ${matchingFile.messageId}`);
-                    
-                    try {
-                        // Обрабатываем найденный файл
-                        const result = await this.enhancedFileService!.processSingleFileById(parseInt(matchingFile.messageId as string, 10));
-                        console.log(`    ✅ Файл успешно обработан и привязан к книге`);
-                        matchedCount++;
-                    } catch (processError) {
-                        console.error(`    ❌ Ошибка обработки файла:`, processError);
-                    }
-                } else {
-                    console.log(`  ⚠️  Соответствующий файл не найден`);
-                }
-            }
+				// Ищем соответствующий файл для книги, используя универсальный алгоритм
+				const matchingFile = await this.findMatchingFile(
+					book,
+					allFilesToProcess,
+				);
 
-            console.log(`
-🏁 Синхронизация обновления завершена.`);
-            
-            return {
-                processed: resultImport.processed,
-                added: resultImport.added,
-                updated: resultImport.updated,
-                matched: matchedCount,
-                lastProcessedMessageId: lastMessageId,
-                message: `Update sync completed. Processed ${resultImport.processed} books, added ${resultImport.added}, updated ${resultImport.updated}, matched ${matchedCount} files. Started from message ID: ${lastMessageId || 'beginning'}`
-            };
-        } catch (error) {
-            console.error('❌ Ошибка в синхронизации обновления:', error);
-            throw error;
-        }
-    }
+				if (matchingFile) {
+					console.log(
+						`    📨 Найден соответствующий файл: ${matchingFile.filename}`,
+					);
+					console.log(`    📨 Message ID файла: ${matchingFile.messageId}`);
 
-    /**
-     * Запускает полную синхронизацию книг (режим full)
-     */
-    public async runFullSync(): Promise<any> {
-        console.log('🔄 Запуск полной синхронизации книг...');
-        
-        try {
-            // Проверяем, что сервисы инициализированы
-            if (!this.fileService || !this.metadataService || !this.telegramService) {
-                throw new Error('Необходимые сервисы не инициализированы. Убедитесь, что BookWormService создан через getInstance().');
-            }
+					try {
+						// Обрабатываем найденный файл
+						const _result =
+							await this.enhancedFileService?.processSingleFileById(
+								parseInt(matchingFile.messageId as string, 10),
+							);
+						console.log(`    ✅ Файл успешно обработан и привязан к книге`);
+						matchedCount++;
+					} catch (processError) {
+						console.error(`    ❌ Ошибка обработки файла:`, processError);
+					}
+				} else {
+					console.log(`  ⚠️  Соответствующий файл не найден`);
+				}
+			}
 
-            // 1. Индексируем все сообщения из канала с метаданными для полной проверки
-            console.log('📥 Индексация всех сообщений из канала с метаданными...');
-            const indexResult = await this.metadataService.indexAllMessages(10000); // Увеличиваем размер пакета для более эффективной загрузки
-            
-            // 2. Загружаем все сообщения из канала с файлами (все 4249 батчами по 1000)
-            console.log('📥 Загрузка всех файлов из Telegram...');
-            const allFilesToProcess = [];
-            let offsetIdFiles: number | undefined = undefined;
-            let hasMoreFiles = true;
-            let fileBatchIndex = 0;
-            
-            while (hasMoreFiles) {
-                fileBatchIndex++;
-                console.log(`📥 Получаем батч файлов ${fileBatchIndex} из Telegram (лимит: 1000)...`);
-                const filesBatch = await this.fileService.getFilesToProcess(1000, offsetIdFiles);
-                
-                if (filesBatch.length === 0) {
-                    console.log('  📌 Больше нет файлов для загрузки');
-                    break;
-                }
-                
-                console.log(`  ✅ Получено ${filesBatch.length} файлов в батче ${fileBatchIndex}`);
-                allFilesToProcess.push(...filesBatch);
-                
-                // Устанавливаем offsetIdFiles для следующего батча
-                if (filesBatch.length < 1000) {
-                    hasMoreFiles = false;
-                } else {
-                    // Берем минимальный ID из текущего батча для следующей итерации
-                    const messageIds = filesBatch
-                        .map(item => parseInt(String(item.messageId), 10))
-                        .filter(id => !isNaN(id) && id > 0);
-                    
-                    if (messageIds.length > 0) {
-                        offsetIdFiles = Math.min(...messageIds) - 1;
-                    } else {
-                        hasMoreFiles = false;
-                    }
-                }
-            }
-            
-            console.log(`📊 Всего загружено файлов: ${allFilesToProcess.length}`);
-
-            // 3. Находим все книги в БД без файлов и запускаем универсальный алгоритм привязки файлов
-            console.log('📚 Поиск книг без файлов в базе данных...');
-            const { data: booksWithoutFiles, error: booksError } = await serverSupabase
-                .from('books')
-                .select('id, title, author, telegram_post_id, file_url, telegram_file_id')
-                .is('file_url', null) // Только книги без файлов
-                .not('title', 'is', null)
-                .not('author', 'is', null);
-
-            if (booksError) {
-                throw new Error(`Ошибка при загрузке книг без файлов: ${booksError.message}`);
-            }
-
-            if (!booksWithoutFiles || booksWithoutFiles.length === 0) {
-                console.log('⚠️  Нет книг без файлов для сопоставления');
-                return { processed: indexResult.indexed, added: 0, updated: 0, matched: 0, message: `Full sync completed. Indexed ${indexResult.indexed} messages, no books without files found for file matching.` };
-            }
-
-            console.log(`✅ Найдено ${booksWithoutFiles.length} книг без файлов для сопоставления`);
-
-            // Для каждой книги без файла ищем соответствующий файл
-            let processedCount = 0;
-            let matchedCount = 0;
-
-            for (const book of booksWithoutFiles) {
-                processedCount++;
-                console.log(`
-📖 Обработка книги: "${book.title}" автора ${book.author} (${processedCount}/${booksWithoutFiles.length})`);
-
-                // Ищем соответствующий файл для книги, используя универсальный алгоритм
-                const matchingFile = await this.findMatchingFile(book, allFilesToProcess);
-                
-                if (matchingFile) {
-                    console.log(`    📨 Найден соответствующий файл: ${matchingFile.filename}`);
-                    console.log(`    📨 Message ID файла: ${matchingFile.messageId}`);
-                    
-                    try {
-                        // Обрабатываем найденный файл
-                        const result = await this.enhancedFileService!.processSingleFileById(parseInt(matchingFile.messageId as string, 10));
-                        console.log(`    ✅ Файл успешно обработан и привязан к книге`);
-                        matchedCount++;
-                    } catch (processError) {
-                        console.error(`    ❌ Ошибка обработки файла:`, processError);
-                    }
-                } else {
-                    console.log(`  ⚠️  Соответствующий файл не найден`);
-                }
-            }
-
-            console.log(`
+			console.log(`
 🏁 Полная синхронизация завершена.`);
-            
-            return {
-                processed: indexResult.indexed,
-                added: 0, // В режиме full мы не добавляем книги, а индексируем сообщения
-                updated: 0, // В режиме full мы не обновляем книги, а индексируем сообщения
-                matched: matchedCount,
-                message: `Full sync completed. Indexed ${indexResult.indexed} messages, matched ${matchedCount} files.`
-            };
-        } catch (error) {
-            console.error('❌ Ошибка в полной синхронизации:', error);
-            throw error;
-        }
-    }
 
-    public async shutdown(): Promise<void> {
-        console.log('🛑 Завершение BookWorm сервиса...');
-        
-        if (this.telegramService) {
-            await this.telegramService.disconnect();
-        }
-        
-        console.log('✅ BookWorm сервис завершен');
-    }
+			return {
+				processed: indexResult.indexed,
+				added: 0, // В режиме full мы не добавляем книги, а индексируем сообщения
+				updated: 0, // В режиме full мы не обновляем книги, а индексируем сообщения
+				matched: matchedCount,
+				message: `Full sync completed. Indexed ${indexResult.indexed} messages, matched ${matchedCount} files.`,
+				detailedLogs: detailedLogs,
+			};
+		} catch (error) {
+			console.error("❌ Ошибка в полной синхронизации:", error);
+			throw error;
+		}
+	}
+
+	public async shutdown(): Promise<void> {
+		console.log("🛑 Завершение BookWorm сервиса...");
+
+		if (this.telegramService) {
+			await this.telegramService.disconnect();
+		}
+
+		console.log("✅ BookWorm сервис завершен");
+	}
 }
