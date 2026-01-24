@@ -1,502 +1,527 @@
-'use client'
+"use client";
 
-import { getBrowserSupabase } from '@/lib/browserSupabase'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, Library, LogOut, Settings, Play, RefreshCw, RotateCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-
-import { TelegramStatsSection } from '@/components/admin/telegram-stats';
-import { FileSearchManager } from '@/components/admin/file-search-manager';
-import { SyncSettingsShadix } from '@/components/admin/sync-settings-shadix';
-import { getValidSession } from '@/lib/auth-helpers';
-import { ThemeToggle } from '@/components/ui/theme-toggle'
-import { PageTransition } from '@/components/ui/page-transition'
-import { Checkbox } from '@/components/ui/checkbox'
+import type { User } from "@supabase/supabase-js";
+import { AlertCircle, Library, Menu, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SyncSettingsShadix } from "@/components/admin/sync-settings-shadix";
+import { TelegramStatsSection } from "@/components/admin/telegram-stats";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageTransition } from "@/components/ui/page-transition";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { getValidSession } from "@/lib/auth-helpers";
+import { getBrowserSupabase } from "@/lib/browserSupabase";
 
 interface UserProfile {
-  id: string
-  username?: string
-  display_name?: string
-  role: string
-}
-
-// Add User interface
-interface User {
-  id: string
-  email?: string
-  // Add other properties as needed
+	id: string;
+	username?: string;
+	display_name?: string;
+	role: string;
 }
 
 export default function AdminPage() {
-  const [supabase] = useState(() => getBrowserSupabase())
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  // Состояния только для Книжного червя
-  const [bookWormRunning, setBookWormRunning] = useState(false)
-  const [bookWormMode, setBookWormMode] = useState<'full' | 'update' | null>(null)
-  const [bookWormInterval, setBookWormInterval] = useState(30)
-  const [bookWormAutoUpdate, setBookWormAutoUpdate] = useState(false)
-  const [bookWormStatus, setBookWormStatus] = useState<{
-    status: 'idle' | 'running' | 'completed' | 'error';
-    message: string;
-    progress: number;
-  }>({
-    status: 'idle',
-    message: '',
-    progress: 0
-  });
-  const [lastBookWormReport, setLastBookWormReport] = useState<string>('')
-  const [error, setError] = useState<string | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [user, setUser] = useState<User | null>(null)
-  const [interactiveSearchState, setInteractiveSearchState] = useState<{
-    status: 'idle' | 'loading' | 'searching' | 'processing' | 'completed' | 'error';
-    message: string;
-  }>({
-    status: 'idle',
-    message: ''
-  });
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const [supabase] = useState(() => getBrowserSupabase());
+	const router = useRouter();
+	const [loading, setLoading] = useState(true);
+	// Состояния только для Книжного червя
+	const [bookWormRunning, setBookWormRunning] = useState(false);
+	const [bookWormMode, setBookWormMode] = useState<"full" | "update" | null>(
+		null,
+	);
+	const [bookWormInterval, setBookWormInterval] = useState(30);
+	const [bookWormAutoUpdate, setBookWormAutoUpdate] = useState(false);
+	const [lastBookWormReport, setLastBookWormReport] = useState<string>("");
+	const [error, setError] = useState<string | null>(null);
+	const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+	const [user, setUser] = useState<User | null>(null);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Эффект для автоматической прокрутки текстового поля результатов
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
-    }
-  }, [lastBookWormReport]);
+	// Эффект для автоматической прокрутки текстового поля результатов
+	useEffect(() => {
+		if (textareaRef.current) {
+			textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+		}
+	}, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
+	const handleLogout = async () => {
+		await supabase.auth.signOut();
+		router.push("/");
+	};
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Проверяем и обновляем сессию
-        const session = await getValidSession(supabase)
+	useEffect(() => {
+		const checkAuth = async () => {
+			try {
+				const session = await getValidSession(supabase);
+				if (!session) {
+					console.log("No valid session, redirecting to login...");
+					router.push("/auth/login");
+					return;
+				}
+				setUser(session.user);
 
-        // Если сессии нет - перенаправляем на логин
-        if (!session) {
-          console.log('No valid session, redirecting to login...')
-          router.push('/auth/login')
-          return
-        }
+				const { data: profile, error: profileError } = await supabase
+					.from("profiles")
+					.select("*")
+					.eq("id", session.user.id)
+					.single();
 
-        setUser(session.user)
+				if (profileError || profile?.role !== "admin") {
+					console.warn("User not authorized as admin");
+					router.push("/library");
+					return;
+				}
+				setUserProfile(profile as UserProfile);
+			} catch (error) {
+				console.error("Error checking auth:", error);
+				// router.push("/auth/login");
+			} finally {
+				setLoading(false);
+			}
+		};
 
-        // Проверяем роль пользователя
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
+		checkAuth();
 
-        if (profileError) {
-          console.error('Error loading profile:', profileError)
-          router.push('/auth/login')
-          return
-        }
+		// Регистрируем глобальные функции для логирования в окно результатов
+		if (typeof window !== "undefined") {
+			// Функция для Книжного червя
+			(
+				window as unknown as { setStatsUpdateReport: (report: string) => void }
+			).setStatsUpdateReport = (report: string) => {
+				setLastBookWormReport((prev) => {
+					const newReport = prev ? prev + report : report;
+					return newReport;
+				});
+			};
 
-        if (profile?.role !== 'admin') {
-          console.log('User is not admin, redirecting...')
-          router.push('/access-denied')
-          return
-        }
+			// Функция для поиска файлов
+			(
+				window as unknown as {
+					updateFileSearchResults: (report: string) => void;
+				}
+			).updateFileSearchResults = (report: string) => {
+				setLastBookWormReport((prev) => {
+					const newReport = prev ? prev + report : report;
+					return newReport;
+				});
+			};
+		}
 
-        setUserProfile(profile)
-      } catch (error) {
-        console.error('Error checking auth:', error)
-        router.push('/auth/login')
-      } finally {
-        setLoading(false)
-      }
-    }
+		// Инициализируем окно результатов пустым сообщением
+		console.log("🔍 Initializing lastBookWormReport with empty string");
+		setLastBookWormReport("");
 
-    checkAuth()
+		// Очищаем функции при размонтировании компонента
+		return () => {
+			if (typeof window !== "undefined") {
+				const win = window as unknown as {
+					setStatsUpdateReport?: unknown;
+					updateFileSearchResults?: unknown;
+				};
+				if (win.setStatsUpdateReport) {
+					delete win.setStatsUpdateReport;
+				}
+				if (win.updateFileSearchResults) {
+					delete win.updateFileSearchResults;
+				}
+			}
+		};
+	}, [supabase, router]);
 
-    // Регистрируем глобальные функции для логирования в окно результатов
-    if (typeof window !== 'undefined') {
-      // Функция для Книжного червя
-      (window as any).setStatsUpdateReport = (report: string) => {
-        setLastBookWormReport(prev => {
-          const newReport = prev ? prev + report : report;
-          return newReport;
-        });
-      };
+	// Функция для переключения автоматического обновления
+	const handleToggleAutoUpdate = (checked: boolean) => {
+		setBookWormAutoUpdate(checked);
+	};
 
-      // Функция для поиска файлов
-      (window as any).updateFileSearchResults = (report: string) => {
-        setLastBookWormReport(prev => {
-          const newReport = prev ? prev + report : report;
-          return newReport;
-        });
-      };
-    }
+	// Функция для проверки необходимости автообновления (клиентская реализация как резервный вариант)
+	const checkAutoUpdate = useCallback(async () => {
+		if (!bookWormAutoUpdate) return; // Не проверяем, если автообновление отключено
 
-    // Инициализируем окно результатов пустым сообщением
-    console.log('🔍 Initializing lastBookWormReport with empty string');
-    setLastBookWormReport('');
+		try {
+			const {
+				data: { session },
+			} = await supabase.auth.getSession();
+			if (!session) return;
 
-    // Очищаем функции при размонтировании компонента
-    return () => {
-      if (typeof window !== 'undefined') {
-        if ((window as any).setStatsUpdateReport) {
-          delete (window as any).setStatsUpdateReport;
-        }
-        if ((window as any).updateFileSearchResults) {
-          delete (window as any).updateFileSearchResults;
-        }
-      }
-    };
-  }, [supabase, router])
+			const response = await fetch("/api/admin/book-worm/auto-update", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session.access_token}`,
+				},
+			});
 
+			if (response.ok) {
+				const data = await response.json();
+				const timestamp = new Date().toLocaleTimeString("ru-RU");
 
+				if (data.message === "Auto update started") {
+					setLastBookWormReport(
+						(prev) =>
+							prev + `[${timestamp}] 🚀 Автоматическое обновление ЗАПУЩЕНО!\n`,
+					);
+				} else if (data.message === "Auto update not due yet") {
+					const nextRun = data.nextRun
+						? new Date(data.nextRun).toLocaleTimeString("ru-RU")
+						: "неизвестно";
+					setLastBookWormReport(
+						(prev) =>
+							prev +
+							`[${timestamp}] ℹ️ Авто-проверка: обновление не требуется. Следующий запуск: ${nextRun}\n`,
+					);
+				} else if (data.message === "Auto update is disabled") {
+					setLastBookWormReport(
+						(prev) =>
+							prev + `[${timestamp}] ℹ️ Авто-проверка: обновление отключено.\n`,
+					);
+				} else {
+					setLastBookWormReport(
+						(prev) =>
+							prev +
+							`[${timestamp}] ℹ️ Результат авто-проверки: ${data.message}\n`,
+					);
+				}
 
+				console.log("Auto update check completed:", data);
+			} else {
+				console.error("Auto update check failed:", response.statusText);
+				const timestamp = new Date().toLocaleTimeString("ru-RU");
+				setLastBookWormReport(
+					(prev) =>
+						prev +
+						`[${timestamp}] ❌ Ошибка авто-проверки: ${response.statusText}\n`,
+				);
+			}
+		} catch (error) {
+			console.error("Error checking auto update:", error);
+			const timestamp = new Date().toLocaleTimeString("ru-RU");
+			setLastBookWormReport(
+				(prev) =>
+					prev +
+					`[${timestamp}] ❌ Ошибка выполнения авто-проверки: ${(error as Error).message}\n`,
+			);
+		}
+	}, [bookWormAutoUpdate, supabase.auth]);
 
-  // Функция для переключения автоматического обновления
-  const handleToggleAutoUpdate = (checked: boolean) => {
-    setBookWormAutoUpdate(checked);
-  };
+	// Устанавливаем интервал для проверки автообновления (резервный вариант, если GitHub Actions не настроен)
+	useEffect(() => {
+		if (bookWormAutoUpdate) {
+			// Проверяем автообновление каждые 30 минут как резервный вариант (GitHub Actions обычно используется для основного автообновления)
+			const interval = setInterval(
+				checkAutoUpdate,
+				Math.max(30, bookWormInterval) * 60 * 1000,
+			);
 
-  // Функция для проверки необходимости автообновления (клиентская реализация как резервный вариант)
-  const checkAutoUpdate = async () => {
-    if (!bookWormAutoUpdate) return; // Не проверяем, если автообновление отключено
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+			return () => {
+				clearInterval(interval);
+			};
+		}
+	}, [bookWormAutoUpdate, bookWormInterval, checkAutoUpdate]);
 
-      const response = await fetch('/api/admin/book-worm/auto-update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
+	// Функции для интерактивного поиска файлов
+	// const handleStartInteractiveSearch = () => {
+	//   // Здесь будет логика запуска интерактивного поиска
+	//   console.log('Начать интерактивный поиск');
+	// };
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Auto update check completed:', data);
-      } else {
-        console.error('Auto update check failed:', response.statusText);
-      }
-    } catch (error) {
-      console.error('Error checking auto update:', error);
-    }
-  };
+	// const handleResetInteractiveSearch = () => {
+	//   setInteractiveSearchState({
+	//     status: 'idle',
+	//     message: ''
+	//   });
+	// };
 
-  // Устанавливаем интервал для проверки автообновления (резервный вариант, если GitHub Actions не настроен)
-  useEffect(() => {
-    if (bookWormAutoUpdate) {
-      // Проверяем автообновление каждые 30 минут как резервный вариант (GitHub Actions обычно используется для основного автообновления)
-      const interval = setInterval(checkAutoUpdate, Math.max(30, bookWormInterval) * 60 * 1000);
-      
-      return () => {
-        clearInterval(interval);
-      };
-    }
-  }, [bookWormAutoUpdate, bookWormInterval]);
+	// Функция для запуска "Книжного Червя"
+	const handleRunBookWorm = async (mode: "full" | "update") => {
+		setBookWormRunning(true);
+		setBookWormMode(mode);
+		setError(null);
 
-  // Функции для интерактивного поиска файлов
-  const handleStartInteractiveSearch = () => {
-    // Здесь будет логика запуска интерактивного поиска
-    console.log('Начать интерактивный поиск');
-  };
+		try {
+			const {
+				data: { session },
+			} = await supabase.auth.getSession();
+			if (!session) {
+				router.push("/auth/login");
+				return;
+			}
 
-  const handleResetInteractiveSearch = () => {
-    // Здесь будет логика сброса интерактивного поиска
-    console.log('Сброс интерактивного поиска');
-  };
+			// Создаем отчет о запуске
+			const report = `🔄 Запуск синхронизации в режиме ${mode === "full" ? "ПОЛНОЙ СИНХРОНИЗАЦИИ" : "ОБНОВЛЕНИЯ"}...\n\n`;
+			setLastBookWormReport(report);
 
-  // Функция для запуска "Книжного Червя"
-  const handleRunBookWorm = async (mode: 'full' | 'update') => {
-    setBookWormRunning(true)
-    setBookWormMode(mode)
-    setError(null)
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/auth/login')
-        return
-      }
+			// Для полной синхронизации используем новый dedicated endpoint
+			const endpoint =
+				mode === "full"
+					? "/api/admin/book-worm/full-sync"
+					: "/api/admin/book-worm";
 
-      // Создаем отчет о запуске
-      const report = `🔄 Запуск синхронизации в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n`
-      setLastBookWormReport(report)
+			// Вызываем API endpoint для запуска синхронизации
+			const response = await fetch(endpoint, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session.access_token}`,
+				},
+				body: JSON.stringify({ mode }),
+			});
 
-      // Для полной синхронизации используем новый dedicated endpoint
-      const endpoint = mode === 'full' ? '/api/admin/book-worm/full-sync' : '/api/admin/book-worm';
-      
-      // Вызываем API endpoint для запуска синхронизации
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ mode }),
-      })
+			const data = await response.json();
 
-      const data = await response.json()
+			if (response.ok) {
+				// Если это режим обновления, отображаем подробный отчет
+				if (mode === "update" && data.result) {
+					// Используем отформатированное сообщение из API, если оно есть
+					const detailedReport =
+						data.formattedMessage ||
+						data.report ||
+						`🔄 Результаты работы синхронизации в режиме ОБНОВЛЕНИЯ:\n` +
+							`=====================================================\n\n` +
+							`📚 Метаданные:\n` +
+							`   ✅ Обработано: ${data.result.metadata?.processed || 0}\n` +
+							`   ➕ Добавлено: ${data.result.metadata?.added || 0}\n` +
+							`   🔄 Обновлено: ${data.result.metadata?.updated || 0}\n` +
+							`   ⚠️  Пропущено: ${data.result.metadata?.skipped || 0}\n` +
+							`   ❌ Ошибок: ${data.result.metadata?.errors || 0}\n\n` +
+							`📁 Файлы:\n` +
+							`   ✅ Обработано: ${data.result.files?.processed || 0}\n` +
+							`   🔗 Привязано: ${data.result.files?.linked || 0}\n` +
+							`   ⚠️  Пропущено: ${data.result.files?.skipped || 0}\n` +
+							`   ❌ Ошибок: ${data.result.files?.errors || 0}\n\n` +
+							`📊 Сводка:\n` +
+							`   Всего обработано элементов: ${(data.result.metadata?.processed || 0) + (data.result.files?.processed || 0)}\n` +
+							`   Успешных операций: ${(data.result.metadata?.added || 0) + (data.result.metadata?.updated || 0) + (data.result.files?.linked || 0)}\n` +
+							`   Ошибок: ${(data.result.metadata?.errors || 0) + (data.result.files?.errors || 0)}`;
 
-      if (response.ok) {
-        // Если это режим обновления, отображаем подробный отчет
-        if (mode === 'update' && data.result) {
-          // Используем отформатированное сообщение из API, если оно есть
-          const detailedReport = data.formattedMessage || 
-            (data.report || 
-            `🔄 Результаты работы синхронизации в режиме ОБНОВЛЕНИЯ:\n` +
-            `=====================================================\n\n` +
-            `📚 Метаданные:\n` +
-            `   ✅ Обработано: ${data.result.metadata?.processed || 0}\n` +
-            `   ➕ Добавлено: ${data.result.metadata?.added || 0}\n` +
-            `   🔄 Обновлено: ${data.result.metadata?.updated || 0}\n` +
-            `   ⚠️  Пропущено: ${data.result.metadata?.skipped || 0}\n` +
-            `   ❌ Ошибок: ${data.result.metadata?.errors || 0}\n\n` +
-            `📁 Файлы:\n` +
-            `   ✅ Обработано: ${data.result.files?.processed || 0}\n` +
-            `   🔗 Привязано: ${data.result.files?.linked || 0}\n` +
-            `   ⚠️  Пропущено: ${data.result.files?.skipped || 0}\n` +
-            `   ❌ Ошибок: ${data.result.files?.errors || 0}\n\n` +
-            `📊 Сводка:\n` +
-            `   Всего обработано элементов: ${(data.result.metadata?.processed || 0) + (data.result.files?.processed || 0)}\n` +
-            `   Успешных операций: ${(data.result.metadata?.added || 0) + (data.result.metadata?.updated || 0) + (data.result.files?.linked || 0)}\n` +
-            `   Ошибок: ${(data.result.metadata?.errors || 0) + (data.result.files?.errors || 0)}`);
-          
-          setLastBookWormReport(detailedReport);
-        } else {
-          // Для полной синхронизации или других случаев
-          const finalReport = data.formattedMessage || 
-            `${report}✅ Синхронизация успешно запущена в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || 'N/A'}`
-          setLastBookWormReport(finalReport)
-        }
-        
-        // Обновляем статус
-        setBookWormStatus({
-          status: 'completed',
-          message: `Завершена в режиме ${mode}`,
-          progress: 100
-        });
-      } else {
-        throw new Error(data.error || 'Ошибка запуска синхронизации')
-      }
-    } catch (error) {
-      console.error('Sync error:', error)
-      setError(`Ошибка при выполнении синхронизации: ${(error as Error).message}`)
-      // Обновляем отчет об ошибке
-      const errorReport = `🔄 Запуск синхронизации в режиме ${mode === 'full' ? 'ПОЛНОЙ СИНХРОНИЗАЦИИ' : 'ОБНОВЛЕНИЯ'}...\n\n❌ Ошибка: ${(error as Error).message}`
-      setLastBookWormReport(errorReport)
-      
-      // Обновляем статус
-      setBookWormStatus({
-        status: 'error',
-        message: `Ошибка: ${(error as Error).message}`,
-        progress: 0
-      });
-    } finally {
-      setBookWormRunning(false)
-      setBookWormMode(null)
-    }
-  }
+					setLastBookWormReport(detailedReport);
+				} else {
+					// Для полной синхронизации или других случаев
+					const finalReport =
+						data.formattedMessage ||
+						`${report}✅ Синхронизация успешно запущена в режиме ${mode}!\n📊 Статус: ${data.message}\n🆔 Process ID: ${data.pid || "N/A"}`;
+					setLastBookWormReport(finalReport);
+				}
 
-  // Функция для проверки статуса синхронизации
-  const checkBookWormStatus = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        return
-      }
+				// Обновляем статус
+				// setBookWormStatus({
+				//   status: 'completed',
+				//   message: `Завершена в режиме ${mode}`,
+				//   progress: 100
+				// });
+			} else {
+				throw new Error(data.error || "Ошибка запуска синхронизации");
+			}
+		} catch (error) {
+			console.error("Sync error:", error);
+			setError(
+				`Ошибка при выполнении синхронизации: ${(error as Error).message}`,
+			);
+			// Обновляем отчет об ошибке
+			const errorReport = `🔄 Запуск синхронизации в режиме ${mode === "full" ? "ПОЛНОЙ СИНХРОНИЗАЦИИ" : "ОБНОВЛЕНИЯ"}...\n\n❌ Ошибка: ${(error as Error).message}`;
+			setLastBookWormReport(errorReport);
 
-      const response = await fetch('/api/admin/book-worm/status', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        }
-      })
+			// Обновляем статус
+			// setBookWormStatus({
+			//   status: 'error',
+			//   message: `Ошибка: ${(error as Error).message}`,
+			//   progress: 0
+			// });
+		} finally {
+			setBookWormRunning(false);
+			setBookWormMode(null);
+		}
+	};
 
-      const data = await response.json()
+	// Функция для проверки статуса синхронизации
+	const checkBookWormStatus = useCallback(async () => {
+		try {
+			const {
+				data: { session },
+			} = await supabase.auth.getSession();
+			if (!session) {
+				return;
+			}
 
-      if (response.ok) {
-        setBookWormStatus({
-          status: data.status,
-          message: data.message,
-          progress: data.progress
-        });
-      }
-    } catch (error) {
-      console.error('Error checking sync status:', error)
-    }
-  }
+			const response = await fetch("/api/admin/book-worm/status", {
+				headers: {
+					Authorization: `Bearer ${session.access_token}`,
+				},
+			});
 
-  // Периодически проверяем статус синхронизации
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (bookWormRunning || bookWormStatus.status === 'running') {
-        checkBookWormStatus()
-      }
-    }, 5000) // Проверяем каждые 5 секунд
+			if (response.ok) {
+				const data = await response.json();
+				const timestamp = new Date().toLocaleTimeString("ru-RU");
 
-    return () => clearInterval(interval)
-  }, [bookWormRunning, bookWormStatus.status, checkBookWormStatus]) // Добавлен checkBookWormStatus в зависимости
+				if (data.active) {
+					if (!bookWormRunning) {
+						// Процесс только что обнаружен
+						const message =
+							typeof data.message === "string" ? data.message : "Выполняется";
+						setLastBookWormReport(
+							(prev) =>
+								prev +
+								`[${timestamp}] 🔄 Обнаружен активный процесс синхронизации (${message})...\n`,
+						);
+					}
+					setBookWormRunning(true);
+				} else if (bookWormRunning) {
+					// Если синхронизация была активна, но теперь не активна - значит завершилась
+					setLastBookWormReport(
+						(prev) => prev + `[${timestamp}] ✅ Синхронизация завершена.\n`,
+					);
+					setBookWormRunning(false);
+				}
+			}
+		} catch (error) {
+			console.error("Error checking sync status:", error);
+		}
+	}, [supabase.auth, bookWormRunning]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
-          <p className="text-muted-foreground">Загрузка админ панели...</p>
-        </div>
-      </div>
-    )
-  }
+	// Периодически проверяем статус синхронизации
+	useEffect(() => {
+		const interval = setInterval(checkBookWormStatus, 5000);
+		return () => clearInterval(interval);
+	}, [checkBookWormStatus]);
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center text-destructive">
-              <AlertCircle className="mr-2" />
-              Ошибка
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Button onClick={() => router.push('/library')}>
-              Вернуться в библиотеку
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+	if (loading) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-background">
+				<div className="text-center space-y-4">
+					<Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
+					<p className="text-muted-foreground">Загрузка админ панели...</p>
+				</div>
+			</div>
+		);
+	}
 
-  return (
-    <PageTransition>
-      <div className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-12 items-center justify-between">
-          <div className="flex items-center">
-            <a href="/library" className="mr-6 flex items-center space-x-2">
-              <Library className="h-6 w-6" />
-              <span className="hidden font-bold sm:inline-block">
-                Fiction Library
-              </span>
-            </a>
-          </div>
-          <div className="hidden md:block text-center absolute left-1/2 transform -translate-x-1/2">
-            <h1 className="text-base font-bold">Админ панель</h1>
-          </div>
+	if (error) {
+		return (
+			<div className="min-h-screen flex items-center justify-center bg-background">
+				<Card className="max-w-md">
+					<CardHeader>
+						<CardTitle className="flex items-center text-destructive">
+							<AlertCircle className="mr-2" />
+							Ошибка
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<p className="text-muted-foreground mb-4">{error}</p>
+						<Button onClick={() => router.push("/library")}>
+							Вернуться в библиотеку
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
 
-          <div className="flex flex-1 items-center justify-end space-x-2">
-            <div className="w-full flex-1 md:w-auto md:flex-none">
-              {/* Search would go here if needed */}
-            </div>
+	return (
+		<PageTransition>
+			<div className="flex h-screen bg-background overflow-hidden">
+				{/* Desktop Sidebar */}
+				<AppSidebar
+					user={user}
+					userProfile={userProfile}
+					onLogout={handleLogout}
+				/>
 
-            <nav className="flex items-center gap-2">
-              <ThemeToggle />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {(userProfile?.display_name || userProfile?.username || user?.email || 'U')[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {userProfile?.display_name || userProfile?.username || 'Пользователь'}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/library')}>
-                    <Library className="mr-2 h-4 w-4" />
-                    <span>Библиотека</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/profile')}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Настройки</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Выйти</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </nav>
-          </div>
-        </div>
-      </header>
+				<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+					{/* Mobile Header */}
+					<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card/80 backdrop-blur-xl sticky top-0 z-30">
+						<div className="flex items-center gap-2">
+							<Library className="h-6 w-6 text-primary" />
+							<span className="font-bold text-lg">FictionLib</span>
+						</div>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => setMobileMenuOpen(true)}
+						>
+							<Menu className="h-6 w-6" />
+						</Button>
+					</header>
 
-      {/* Main Content */}
-      <div className="container py-6">
-        {/* Telegram Stats - перемещен в самый верх */}
-        <div className="mb-6">
-          <TelegramStatsSection />
-        </div>
+					{/* Mobile Menu Overlay */}
+					{mobileMenuOpen && (
+						<div className="fixed inset-0 z-50 lg:hidden bg-background/80 backdrop-blur-sm">
+							<div className="fixed inset-y-0 left-0 w-72 bg-card border-r shadow-2xl p-0 flex flex-col">
+								<div className="flex items-center justify-end p-4">
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() => setMobileMenuOpen(false)}
+									>
+										<X className="h-6 w-6" />
+									</Button>
+								</div>
+								<div className="flex-1 overflow-y-auto">
+									<AppSidebar
+										user={user}
+										userProfile={userProfile}
+										onLogout={handleLogout}
+									/>
+								</div>
+							</div>
+							<div
+								className="flex-1"
+								onClick={() => setMobileMenuOpen(false)}
+							/>
+						</div>
+					)}
 
-        {/* Синхронизация */}
-        <div className="mb-6">
-          <SyncSettingsShadix
-            bookWormRunning={bookWormRunning}
-            bookWormMode={bookWormMode}
-            bookWormInterval={bookWormInterval}
-            bookWormAutoUpdate={bookWormAutoUpdate}
-            handleRunBookWorm={handleRunBookWorm}
-            handleToggleAutoUpdate={handleToggleAutoUpdate}
-            setBookWormInterval={setBookWormInterval}
-          />
-        </div>
+					<main className="flex-1 overflow-y-auto scrollbar-hide p-6">
+						<div className="container mx-auto max-w-6xl">
+							<div className="flex items-center justify-between mb-8">
+								<h1 className="text-3xl font-bold tracking-tight">
+									Админ панель
+								</h1>
+								<ThemeToggle />
+							</div>
 
-        {/* Результаты последней операции с расширенной информацией */}
-        <Card className="mb-6">
-          <CardHeader className="space-y-0 pb-1">
-            <CardTitle className="text-lg font-semibold">Результаты</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="border rounded-md p-1 bg-muted">
-              <textarea
-                id="results-textarea"
-                value={
-                  lastBookWormReport && lastBookWormReport.trim() ?
-                  lastBookWormReport : // Показываем отчет Книжного червя или поиска файлов
-                  ''}
-                readOnly
-                className="w-full h-[500px] font-mono text-sm overflow-y-auto max-h-[500px] p-1 bg-background border rounded"
-                placeholder="Результаты последней операции..."
-                ref={textareaRef}
-              />
-            </div>
-          </CardContent>
-        </Card>
+							<div className="space-y-6">
+								{/* Telegram Stats */}
+								<TelegramStatsSection />
 
-        {/* Back to Library */}
-        <div className="flex justify-center mt-6">
-          <Button variant="outline" onClick={() => router.push('/library')} className="h-8 text-sm">
-            Вернуться в библиотеку
-          </Button>
-        </div>
-      </div>
-      </div>
-    </PageTransition>
-  )
+								{/* Синхронизация */}
+								<SyncSettingsShadix
+									bookWormRunning={bookWormRunning}
+									bookWormMode={bookWormMode}
+									bookWormInterval={bookWormInterval}
+									bookWormAutoUpdate={bookWormAutoUpdate}
+									handleRunBookWorm={handleRunBookWorm}
+									handleToggleAutoUpdate={handleToggleAutoUpdate}
+									setBookWormInterval={setBookWormInterval}
+								/>
+
+								{/* Результаты */}
+								<Card>
+									<CardHeader className="space-y-0 pb-1">
+										<CardTitle className="text-lg font-semibold">
+											Результаты
+										</CardTitle>
+									</CardHeader>
+									<CardContent className="pb-2">
+										<div className="border rounded-md p-1 bg-muted">
+											<textarea
+												id="results-textarea"
+												value={
+													lastBookWormReport?.trim() ? lastBookWormReport : ""
+												}
+												readOnly
+												className="w-full h-[500px] font-mono text-sm overflow-y-auto max-h-[500px] p-1 bg-background border rounded resize-none focus:outline-none"
+												placeholder="Результаты последней операции..."
+												ref={textareaRef}
+											/>
+										</div>
+									</CardContent>
+								</Card>
+							</div>
+						</div>
+					</main>
+				</div>
+			</div>
+		</PageTransition>
+	);
 }

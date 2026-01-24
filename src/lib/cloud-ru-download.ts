@@ -8,8 +8,11 @@
  * @param fileName Имя файла в бакете
  * @returns URL для скачивания файла
  */
-export function getCloudRuDownloadUrl(bucketName: string, fileName: string): string {
-  return `https://${bucketName}.s3.cloud.ru/${encodeURIComponent(fileName)}`;
+export function getCloudRuDownloadUrl(
+	bucketName: string,
+	fileName: string,
+): string {
+	return `https://${bucketName}.s3.cloud.ru/${encodeURIComponent(fileName)}`;
 }
 
 /**
@@ -18,11 +21,14 @@ export function getCloudRuDownloadUrl(bucketName: string, fileName: string): str
  * @param fileName Имя файла в бакете
  * @returns URL для чтения файла
  */
-export function getCloudRuReadUrl(bucketName: string, fileName: string): string {
-  return `https://${bucketName}.s3.cloud.ru/${encodeURIComponent(fileName)}`;
+export function getCloudRuReadUrl(
+	bucketName: string,
+	fileName: string,
+): string {
+	return `https://${bucketName}.s3.cloud.ru/${encodeURIComponent(fileName)}`;
 }
 
 export default {
-  getCloudRuDownloadUrl,
-  getCloudRuReadUrl
+	getCloudRuDownloadUrl,
+	getCloudRuReadUrl,
 };

@@ -1,38 +1,42 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Comfortaa } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { ToasterProvider } from "@/components/providers/toaster-provider";
-import { Comfortaa } from "next/font/google";
+import { MouseGradientBackground } from "@/components/ui/mouse-gradient-background";
 
 const comfortaa = Comfortaa({
-  subsets: ["latin", "cyrillic"],
-  variable: "--font-comfortaa",
-  display: "swap",
+	subsets: ["latin", "cyrillic"],
+	variable: "--font-comfortaa",
+	display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Fiction Library - Электронная библиотека",
-  description: "Удобная читалка FB2 файлов с возможностью скачивания",
+	title: "Fiction Library - Электронная библиотека",
+	description: "Удобная читалка FB2 файлов с возможностью скачивания",
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  return (
-    <html lang="ru" suppressHydrationWarning className={comfortaa.variable}>
-      <body className={comfortaa.className} suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <ToasterProvider />
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+	return (
+		<html lang="ru" suppressHydrationWarning className={comfortaa.variable}>
+			<body className={comfortaa.className} suppressHydrationWarning>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+				>
+					<MouseGradientBackground />
+					<div className="relative z-10 flex min-h-screen flex-col">
+						{children}
+					</div>
+					<ToasterProvider />
+				</ThemeProvider>
+			</body>
+		</html>
+	);
 }
