@@ -144,7 +144,7 @@ export function FileSelector({
 					</Badge>
 				</div>
 				<CardDescription className="text-sm py-1">
-					<span className="font-medium text-gray-900">
+					<span className="font-medium text-foreground">
 						{book.author} — {book.title}
 					</span>
 				</CardDescription>
@@ -166,15 +166,15 @@ export function FileSelector({
 							data-file-index={index}
 							className={`p-3 rounded-lg border cursor-pointer transition-all ${
 								index === selectedIndex
-									? "bg-blue-50 border-blue-500 ring-2 ring-blue-200"
-									: "bg-white border-gray-200 hover:bg-gray-50"
+									? "bg-primary/10 border-primary ring-2 ring-primary/20"
+									: "bg-card border-border hover:bg-muted/50"
 							}`}
 							onClick={() => setSelectedIndex(index)}
 							onDoubleClick={handleSelect}
 						>
 							<div className="flex items-start justify-between gap-2">
 								<div className="flex-1 min-w-0">
-									<div className="font-medium text-sm truncate">
+									<div className="font-medium text-sm truncate text-foreground">
 										{file.file_name || `Файл #${file.message_id}`}
 									</div>
 									<div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
@@ -189,7 +189,7 @@ export function FileSelector({
 										)}
 									</div>
 									{file.caption && (
-										<div className="text-xs text-gray-600 mt-1 line-clamp-2">
+										<div className="text-xs text-muted-foreground mt-1 line-clamp-2">
 											{file.caption}
 										</div>
 									)}
@@ -210,7 +210,7 @@ export function FileSelector({
 										</Badge>
 									)}
 									{index === selectedIndex && (
-										<Check className="h-4 w-4 text-blue-600" />
+										<Check className="h-4 w-4 text-primary" />
 									)}
 								</div>
 							</div>
@@ -219,7 +219,7 @@ export function FileSelector({
 				)}
 			</CardContent>
 
-			<div className="p-3 border-t bg-gray-50 flex-shrink-0">
+			<div className="p-3 border-t bg-muted/50 flex-shrink-0">
 				<div className="flex items-center justify-between gap-3">
 					<KbdGroup>
 						<Kbd>↑↓</Kbd> навигация

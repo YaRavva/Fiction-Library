@@ -709,7 +709,7 @@ export function FileSearchManager() {
 				typeof document !== "undefined" &&
 				createPortal(
 					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
-						<div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden flex flex-col">
+						<div className="bg-card rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden flex flex-col">
 							<FileSelector
 								key={`file-selector-${fileSelectorKey}-${currentBookIndex}-${booksWithoutFiles[currentBookIndex].id}`}
 								book={booksWithoutFiles[currentBookIndex]}
