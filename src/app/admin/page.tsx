@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SyncResultsPanel } from "@/components/admin/sync-results-panel";
 import { SyncSettingsShadix } from "@/components/admin/sync-settings-shadix";
+import { TelegramFilesIndexer } from "@/components/admin/telegram-files-indexer";
 import { TelegramStatsSection } from "@/components/admin/telegram-stats";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Button } from "@/components/ui/button";
@@ -498,6 +499,9 @@ export default function AdminPage() {
 									handleToggleAutoUpdate={handleToggleAutoUpdate}
 									setBookWormInterval={setBookWormInterval}
 								/>
+
+								{/* Индексация файлов Telegram */}
+								<TelegramFilesIndexer />
 
 								{/* История синхронизаций */}
 								<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />

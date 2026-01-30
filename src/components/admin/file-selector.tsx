@@ -1,10 +1,9 @@
 "use client";
 
-import { Check, FileText, SkipForward, Search as SearchIcon } from "lucide-react";
+import { Check, FileText, SkipForward } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
 	Card,
 	CardContent,
@@ -36,7 +35,6 @@ interface FileSelectorProps {
 	files: FileOption[];
 	onSelect: (file: FileOption | null) => void;
 	onSkip: () => void;
-	onSearch: (query: string) => Promise<FileOption[]>;
 }
 
 export function FileSelector({
@@ -44,68 +42,48 @@ export function FileSelector({
 	files,
 	onSelect,
 	onSkip,
-	onSearch,
 }: FileSelectorProps) {
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [isProcessing, setIsProcessing] = useState(false);
-	const [displayedFiles, setDisplayedFiles] = useState<FileOption[]>([]);
-	const [searchQuery, setSearchQuery] = useState("");
-	const [isSearching, setIsSearching] = useState(false);
 
-	// Инициализация строки поиска названием книги
+	// Инициализация при изменении файлов
 	useEffect(() => {
-		setSearchQuery(book.title);
-	}, [book.title]);
-
-	const handleSearch = useCallback(async () => {
-		if (!searchQuery.trim() || isSearching) return;
-
-		setIsSearching(true);
-		try {
-			const results = await onSearch(searchQuery);
-			setDisplayedFiles(results);
-			setSelectedIndex(0);
-		} catch (error) {
-			console.error("Search failed:", error);
-		} finally {
-			setIsSearching(false);
-		}
-	}, [searchQuery, isSearching, onSearch]);
+		setSelectedIndex(0);
+	}, [files]);
 
 	const handleSelect = useCallback(() => {
-		if (isProcessing || selectedIndex >= displayedFiles.length) return;
+		if (isProcessing || selectedIndex >= files.length) return;
 
 		setIsProcessing(true);
-		onSelect(displayedFiles[selectedIndex]);
-	}, [isProcessing, selectedIndex, displayedFiles, onSelect]);
+		onSelect(files[selectedIndex]);
+	}, [isProcessing, selectedIndex, files, onSelect]);
 
 	const handleSkip = useCallback(() => {
 		if (isProcessing) return;
+
+		setIsProcessing(true);
 		onSkip();
 	}, [isProcessing, onSkip]);
 
-	// Обновляем отображаемые файлы при изменении входных файлов или книги
-	useEffect(() => {
-		// Увеличиваем количество отображаемых файлов до 15
-		const limitedFiles = files.slice(0, 15);
-		setDisplayedFiles(limitedFiles);
-		setSelectedIndex(0); // Сбрасываем выбор при обновлении файлов
-		setIsProcessing(false);
-	}, [files]);
+	const formatFileSize = (size?: number) => {
+		if (!size) return "Unknown size";
+		if (size < 1024) return `${size} B`;
+		if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+		return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+	};
+
+	const formatDate = (timestamp: number) => {
+		const date = new Date(timestamp * 1000);
+		return date.toLocaleDateString("ru-RU", {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+		});
+	};
 
 	// Обработчик клавиш
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
-			// Если фокус в инпуте, игнорируем стрелки и Enter (для выбора)
-			// Но Enter для поиска обрабатывается в самом Input
-			if (document.activeElement?.tagName === "INPUT") {
-				if (event.key === "Escape") {
-					// Escape должен работать везде (снять фокус или закрыть)
-					(document.activeElement as HTMLElement).blur();
-				}
-				return;
-			}
-
 			switch (event.key) {
 				case "ArrowUp":
 					event.preventDefault();
@@ -114,14 +92,20 @@ export function FileSelector({
 
 				case "ArrowDown":
 					event.preventDefault();
-					setSelectedIndex((prev) =>
-						Math.min(displayedFiles.length - 1, prev + 1),
-					);
+					setSelectedIndex((prev) => Math.min(files.length - 1, prev + 1));
 					break;
 
 				case "Enter":
 					event.preventDefault();
 					handleSelect();
+					break;
+
+				case "s":
+				case "S":
+					if (!event.ctrlKey && !event.metaKey) {
+						event.preventDefault();
+						handleSkip();
+					}
 					break;
 
 				case "Escape":
@@ -130,202 +114,140 @@ export function FileSelector({
 					break;
 			}
 		},
-		[displayedFiles.length, handleSelect, handleSkip],
+		[files.length, handleSelect, handleSkip],
 	);
 
-	// Навешиваем обработчик клавиш
+	// Подписка на клавиатуру
 	useEffect(() => {
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [handleKeyDown]);
 
-	const formatFileSize = (bytes?: number) => {
-		if (!bytes) return "Неизвестен";
-		const sizes = ["B", "KB", "MB", "GB"];
-		const i = Math.floor(Math.log(bytes) / Math.log(1024));
-		return `${Math.round((bytes / 1024 ** i) * 100) / 100} ${sizes[i]}`;
-	};
-
-	const formatDate = (timestamp: number) => {
-		return new Date(timestamp * 1000).toLocaleDateString("ru-RU", {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
-		});
-	};
-
-	// Если нет файлов, не отображаем компонент, КРОМЕ СЛУЧАЯ когда мы ищем
-	// Если файлов нет (автопоиск не дал), мы все равно должны показать компонент, чтобы дать возможность поискать вручную!
-	// Поэтому убираем проверку displayedFiles.length === 0, или делаем её мягче
-	// Но если displayedFiles пусто, то и показывать нечего кроме поиска.
-	// Оставим проверку, но будем инициализировать displayedFiles пустым массивом и показывать пустую таблицу? No.
-	// Лучше всегда показывать компонент, если он смонтирован.
-	// Родитель сейчас решает монтировать или нет (setShowFileSelector).
-	// Поэтому убираем return null.
-
-	const selectedFile = displayedFiles[selectedIndex];
+	// Скролл к выбранному элементу
+	useEffect(() => {
+		const element = document.querySelector(
+			`[data-file-index="${selectedIndex}"]`,
+		);
+		element?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+	}, [selectedIndex]);
 
 	return (
 		<Card className="w-full max-w-4xl mx-auto h-full flex flex-col">
-			<CardHeader className="py-2 flex-shrink-0 space-y-2">
+			<CardHeader className="py-2 flex-shrink-0">
 				<div className="flex items-center justify-between">
 					<CardTitle className="flex items-center gap-2 text-base">
 						<FileText className="h-4 w-4" />
 						Выбор файла для книги
 					</CardTitle>
 					<Badge variant="outline" className="text-xs">
-						{displayedFiles.length > 0 ? selectedIndex + 1 : 0} из {displayedFiles.length}
+						{files.length > 0 ? selectedIndex + 1 : 0} из {files.length}
 					</Badge>
 				</div>
 				<CardDescription className="text-sm py-1">
-					<span>
-						<strong>Автор:</strong> {book.author} | <strong>Название:</strong>{" "}
-						{book.title}
+					<span className="font-medium text-gray-900">
+						{book.author} — {book.title}
 					</span>
 				</CardDescription>
-
-				<div className="flex gap-2">
-					<Input
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") {
-								e.stopPropagation(); // Чтобы не срабатывал глобальный Enter
-								handleSearch();
-							}
-						}}
-						placeholder="Поиск файла вручную..."
-						className="h-8 text-sm"
-					/>
-					<Button
-						size="sm"
-						onClick={handleSearch}
-						disabled={isSearching}
-					>
-						{isSearching ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> : <SearchIcon className="h-4 w-4" />}
-					</Button>
-				</div>
 			</CardHeader>
 
-			<CardContent className="flex-grow overflow-hidden flex flex-col py-1">
-				{/* Список файлов */}
-				<div className="border rounded-md flex-grow overflow-hidden flex flex-col">
-					<div className="overflow-y-auto flex-grow">
-						<div className="p-1 space-y-0.5">
-							{displayedFiles.length === 0 && (
-								<div className="p-4 text-center text-muted-foreground text-sm">
-									Файлы не найдены. Попробуйте изменить поисковый запрос.
-								</div>
-							)}
-							{displayedFiles.map((file, index) => (
-								<div
-									key={`${book.id}-${file.message_id}-${index}`}
-									className={`p-1.5 rounded-md border cursor-pointer transition-colors ${index === selectedIndex
-											? "bg-primary/10 border-primary"
-											: "bg-muted/50 hover:bg-muted"
-										}`}
-									onClick={() => setSelectedIndex(index)}
-								>
-									<div className="flex items-start justify-between gap-2">
-										<div className="flex-1 min-w-0">
-											<div className="flex items-center gap-2 mb-0.5">
-												<span className="font-medium text-sm truncate">
-													{file.file_name || `Файл ${file.message_id}`}
-												</span>
-												{file.relevance_score && (
-													<Badge variant="secondary" className="text-xs">
-														Релевантность: {file.relevance_score}
-													</Badge>
-												)}
-												<Badge variant="outline" className="text-xs">
-													ID: {file.message_id}
-												</Badge>
-											</div>
-
-											<div className="text-xs text-muted-foreground space-y-0.5">
-												<div className="flex items-center gap-4">
-													<span>Размер: {formatFileSize(file.file_size)}</span>
-													<span>Дата: {formatDate(file.date)}</span>
-												</div>
-
-												{file.caption && (
-													<div className="p-1 bg-muted rounded text-xs truncate">
-														{file.caption}
-													</div>
-												)}
-											</div>
-										</div>
-
-										<div className="flex flex-col items-end gap-1">
-											{file.mime_type && (
-												<Badge variant="outline" className="text-xs">
-													{file.mime_type.split("/").pop()?.toUpperCase()}
-												</Badge>
-											)}
-										</div>
+			<CardContent className="flex-1 overflow-y-auto space-y-2 p-3">
+				{files.length === 0 ? (
+					<div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+						<FileText className="h-12 w-12 mb-4 opacity-50" />
+						<p className="text-lg font-medium">Файлы не найдены</p>
+						<p className="text-sm">
+							Проверьте индекс файлов или запустите индексацию
+						</p>
+					</div>
+				) : (
+					files.map((file, index) => (
+						<div
+							key={`${file.message_id}-${index}`}
+							data-file-index={index}
+							className={`p-3 rounded-lg border cursor-pointer transition-all ${
+								index === selectedIndex
+									? "bg-blue-50 border-blue-500 ring-2 ring-blue-200"
+									: "bg-white border-gray-200 hover:bg-gray-50"
+							}`}
+							onClick={() => setSelectedIndex(index)}
+							onDoubleClick={handleSelect}
+						>
+							<div className="flex items-start justify-between gap-2">
+								<div className="flex-1 min-w-0">
+									<div className="font-medium text-sm truncate">
+										{file.file_name || `Файл #${file.message_id}`}
 									</div>
+									<div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+										<span>{formatFileSize(file.file_size)}</span>
+										<span>•</span>
+										<span>{formatDate(file.date)}</span>
+										{file.mime_type && (
+											<>
+												<span>•</span>
+												<span>{file.mime_type}</span>
+											</>
+										)}
+									</div>
+									{file.caption && (
+										<div className="text-xs text-gray-600 mt-1 line-clamp-2">
+											{file.caption}
+										</div>
+									)}
 								</div>
-							))}
+								<div className="flex items-center gap-2">
+									{file.relevance_score && (
+										<Badge
+											variant={
+												file.relevance_score >= 80
+													? "default"
+													: file.relevance_score >= 60
+														? "secondary"
+														: "outline"
+											}
+											className="text-xs"
+										>
+											{file.relevance_score}%
+										</Badge>
+									)}
+									{index === selectedIndex && (
+										<Check className="h-4 w-4 text-blue-600" />
+									)}
+								</div>
+							</div>
 						</div>
-					</div>
-				</div>
+					))
+				)}
+			</CardContent>
 
-				{/* Подсказка по клавишам управления */}
-				<div className="flex justify-center py-2">
-					<div className="text-base text-muted-foreground flex items-center gap-4">
-						<KbdGroup>
-							<Kbd>↑</Kbd>
-							<Kbd>↓</Kbd>
-							<span>Навигация</span>
-						</KbdGroup>
-						<KbdGroup>
-							<Kbd>Enter</Kbd>
-							<span>Выбрать</span>
-						</KbdGroup>
-						<KbdGroup>
-							<Kbd>Esc</Kbd>
-							<span>Пропустить</span>
-						</KbdGroup>
-					</div>
-				</div>
+			<div className="p-3 border-t bg-gray-50 flex-shrink-0">
+				<div className="flex items-center justify-between gap-3">
+					<KbdGroup>
+						<Kbd>↑↓</Kbd> навигация
+						<Kbd>Enter</Kbd> выбрать
+						<Kbd>S</Kbd> пропустить
+					</KbdGroup>
 
-				{/* Действия */}
-				<div className="flex items-center justify-between pt-2 mt-2">
-					<div className="flex items-center gap-2">
+					<div className="flex gap-2">
 						<Button
 							variant="outline"
 							size="sm"
 							onClick={handleSkip}
 							disabled={isProcessing}
 						>
-							<SkipForward className="h-4 w-4 mr-2" />
-							Пропустить (Esc)
+							<SkipForward className="h-3 w-3 mr-1" />
+							Пропустить
 						</Button>
-					</div>
-
-					<div className="text-base text-muted-foreground mx-4">
-						Выбран: {selectedFile?.file_name || "Нет"}
-					</div>
-
-					<div className="flex items-center gap-2">
-						<Button onClick={handleSelect} disabled={isProcessing || displayedFiles.length === 0} size="sm">
-							{isProcessing ? (
-								<>
-									<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-									Загрузка...
-								</>
-							) : (
-								<>
-									<Check className="h-4 w-4 mr-2" />
-									Выбрать (Enter)
-								</>
-							)}
+						<Button
+							size="sm"
+							onClick={handleSelect}
+							disabled={isProcessing || files.length === 0}
+						>
+							<Check className="h-3 w-3 mr-1" />
+							Выбрать
 						</Button>
 					</div>
 				</div>
-			</CardContent>
+			</div>
 		</Card>
 	);
 }

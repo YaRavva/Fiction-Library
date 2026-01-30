@@ -15,12 +15,12 @@ interface BookWithoutFile {
 
 interface ProcessingState {
 	status:
-	| "idle"
-	| "loading"
-	| "searching"
-	| "processing"
-	| "completed"
-	| "error";
+		| "idle"
+		| "loading"
+		| "searching"
+		| "processing"
+		| "completed"
+		| "error";
 	message: string;
 }
 
@@ -179,26 +179,44 @@ export function FileSearchManager() {
 		}
 	};
 
-	// Серверный поиск файлов (Server-Side Search)
-	const performServerSearch = async (query: string): Promise<FileOption[]> => {
+	// Серверный поиск файлов с использованием UniversalFileMatcher на сервере
+	const performServerSearch = async (
+		book: BookWithoutFile,
+	): Promise<FileOption[]> => {
 		const token = await getAuthToken();
-		logToResults(`🔍 Серверный поиск: "${query}"...`);
+		logToResults(`🔍 Серверный поиск: "${book.author}" - "${book.title}"...`);
 
 		try {
-			const response = await fetch(`/api/admin/file-search/query?q=${encodeURIComponent(query)}&limit=15`, {
-				headers: { Authorization: `Bearer ${token}` },
+			const params = new URLSearchParams({
+				author: book.author,
+				title: book.title,
+				limit: "15",
 			});
+
+			const response = await fetch(
+				`/api/admin/file-search/query?${params.toString()}`,
+				{
+					headers: { Authorization: `Bearer ${token}` },
+				},
+			);
 
 			if (!response.ok) {
 				throw new Error(`Ошибка поиска: ${response.statusText}`);
 			}
 
 			const data = await response.json();
-			logToResults(`✅ Найдено файлов: ${data.files?.length || 0}`);
+
+			if (data.message) {
+				logToResults(`⚠️ ${data.message}`);
+			}
+
+			logToResults(`✅ Найдено релевантных файлов: ${data.files?.length || 0}`);
 			return data.files || [];
 		} catch (error) {
 			console.error("Server search error:", error);
-			logToResults(`❌ Ошибка поиска: ${error instanceof Error ? error.message : String(error)}`);
+			logToResults(
+				`❌ Ошибка поиска: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			return [];
 		}
 	};
@@ -206,7 +224,9 @@ export function FileSearchManager() {
 	// Загрузка всех файлов из Telegram канала (DEPRECATED - теперь используем серверный поиск)
 	// Оставляем пустышку для совместимости с типами, если нужно, или удаляем
 	const _loadTelegramFiles = async (): Promise<FileOption[]> => {
-		logToResults("⚠️ Загрузка всех файлов отключена в пользу серверного поиска.");
+		logToResults(
+			"⚠️ Загрузка всех файлов отключена в пользу серверного поиска.",
+		);
 		return [];
 	};
 
@@ -241,19 +261,13 @@ export function FileSearchManager() {
 			// Сохраняем информацию о текущей книге в ref
 			currentBookRef.current = currentBook;
 
-			// АВТОМАТИЧЕСКИЙ ПОИСК
-			logToResults(`🔍 Авто-поиск для: "${currentBook.title}" (${currentBook.author})`);
+			// АВТОМАТИЧЕСКИЙ ПОИСК (с использованием UniversalFileMatcher на сервере)
+			logToResults(
+				`🔍 Авто-поиск для: "${currentBook.title}" (${currentBook.author})`,
+			);
 
-			// Формируем запросы: точное название, транслит (если был бы), название без серии...
-			// Пока пробуем по названию
-			const filesFound = await performServerSearch(currentBook.title);
-
-			// Если не нашли по названию, попробуем по автору, если результатов мало
-			if (filesFound.length === 0 && currentBook.author) {
-				logToResults(`🔍 Поиск по автору: "${currentBook.author}"`);
-				const authorFiles = await performServerSearch(currentBook.author);
-				filesFound.push(...authorFiles);
-			}
+			// Вызываем серверный поиск с полной информацией о книге
+			const filesFound = await performServerSearch(currentBook);
 
 			// Устанавливаем новые файлы в ref
 			currentBookFilesRef.current = filesFound;
@@ -263,9 +277,7 @@ export function FileSearchManager() {
 			setFileSelectorKey((prev) => prev + 1);
 
 			if (filesFound.length === 0) {
-				logToResults(
-					"⚠️ Автоматический поиск не дал результатов. Введите запрос вручную.",
-				);
+				logToResults("⚠️ Автоматический поиск не дал результатов.");
 				// УБРАН АВТО-СКИП! Теперь пользователь сам должен пропустить или найти вручную.
 			}
 
@@ -672,8 +684,8 @@ export function FileSearchManager() {
 					size="default"
 				>
 					{processingState.status === "loading" ||
-						processingState.status === "searching" ||
-						processingState.status === "processing" ? (
+					processingState.status === "searching" ||
+					processingState.status === "processing" ? (
 						<>
 							<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
 							{processingState.status === "loading"
@@ -708,7 +720,6 @@ export function FileSearchManager() {
 								}
 								onSelect={handleFileSelect}
 								onSkip={handleSkipBook}
-								onSearch={performServerSearch}
 							/>
 						</div>
 					</div>,
