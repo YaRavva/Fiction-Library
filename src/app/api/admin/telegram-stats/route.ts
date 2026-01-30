@@ -2,6 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+	saveSyncResult,
+	updateSyncResult,
+} from "@/app/api/admin/sync-results/route";
 import { updateTelegramStats } from "@/lib/telegram/update-stats";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -203,8 +207,17 @@ export async function POST(request: NextRequest) {
 
 		if (syncParam === "true") {
 			// Синхронное обновление с возвратом прогресса
+			let operationId: string | null = null;
 			try {
-				console.log("Performing sync update...");
+				// Создаём запись об операции
+				const operation = await saveSyncResult(supabaseAdmin as any, {
+					job_type: "stats_update",
+					status: "running",
+					started_at: new Date().toISOString(),
+					log_output: "📊 Начало обновления статистики Telegram...",
+				});
+				if (operation) operationId = operation.id;
+
 				const updatedStats = await updateTelegramStats();
 
 				if (!updatedStats) {
@@ -218,7 +231,15 @@ export async function POST(request: NextRequest) {
 					booksWithoutFiles: updatedStats.books_without_files || 0,
 				};
 
-				console.log("Stats for sync response:", stats);
+				// Обновляем запись об операции
+				if (operationId) {
+					await updateSyncResult(supabaseAdmin as any, operationId, {
+						status: "completed",
+						completed_at: new Date().toISOString(),
+						log_output: `✅ Статистика обновлена: ${stats.booksInDatabase} книг в БД, ${stats.booksInTelegram} в Telegram`,
+						details: stats,
+					});
+				}
 
 				return NextResponse.json({
 					message: "Статистика успешно обновлена",
@@ -226,7 +247,15 @@ export async function POST(request: NextRequest) {
 					stats,
 				});
 			} catch (error) {
-				console.error("Ошибка при обновлении статистики:", error);
+				// Обновляем запись об операции с ошибкой
+				if (operationId) {
+					await updateSyncResult(supabaseAdmin as any, operationId, {
+						status: "failed",
+						completed_at: new Date().toISOString(),
+						error_message:
+							error instanceof Error ? error.message : "Неизвестная ошибка",
+					});
+				}
 				return NextResponse.json(
 					{
 						error: "Ошибка при обновлении статистики",
