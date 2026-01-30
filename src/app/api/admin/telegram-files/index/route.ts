@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+	saveSyncResult,
+	updateSyncResult,
+} from "@/app/api/admin/sync-results/route";
 import { TelegramService } from "@/lib/telegram/client";
 
 // Используем service role key для доступа ко всем данным
@@ -84,14 +88,23 @@ function extractFileData(message: any): {
 export async function POST(_request: NextRequest) {
 	const startTime = Date.now();
 	const logs: string[] = [];
+	let operationId: string | null = null;
 
 	const log = (msg: string) => {
-		console.log(msg);
 		logs.push(msg);
 	};
 
 	try {
 		log("🚀 Начинаем индексацию файлов из Telegram...");
+
+		// Создаём запись об операции со статусом "running"
+		const operation = await saveSyncResult(supabaseAdmin as any, {
+			job_type: "file_index",
+			status: "running",
+			started_at: new Date().toISOString(),
+			log_output: "🚀 Начало индексации файлов Telegram...",
+		});
+		if (operation) operationId = operation.id;
 
 		// 1. Получаем Telegram клиент и канал
 		const telegramClient = await TelegramService.getInstance();
@@ -158,6 +171,23 @@ export async function POST(_request: NextRequest) {
 			`   📊 Всего: ${fileRecords.length}, Сохранено: ${inserted}, Ошибок: ${errors}`,
 		);
 
+		// Обновляем запись об операции
+		if (operationId) {
+			await updateSyncResult(supabaseAdmin as any, operationId, {
+				status: "completed",
+				completed_at: new Date().toISOString(),
+				files_processed: fileRecords.length,
+				files_linked: inserted,
+				files_errors: errors,
+				log_output: logs.join("\n"),
+				details: {
+					total_messages: allMessages.length,
+					skipped,
+					duration_seconds: parseFloat(duration),
+				},
+			});
+		}
+
 		return NextResponse.json({
 			success: true,
 			stats: {
@@ -173,6 +203,16 @@ export async function POST(_request: NextRequest) {
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		log(`❌ Критическая ошибка: ${errorMessage}`);
+
+		// Обновляем запись об операции с ошибкой
+		if (operationId) {
+			await updateSyncResult(supabaseAdmin as any, operationId, {
+				status: "failed",
+				completed_at: new Date().toISOString(),
+				error_message: errorMessage,
+				log_output: logs.join("\n"),
+			});
+		}
 
 		return NextResponse.json(
 			{

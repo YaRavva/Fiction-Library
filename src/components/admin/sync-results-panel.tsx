@@ -17,7 +17,7 @@ import { getBrowserSupabase } from "@/lib/browserSupabase";
 
 interface SyncJobResult {
 	id: string;
-	job_type: "full" | "update" | "auto";
+	job_type: string; // full, update, auto, file_index, stats_update, duplicates_resolve, file_link
 	status: "running" | "completed" | "failed";
 	started_at: string;
 	completed_at?: string;
@@ -32,6 +32,7 @@ interface SyncJobResult {
 	files_errors?: number;
 	error_message?: string;
 	log_output?: string;
+	details?: Record<string, unknown>;
 }
 
 interface SyncResultsPanelProps {
@@ -106,11 +107,19 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 	const getJobTypeLabel = (type: string) => {
 		switch (type) {
 			case "full":
-				return "Полная";
+				return "Синхронизация (полная)";
 			case "update":
-				return "Обновление";
+				return "Синхронизация (обновление)";
 			case "auto":
-				return "Авто";
+				return "Авто-проверка";
+			case "file_index":
+				return "Индексация файлов";
+			case "stats_update":
+				return "Обновление статистики";
+			case "duplicates_resolve":
+				return "Удаление дубликатов";
+			case "file_link":
+				return "Привязка файлов";
 			default:
 				return type;
 		}

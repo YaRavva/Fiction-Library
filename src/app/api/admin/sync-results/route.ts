@@ -2,20 +2,38 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 /**
- * API для получения истории результатов синхронизации
+ * API для получения истории всех операций админки
  * GET /api/admin/sync-results - получить последние результаты
+ *
+ * Поддерживаемые типы операций (job_type):
+ * - full, update, auto: синхронизация книг
+ * - file_index: индексация файлов Telegram
+ * - stats_update: обновление статистики
+ * - duplicates_resolve: удаление дубликатов
+ * - file_link: привязка файлов к книгам
  */
 
 // Максимальное количество записей для хранения
-const MAX_RESULTS = 10;
+const MAX_RESULTS = 20;
 
-// Интерфейс результата синхронизации
-interface SyncJobResult {
+// Типы операций
+export type OperationType =
+	| "full"
+	| "update"
+	| "auto"
+	| "file_index"
+	| "stats_update"
+	| "duplicates_resolve"
+	| "file_link";
+
+// Интерфейс результата операции
+export interface OperationResult {
 	id: string;
-	job_type: "full" | "update" | "auto";
+	job_type: OperationType;
 	status: "running" | "completed" | "failed";
 	started_at: string;
 	completed_at?: string;
+	// Поля для синхронизации
 	metadata_processed?: number;
 	metadata_added?: number;
 	metadata_updated?: number;
@@ -25,8 +43,10 @@ interface SyncJobResult {
 	files_linked?: number;
 	files_skipped?: number;
 	files_errors?: number;
+	// Общие поля
 	error_message?: string;
 	log_output?: string;
+	details?: Record<string, unknown>; // Дополнительные данные операции
 	created_at?: string;
 }
 
@@ -125,7 +145,7 @@ export async function GET(request: NextRequest) {
 
 		return NextResponse.json({
 			success: true,
-			results: (results as SyncJobResult[]) || [],
+			results: (results as OperationResult[]) || [],
 			count: results?.length || 0,
 		});
 	} catch (error) {
@@ -143,8 +163,8 @@ export async function GET(request: NextRequest) {
  */
 export async function saveSyncResult(
 	supabaseAdmin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
-	result: Omit<SyncJobResult, "id" | "created_at">,
-): Promise<SyncJobResult | null> {
+	result: Omit<OperationResult, "id" | "created_at">,
+): Promise<OperationResult | null> {
 	// Используем as any для работы с новой таблицей без автогенерированных типов
 	const { data, error } = await (supabaseAdmin as any)
 		.from("sync_job_results")
@@ -160,7 +180,7 @@ export async function saveSyncResult(
 	// Удаляем старые записи, оставляем только последние MAX_RESULTS
 	await cleanupOldResults(supabaseAdmin);
 
-	return data as SyncJobResult;
+	return data as OperationResult;
 }
 
 /**
@@ -169,8 +189,8 @@ export async function saveSyncResult(
 export async function updateSyncResult(
 	supabaseAdmin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
 	id: string,
-	updates: Partial<Omit<SyncJobResult, "id" | "job_type" | "created_at">>,
-): Promise<SyncJobResult | null> {
+	updates: Partial<Omit<OperationResult, "id" | "job_type" | "created_at">>,
+): Promise<OperationResult | null> {
 	// Используем as any для работы с новой таблицей без автогенерированных типов
 	const { data, error } = await (supabaseAdmin as any)
 		.from("sync_job_results")
@@ -184,7 +204,7 @@ export async function updateSyncResult(
 		return null;
 	}
 
-	return data as SyncJobResult;
+	return data as OperationResult;
 }
 
 /**
