@@ -109,6 +109,72 @@ export class UniversalFileMatcher {
 		"не",
 	];
 
+	// Список ОБЩИХ слов, которые НЕ должны считаться уникальными совпадениями названия
+	// Если совпадает только автор + эти слова — это НЕ достаточное совпадение
+	private static readonly GENERIC_TITLE_WORDS = [
+		"мир",
+		"история",
+		"хроники",
+		"хроника",
+		"сага",
+		"легенда",
+		"легенды",
+		"приключения",
+		"приключение",
+		"путь",
+		"путешествие",
+		"война",
+		"воин",
+		"воины",
+		"магия",
+		"маг",
+		"маги",
+		"дракон",
+		"драконы",
+		"империя",
+		"королевство",
+		"король",
+		"принц",
+		"принцесса",
+		"тьма",
+		"свет",
+		"огонь",
+		"вода",
+		"земля",
+		"ветер",
+		"время",
+		"пространство",
+		"звезды",
+		"звезда",
+		"небо",
+		"море",
+		"океан",
+		"лес",
+		"город",
+		"замок",
+		"меч",
+		"клинок",
+		"тень",
+		"тени",
+		"ночь",
+		"день",
+		"охотник",
+		"охотники",
+		"рыцарь",
+		"рыцари",
+		"новый",
+		"новая",
+		"новое",
+		"старый",
+		"старая",
+		"древний",
+		"древняя",
+		"последний",
+		"последняя",
+		"первый",
+		"первая",
+	];
+
 	// Регулярные выражения для удаления специальных элементов
 	private static readonly YEAR_REGEX = /\(\d{4}\)/g; // Годы в скобках
 	private static readonly LANG_REGEX =
@@ -123,6 +189,54 @@ export class UniversalFileMatcher {
 	private static normalizeString(str: string): string {
 		if (!str) return "";
 		return str.normalize("NFC").toLowerCase().replace(/ё/g, "е");
+	}
+
+	/**
+	 * Вычисляет расстояние Левенштейна между двумя строками
+	 */
+	private static levenshteinDistance(a: string, b: string): number {
+		if (a.length === 0) return b.length;
+		if (b.length === 0) return a.length;
+
+		const matrix: number[][] = [];
+
+		for (let i = 0; i <= b.length; i++) {
+			matrix[i] = [i];
+		}
+		for (let j = 0; j <= a.length; j++) {
+			matrix[0][j] = j;
+		}
+
+		for (let i = 1; i <= b.length; i++) {
+			for (let j = 1; j <= a.length; j++) {
+				if (b.charAt(i - 1) === a.charAt(j - 1)) {
+					matrix[i][j] = matrix[i - 1][j - 1];
+				} else {
+					matrix[i][j] = Math.min(
+						matrix[i - 1][j - 1] + 1, // замена
+						matrix[i][j - 1] + 1, // вставка
+						matrix[i - 1][j] + 1, // удаление
+					);
+				}
+			}
+		}
+		return matrix[b.length][a.length];
+	}
+
+	/**
+	 * Нечёткое сравнение слов с допуском в 1 букву
+	 * Возвращает true, если слова совпадают или отличаются на 1 букву
+	 */
+	private static fuzzyMatch(word1: string, word2: string): boolean {
+		if (word1 === word2) return true;
+
+		// Если слова слишком короткие (≤3 буквы), требуем точное совпадение
+		if (word1.length <= 3 || word2.length <= 3) {
+			return word1 === word2;
+		}
+
+		// Допускаем расстояние Левенштейна ≤ 1
+		return UniversalFileMatcher.levenshteinDistance(word1, word2) <= 1;
 	}
 
 	/**
@@ -214,8 +328,8 @@ export class UniversalFileMatcher {
 
 		for (const fileWord of fileWords) {
 			// Проверяем, есть ли точное совпадение с любым словом из книги (с учетом морфологического анализа)
-			const matchFound = bookWords.allWords.some(
-				(bookWord) => bookWord === fileWord,
+			const matchFound = bookWords.allWords.some((bookWord) =>
+				UniversalFileMatcher.fuzzyMatch(bookWord, fileWord),
 			);
 
 			if (matchFound) {
@@ -230,7 +344,9 @@ export class UniversalFileMatcher {
 		// Вычисляем штраф за лишние слова в файле, которые не встречаются в книге
 		const unmatchedFileWords = fileWords.filter(
 			(fileWord) =>
-				!bookWords.allWords.some((bookWord) => bookWord === fileWord),
+				!bookWords.allWords.some((bookWord) =>
+					UniversalFileMatcher.fuzzyMatch(bookWord, fileWord),
+				),
 		);
 
 		// Уменьшаем штраф за лишние слова, особенно если совпадений достаточно
@@ -299,17 +415,44 @@ export class UniversalFileMatcher {
 		// Проверяем совпадение автора
 		let authorMatchCount = 0;
 		for (const fileAuthorWord of fileAuthorWords) {
-			if (bookAuthorWords.includes(fileAuthorWord)) {
+			if (
+				bookAuthorWords.some((baw) =>
+					UniversalFileMatcher.fuzzyMatch(baw, fileAuthorWord),
+				)
+			) {
 				authorMatchCount++;
 			}
 		}
 
 		// Проверяем совпадение названия
 		let titleMatchCount = 0;
+		let uniqueTitleMatchCount = 0; // Совпадения НЕ-общих слов
+		const matchedTitleWords: string[] = [];
+
 		for (const fileTitleWord of fileTitleWords) {
-			if (bookTitleWords.includes(fileTitleWord)) {
+			if (
+				bookTitleWords.some((btw) =>
+					UniversalFileMatcher.fuzzyMatch(btw, fileTitleWord),
+				)
+			) {
 				titleMatchCount++;
+				matchedTitleWords.push(fileTitleWord);
+
+				// Проверяем, является ли слово уникальным (не общим)
+				if (!UniversalFileMatcher.GENERIC_TITLE_WORDS.includes(fileTitleWord)) {
+					uniqueTitleMatchCount++;
+				}
 			}
+		}
+
+		// КРИТИЧЕСКАЯ ПРОВЕРКА: если все совпавшие слова — это общие слова (мир, история и т.д.),
+		// то это НЕ настоящее совпадение названия!
+		// Пример: "Мир Вальдиры" vs "Мир Астероид-Сити" — совпадает только "мир" (общее слово)
+		if (titleMatchCount > 0 && uniqueTitleMatchCount === 0) {
+			// Все совпавшие слова — общие, сбрасываем до 0
+			titleMatchCount = 0;
+			// Снижаем score, так как это ложное совпадение
+			score = Math.max(0, score - 30);
 		}
 
 		// Проверяем полное совпадение автора
@@ -527,6 +670,9 @@ export class UniversalFileMatcher {
 				score = Math.max(0, score - 5); // Небольшой штраф для таких случаев
 			}
 		}
+
+		// ОГРАНИЧЕНИЕ: score не может превышать 100
+		score = Math.min(100, score);
 
 		return {
 			file,
