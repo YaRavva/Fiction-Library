@@ -1,11 +1,14 @@
-import * as path from "node:path";
-import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { FileBookMatcherService } from "../file-book-matcher-service";
-import { putObject } from "../s3-service";
+import {
+	checkFileExists,
+	deleteObject,
+	getBooksBucketName,
+	putObject,
+} from "../s3";
 import { serverSupabase } from "../serverSupabase";
-import { getSupabaseAdmin } from "../supabase";
 import { TelegramService } from "./client";
 import { MetadataExtractionService } from "./metadata-extraction-service";
+import { extractExtension } from "./utils";
 
 export class FileProcessingService {
 	private static instance: FileProcessingService;
@@ -781,7 +784,7 @@ export class FileProcessingService {
 				}) as { [key: string]: unknown } | undefined;
 				if (attrFileName?.fileName) {
 					originalFilename = attrFileName.fileName as string;
-					ext = path.extname(originalFilename) || ".fb2";
+					ext = extractExtension(originalFilename);
 				}
 			}
 
@@ -997,19 +1000,16 @@ export class FileProcessingService {
 					);
 				} catch (updateBookError) {
 					console.warn(`  ⚠️  Ошибка при обновлении книги:`, updateBookError);
-					// Удаляем загруженный файл из Storage в случае ошибки
+					// Удаляем загруженный файл из S3 в случае ошибки
 					console.log(
-						`  🗑️  Удаление файла из Storage из-за ошибки обновления книги: ${storageKey}`,
+						`  🗑️  Удаление файла из S3 из-за ошибки обновления книги: ${storageKey}`,
 					);
 					try {
-						const admin = getSupabaseAdmin();
-						if (admin) {
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any
-							const storageSupabase: any = admin;
-							await storageSupabase.storage.from("books").remove([storageKey]);
-						}
+						const bucketName = getBooksBucketName();
+						await deleteObject(storageKey, bucketName);
+						console.log(`  ✅ Файл успешно удалён из S3`);
 					} catch (deleteError) {
-						console.warn(`  ⚠️  Ошибка при удалении файла:`, deleteError);
+						console.warn(`  ⚠️  Ошибка при удалении файла из S3:`, deleteError);
 					}
 					throw updateBookError;
 				}
@@ -1087,38 +1087,29 @@ export class FileProcessingService {
 		expectedMimeType: string,
 	): Promise<{ size: number; mimeType: string } | null> {
 		try {
-			const s3Client = new S3Client({
-				endpoint: "https://s3.cloud.ru",
-				region: process.env.AWS_REGION,
-				credentials: {
-					accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-					secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-				},
-			});
+			const bucketName = getBooksBucketName();
+			const fileInfo = await checkFileExists(key, bucketName);
 
-			const command = new HeadObjectCommand({
-				Bucket: process.env.S3_BUCKET_NAME,
-				Key: key,
-			});
-
-			const response = await s3Client.send(command);
+			if (!fileInfo) {
+				return null;
+			}
 
 			// Если expectedSize равен 0, это первая проверка - просто возвращаем информацию о файле
 			if (expectedSize === 0) {
 				return {
-					size: response.ContentLength || 0,
-					mimeType: response.ContentType || "",
+					size: fileInfo.size,
+					mimeType: fileInfo.contentType || "",
 				};
 			}
 
 			// Проверяем соответствие размера и типа
 			if (
-				response.ContentLength === expectedSize &&
-				response.ContentType === expectedMimeType
+				fileInfo.size === expectedSize &&
+				fileInfo.contentType === expectedMimeType
 			) {
 				return {
-					size: response.ContentLength,
-					mimeType: response.ContentType || "",
+					size: fileInfo.size,
+					mimeType: fileInfo.contentType || "",
 				};
 			}
 

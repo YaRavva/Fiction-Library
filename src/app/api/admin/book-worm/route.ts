@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { BookWormService } from "@/lib/telegram/book-worm-service";
+import { saveSyncResult, updateSyncResult } from "../sync-results/route";
 
 export async function POST(request: NextRequest) {
 	try {
@@ -127,6 +128,13 @@ export async function POST(request: NextRequest) {
 		// Для режима "update" выполняем синхронизацию непосредственно в этом запросе
 		// Это работает как на локальном сервере, так и на Vercel
 		if (mode === "update") {
+			// Создаем запись о начале синхронизации
+			const syncRecord = await saveSyncResult(supabaseAdmin, {
+				job_type: "update",
+				status: "running",
+				started_at: new Date().toISOString(),
+			});
+
 			try {
 				// Создаем экземпляр сервиса
 				const bookWorm = await BookWormService.getInstance();
@@ -155,6 +163,19 @@ export async function POST(request: NextRequest) {
 
 				console.log(formattedMessage);
 
+				// Обновляем запись о синхронизации
+				if (syncRecord?.id) {
+					await updateSyncResult(supabaseAdmin, syncRecord.id, {
+						status: "completed",
+						completed_at: new Date().toISOString(),
+						metadata_processed: result.processed || 0,
+						metadata_added: result.added || 0,
+						metadata_updated: result.updated || 0,
+						files_linked: result.matched || 0,
+						log_output: formattedMessage,
+					});
+				}
+
 				return NextResponse.json({
 					success: true,
 					message: "Book Worm update sync completed",
@@ -174,6 +195,16 @@ export async function POST(request: NextRequest) {
 📅 Время: ${new Date().toLocaleString("ru-RU")}`;
 
 				console.error(errorFormattedMessage);
+
+				// Обновляем запись об ошибке
+				if (syncRecord?.id) {
+					await updateSyncResult(supabaseAdmin, syncRecord.id, {
+						status: "failed",
+						completed_at: new Date().toISOString(),
+						error_message: errorMessage,
+						log_output: errorFormattedMessage,
+					});
+				}
 
 				return NextResponse.json(
 					{

@@ -1,5 +1,5 @@
 import type { Message } from "node-telegram-bot-api";
-import { putObject } from "../s3-service";
+import { getCoversBucketName, putObject } from "../s3";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
 import { type BookMetadata, MetadataParser } from "./parser";

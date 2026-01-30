@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { saveSyncResult, updateSyncResult } from "../../sync-results/route";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { BookWormService } from "@/lib/telegram/book-worm-service";
 
@@ -284,6 +285,13 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
+		// Создаем запись о начале автосинхронизации
+		const syncRecord = await saveSyncResult(supabaseAdmin, {
+			job_type: "auto",
+			status: "running",
+			started_at: new Date().toISOString(),
+		});
+
 		// Получаем экземпляр сервиса
 		const bookWorm = await BookWormService.getInstance();
 
@@ -329,9 +337,37 @@ export async function POST(request: NextRequest) {
 						nextRun.toISOString(),
 					);
 				}
+
+				// Сохраняем результат в БД
+				if (syncRecord?.id) {
+					const formattedMessage = `🔄 Автосинхронизация завершена:
+📊 Обработано: ${result.processed}
+➕ Добавлено: ${result.added}
+🔄 Обновлено: ${result.updated}
+🔗 Привязано: ${result.matched}`;
+
+					await updateSyncResult(supabaseAdmin, syncRecord.id, {
+						status: "completed",
+						completed_at: now.toISOString(),
+						metadata_processed: result.processed || 0,
+						metadata_added: result.added || 0,
+						metadata_updated: result.updated || 0,
+						files_linked: result.matched || 0,
+						log_output: formattedMessage,
+					});
+				}
 			})
-			.catch((error) => {
+			.catch(async (error) => {
 				console.error("Auto update failed:", error);
+
+				// Сохраняем ошибку в БД
+				if (syncRecord?.id) {
+					await updateSyncResult(supabaseAdmin, syncRecord.id, {
+						status: "failed",
+						completed_at: new Date().toISOString(),
+						error_message: error instanceof Error ? error.message : "Неизвестная ошибка",
+					});
+				}
 			});
 
 		// Возвращаем ответ сразу, не ожидая завершения операции
