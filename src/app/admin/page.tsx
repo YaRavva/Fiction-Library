@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { AlertCircle, Library, Menu, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SyncResultsPanel } from "@/components/admin/sync-results-panel";
 import { SyncSettingsShadix } from "@/components/admin/sync-settings-shadix";
 import { TelegramStatsSection } from "@/components/admin/telegram-stats";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -38,6 +39,7 @@ export default function AdminPage() {
 	const [user, setUser] = useState<User | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+	const [syncRefreshTrigger, setSyncRefreshTrigger] = useState(0);
 
 	// Эффект для автоматической прокрутки текстового поля результатов
 	useEffect(() => {
@@ -331,6 +333,8 @@ export default function AdminPage() {
 		} finally {
 			setBookWormRunning(false);
 			setBookWormMode(null);
+			// Обновляем панель результатов
+			setSyncRefreshTrigger((prev) => prev + 1);
 		}
 	};
 
@@ -495,28 +499,8 @@ export default function AdminPage() {
 									setBookWormInterval={setBookWormInterval}
 								/>
 
-								{/* Результаты */}
-								<Card>
-									<CardHeader className="space-y-0 pb-1">
-										<CardTitle className="text-lg font-semibold">
-											Результаты
-										</CardTitle>
-									</CardHeader>
-									<CardContent className="pb-2">
-										<div className="border rounded-md p-1 bg-muted">
-											<textarea
-												id="results-textarea"
-												value={
-													lastBookWormReport?.trim() ? lastBookWormReport : ""
-												}
-												readOnly
-												className="w-full h-[500px] font-mono text-sm overflow-y-auto max-h-[500px] p-1 bg-background border rounded resize-none focus:outline-none"
-												placeholder="Результаты последней операции..."
-												ref={textareaRef}
-											/>
-										</div>
-									</CardContent>
-								</Card>
+								{/* История синхронизаций */}
+								<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
 							</div>
 						</div>
 					</main>

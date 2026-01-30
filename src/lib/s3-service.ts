@@ -1,30 +1,25 @@
-import {
-	DeleteObjectCommand,
-	GetObjectCommand,
-	HeadObjectCommand,
-	PutObjectCommand,
-	S3Client,
-} from "@aws-sdk/client-s3";
-import "dotenv/config";
+/**
+ * S3 сервис для Cloud.ru
+ * @deprecated Используйте импорты из "@/lib/s3" напрямую
+ *
+ * Этот файл сохранен для обратной совместимости.
+ * Все функции реэкспортируются из нового модуля.
+ */
 
-// Create S3 client instance
-const createS3Client = () =>
-	new S3Client({
-		endpoint: "https://s3.cloud.ru",
-		region: process.env.AWS_REGION,
-		credentials: {
-			accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-			secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-		},
-	});
+import {
+	getBooksBucketName,
+	getS3Client,
+	deleteObject as newDeleteObject,
+	getObject as newGetObject,
+	headObject as newHeadObject,
+	putObject as newPutObject,
+} from "./s3";
+
+// Реэкспорт с адаптацией для обратной совместимости
+// (старый API использовал process.env напрямую для имени бакета)
 
 export const getObject = async (key: string) => {
-	const s3Client = createS3Client();
-	const command = new GetObjectCommand({
-		Bucket: process.env.S3_BUCKET_NAME,
-		Key: key,
-	});
-	return s3Client.send(command);
+	return newGetObject(key, getBooksBucketName());
 };
 
 export const putObject = async (
@@ -32,29 +27,16 @@ export const putObject = async (
 	body: Buffer,
 	bucketName?: string,
 ) => {
-	const s3Client = createS3Client();
-	const command = new PutObjectCommand({
-		Bucket: bucketName || process.env.S3_BUCKET_NAME,
-		Key: key,
-		Body: body,
-	});
-	return s3Client.send(command);
+	return newPutObject(key, body, bucketName || getBooksBucketName());
 };
 
 export const headObject = async (key: string, bucketName?: string) => {
-	const s3Client = createS3Client();
-	const command = new HeadObjectCommand({
-		Bucket: bucketName || process.env.S3_BUCKET_NAME,
-		Key: key,
-	});
-	return s3Client.send(command);
+	return newHeadObject(key, bucketName || getBooksBucketName());
 };
 
 export const deleteObject = async (key: string, bucketName?: string) => {
-	const s3Client = createS3Client();
-	const command = new DeleteObjectCommand({
-		Bucket: bucketName || process.env.S3_BUCKET_NAME,
-		Key: key,
-	});
-	return s3Client.send(command);
+	return newDeleteObject(key, bucketName || getBooksBucketName());
 };
+
+// Реэкспорт клиента для прямого использования
+export { getS3Client };
