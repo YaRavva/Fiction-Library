@@ -8,6 +8,7 @@ import {
 	GetObjectCommand,
 	HeadObjectCommand,
 	ListBucketsCommand,
+	ListObjectsV2Command,
 	PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -137,4 +138,56 @@ export async function getDownloadUrl(
 	});
 	// @ts-expect-error Несовместимость версий @smithy/types между @aws-sdk/client-s3 и @aws-sdk/s3-request-presigner
 	return getSignedUrl(client, command, { expiresIn });
+}
+
+export interface S3Object {
+	key: string;
+	size: number;
+	lastModified: Date;
+	etag?: string;
+}
+
+/**
+ * Получает список всех объектов в S3 бакете
+ * Автоматически обрабатывает пагинацию для больших бакетов
+ * @param bucketName Имя бакета
+ * @param prefix Опциональный префикс для фильтрации объектов
+ */
+export async function listObjects(
+	bucketName: string,
+	prefix?: string,
+): Promise<S3Object[]> {
+	const client = getS3Client();
+	const allObjects: S3Object[] = [];
+	let continuationToken: string | undefined;
+
+	do {
+		const command = new ListObjectsV2Command({
+			Bucket: bucketName,
+			Prefix: prefix,
+			ContinuationToken: continuationToken,
+			MaxKeys: 1000,
+		});
+
+		const response = await client.send(command);
+
+		if (response.Contents) {
+			for (const obj of response.Contents) {
+				if (obj.Key) {
+					allObjects.push({
+						key: obj.Key,
+						size: obj.Size || 0,
+						lastModified: obj.LastModified || new Date(),
+						etag: obj.ETag,
+					});
+				}
+			}
+		}
+
+		continuationToken = response.IsTruncated
+			? response.NextContinuationToken
+			: undefined;
+	} while (continuationToken);
+
+	return allObjects;
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, FileText, SkipForward } from "lucide-react";
+import { Check, FileText, SkipForward, Search as SearchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
 	Card,
 	CardContent,
@@ -35,6 +36,7 @@ interface FileSelectorProps {
 	files: FileOption[];
 	onSelect: (file: FileOption | null) => void;
 	onSkip: () => void;
+	onSearch: (query: string) => Promise<FileOption[]>;
 }
 
 export function FileSelector({
@@ -42,10 +44,33 @@ export function FileSelector({
 	files,
 	onSelect,
 	onSkip,
+	onSearch,
 }: FileSelectorProps) {
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [displayedFiles, setDisplayedFiles] = useState<FileOption[]>([]);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [isSearching, setIsSearching] = useState(false);
+
+	// Инициализация строки поиска названием книги
+	useEffect(() => {
+		setSearchQuery(book.title);
+	}, [book.title]);
+
+	const handleSearch = useCallback(async () => {
+		if (!searchQuery.trim() || isSearching) return;
+
+		setIsSearching(true);
+		try {
+			const results = await onSearch(searchQuery);
+			setDisplayedFiles(results);
+			setSelectedIndex(0);
+		} catch (error) {
+			console.error("Search failed:", error);
+		} finally {
+			setIsSearching(false);
+		}
+	}, [searchQuery, isSearching, onSearch]);
 
 	const handleSelect = useCallback(() => {
 		if (isProcessing || selectedIndex >= displayedFiles.length) return;
@@ -71,6 +96,16 @@ export function FileSelector({
 	// Обработчик клавиш
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
+			// Если фокус в инпуте, игнорируем стрелки и Enter (для выбора)
+			// Но Enter для поиска обрабатывается в самом Input
+			if (document.activeElement?.tagName === "INPUT") {
+				if (event.key === "Escape") {
+					// Escape должен работать везде (снять фокус или закрыть)
+					(document.activeElement as HTMLElement).blur();
+				}
+				return;
+			}
+
 			switch (event.key) {
 				case "ArrowUp":
 					event.preventDefault();
@@ -121,23 +156,27 @@ export function FileSelector({
 		});
 	};
 
-	// Если нет файлов, не отображаем компонент
-	if (displayedFiles.length === 0) {
-		return null;
-	}
+	// Если нет файлов, не отображаем компонент, КРОМЕ СЛУЧАЯ когда мы ищем
+	// Если файлов нет (автопоиск не дал), мы все равно должны показать компонент, чтобы дать возможность поискать вручную!
+	// Поэтому убираем проверку displayedFiles.length === 0, или делаем её мягче
+	// Но если displayedFiles пусто, то и показывать нечего кроме поиска.
+	// Оставим проверку, но будем инициализировать displayedFiles пустым массивом и показывать пустую таблицу? No.
+	// Лучше всегда показывать компонент, если он смонтирован.
+	// Родитель сейчас решает монтировать или нет (setShowFileSelector).
+	// Поэтому убираем return null.
 
 	const selectedFile = displayedFiles[selectedIndex];
 
 	return (
 		<Card className="w-full max-w-4xl mx-auto h-full flex flex-col">
-			<CardHeader className="py-1 flex-shrink-0">
+			<CardHeader className="py-2 flex-shrink-0 space-y-2">
 				<div className="flex items-center justify-between">
 					<CardTitle className="flex items-center gap-2 text-base">
 						<FileText className="h-4 w-4" />
 						Выбор файла для книги
 					</CardTitle>
 					<Badge variant="outline" className="text-xs">
-						{selectedIndex + 1} из {displayedFiles.length}
+						{displayedFiles.length > 0 ? selectedIndex + 1 : 0} из {displayedFiles.length}
 					</Badge>
 				</div>
 				<CardDescription className="text-sm py-1">
@@ -146,21 +185,47 @@ export function FileSelector({
 						{book.title}
 					</span>
 				</CardDescription>
+
+				<div className="flex gap-2">
+					<Input
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.stopPropagation(); // Чтобы не срабатывал глобальный Enter
+								handleSearch();
+							}
+						}}
+						placeholder="Поиск файла вручную..."
+						className="h-8 text-sm"
+					/>
+					<Button
+						size="sm"
+						onClick={handleSearch}
+						disabled={isSearching}
+					>
+						{isSearching ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" /> : <SearchIcon className="h-4 w-4" />}
+					</Button>
+				</div>
 			</CardHeader>
 
 			<CardContent className="flex-grow overflow-hidden flex flex-col py-1">
 				{/* Список файлов */}
-				<div className="border-0 rounded-md flex-grow overflow-hidden flex flex-col">
-					<div className="overflow-y-hidden flex-grow">
+				<div className="border rounded-md flex-grow overflow-hidden flex flex-col">
+					<div className="overflow-y-auto flex-grow">
 						<div className="p-1 space-y-0.5">
+							{displayedFiles.length === 0 && (
+								<div className="p-4 text-center text-muted-foreground text-sm">
+									Файлы не найдены. Попробуйте изменить поисковый запрос.
+								</div>
+							)}
 							{displayedFiles.map((file, index) => (
 								<div
 									key={`${book.id}-${file.message_id}-${index}`}
-									className={`p-1.5 rounded-md border cursor-pointer transition-colors ${
-										index === selectedIndex
+									className={`p-1.5 rounded-md border cursor-pointer transition-colors ${index === selectedIndex
 											? "bg-primary/10 border-primary"
 											: "bg-muted/50 hover:bg-muted"
-									}`}
+										}`}
 									onClick={() => setSelectedIndex(index)}
 								>
 									<div className="flex items-start justify-between gap-2">
@@ -245,7 +310,7 @@ export function FileSelector({
 					</div>
 
 					<div className="flex items-center gap-2">
-						<Button onClick={handleSelect} disabled={isProcessing} size="sm">
+						<Button onClick={handleSelect} disabled={isProcessing || displayedFiles.length === 0} size="sm">
 							{isProcessing ? (
 								<>
 									<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />

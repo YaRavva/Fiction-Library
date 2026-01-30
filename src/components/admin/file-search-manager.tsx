@@ -15,12 +15,12 @@ interface BookWithoutFile {
 
 interface ProcessingState {
 	status:
-		| "idle"
-		| "loading"
-		| "searching"
-		| "processing"
-		| "completed"
-		| "error";
+	| "idle"
+	| "loading"
+	| "searching"
+	| "processing"
+	| "completed"
+	| "error";
 	message: string;
 }
 
@@ -179,254 +179,105 @@ export function FileSearchManager() {
 		}
 	};
 
-	// Загрузка всех файлов из Telegram канала
-	const loadTelegramFiles = async (): Promise<FileOption[]> => {
-		logToResults(
-			"📂 Загрузка списка файлов из Telegram канала (пакетами по 1000 с паузой 1с)...",
-		);
+	// Серверный поиск файлов (Server-Side Search)
+	const performServerSearch = async (query: string): Promise<FileOption[]> => {
 		const token = await getAuthToken();
+		logToResults(`🔍 Серверный поиск: "${query}"...`);
 
 		try {
-			const response = await fetch("/api/admin/telegram-files", {
+			const response = await fetch(`/api/admin/file-search/query?q=${encodeURIComponent(query)}&limit=15`, {
 				headers: { Authorization: `Bearer ${token}` },
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				const errorMessage =
-					errorData.error ||
-					`HTTP ошибка: ${response.status} ${response.statusText}`;
-				throw new Error(errorMessage);
+				throw new Error(`Ошибка поиска: ${response.statusText}`);
 			}
 
 			const data = await response.json();
-			logToResults(
-				`📁 Всего загружено ${data.files?.length || 0} файлов из Telegram`,
-			);
-
-			// Сохраняем файлы в ref вместо состояния
-			const files = data.files || [];
-			allTelegramFilesRef.current = files;
-
-			return files;
-		} catch (err: any) {
-			// Более детальная обработка ошибок
-			console.error("Ошибка при загрузке файлов из Telegram:", err);
-
-			// Попытка получить больше информации об ошибке
-			let errorMessage = "Не удалось загрузить файлы из Telegram";
-			if (err && typeof err === "object") {
-				if (err.message) {
-					errorMessage = err.message;
-				} else if (Object.keys(err).length > 0) {
-					errorMessage = JSON.stringify(err);
-				}
-			} else if (typeof err === "string") {
-				errorMessage = err;
-			}
-
-			logToResults(`❌ ${errorMessage}`);
-			throw new Error(errorMessage);
+			logToResults(`✅ Найдено файлов: ${data.files?.length || 0}`);
+			return data.files || [];
+		} catch (error) {
+			console.error("Server search error:", error);
+			logToResults(`❌ Ошибка поиска: ${error instanceof Error ? error.message : String(error)}`);
+			return [];
 		}
 	};
 
-	// Поиск подходящих файлов для книги
-	const findMatchingFiles = (
+	// Загрузка всех файлов из Telegram канала (DEPRECATED - теперь используем серверный поиск)
+	// Оставляем пустышку для совместимости с типами, если нужно, или удаляем
+	const _loadTelegramFiles = async (): Promise<FileOption[]> => {
+		logToResults("⚠️ Загрузка всех файлов отключена в пользу серверного поиска.");
+		return [];
+	};
+
+	// Поиск подходящих файлов для книги (Клиентская версия - более не используется активно, но может пригодиться как fallback)
+	const _findMatchingFilesClient = (
 		book: BookWithoutFile,
 		files: FileOption[],
 	): FileOption[] => {
-		// Нормализуем строки для корректного сравнения
-		const normalizeString = (str: string) => {
-			// Нормализуем в NFC форму и приводим к нижнему регистру
-			let normalized = str.normalize("NFC").toLowerCase();
-			// Заменяем "ё" на "е" для улучшенного поиска
-			normalized = normalized.replace(/ё/g, "е");
-			return normalized;
-		};
-
-		// Нормализуем название и автора книги
-		const bookTitle = normalizeString(book.title);
-		const bookAuthor = normalizeString(book.author);
-
-		// Улучшенное разбиение на слова с учетом различных разделителей
-		const extractWords = (str: string): string[] => {
-			// Разбиваем по различным разделителям: пробелы, дефисы, скобки, точки и т.д.
-			return str
-				.split(/[\s\-_()[\]{}/\\.]+/)
-				.filter((word) => word.length > 1) // Игнорируем слова короче 2 символов
-				.map((word) => word.trim())
-				.filter((word) => word.length > 0);
-		};
-
-		// Извлекаем слова из названия и автора книги
-		const titleWords = extractWords(bookTitle);
-		const authorWords = extractWords(bookAuthor);
-
-		// Создаем регулярные выражения для более точного поиска
-		const createRegex = (word: string) => {
-			// Экранируем специальные символы
-			const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-			return new RegExp(escapedWord, "i");
-		};
-
-		const matchingFiles = files
-			.filter((file) => {
-				// Отсеиваем файлы с типом application/octet-stream, так как они могут иметь ошибочную кодировку
-				if (file.mime_type === "application/octet-stream") {
-					return false;
-				}
-				return true;
-			})
-			.map((file) => {
-				// Нормализуем имя файла
-				const filename = normalizeString(file.file_name || "");
-				let score = 0;
-				let titleMatches = 0;
-				let authorMatches = 0;
-
-				// Проверяем совпадения по названию книги
-				for (const word of titleWords) {
-					const regex = createRegex(word);
-					if (regex.test(filename)) {
-						titleMatches++;
-						score += 15; // Высокий вес для точного совпадения слов названия
-					}
-				}
-
-				// Проверяем совпадения по автору книги
-				for (const word of authorWords) {
-					const regex = createRegex(word);
-					if (regex.test(filename)) {
-						authorMatches++;
-						score += 12; // Высокий вес для точного совпадения слов автора
-					}
-				}
-
-				// Проверяем точное совпадение полного названия книги (если название не слишком короткое)
-				if (bookTitle.length > 5 && filename.includes(bookTitle)) {
-					score += 20; // Очень высокий вес для точного совпадения названия
-				}
-
-				// Проверяем точное совпадение автора (если имя автора не слишком короткое)
-				if (bookAuthor.length > 5 && filename.includes(bookAuthor)) {
-					score += 18; // Очень высокий вес для точного совпадения автора
-				}
-
-				// Файл должен содержать хотя бы одно слово из названия ИЛИ автора
-				if (titleMatches === 0 && authorMatches === 0) {
-					return null;
-				}
-
-				// Бонус за формат файла (fb2 и zip предпочтительнее)
-				if (filename.endsWith(".fb2")) {
-					score += 5;
-				} else if (filename.endsWith(".zip")) {
-					score += 3;
-				}
-
-				return { ...file, relevance_score: score };
-			})
-			.filter(
-				(file): file is FileOption & { relevance_score: number } =>
-					file !== null,
-			)
-			.sort((a, b) => b.relevance_score - a.relevance_score)
-			.slice(0, 15); // Увеличиваем до 15 самых релевантных файлов
-
-		return matchingFiles;
+		// ... старая логика ...
+		return files; // Заглушка
 	};
 
 	// Показать файлы для текущей книги
 	const showFilesForCurrentBook = useCallback(
-		async (books: BookWithoutFile[], files: FileOption[] = []) => {
+		async (books: BookWithoutFile[], _files: FileOption[] = []) => {
 			if (books.length === 0) {
 				logToResults("❌ Нет книг для обработки.");
 				setProcessingState({
 					status: "idle",
-					message: "Нет книг для обработки. Попробуйте обновить список книг.",
+					message: "Нет книг для обработки.",
 				});
 				return;
 			}
 
 			if (currentBookIndex < 0 || currentBookIndex >= books.length) {
-				logToResults(
-					`❌ Ошибка: индекс ${currentBookIndex} вне границ массива (0-${books.length - 1}).`,
-				);
-				setProcessingState({
-					status: "error",
-					message: "Ошибка: индекс книги вне границ массива.",
-				});
 				return;
 			}
 
 			const currentBook = books[currentBookIndex];
-
-			if (!currentBook) {
-				logToResults(
-					`❌ Ошибка: книга с индексом ${currentBookIndex} равна null/undefined.`,
-				);
-				setProcessingState({
-					status: "error",
-					message: "Ошибка: книга не найдена.",
-				});
-				return;
-			}
-
-			// Убираем дублирующее сообщение "Текущая книга", оставляем только при актуализации
-			// logToResults(`📚 Текущая книга: ${currentBook.author} - ${currentBook.title}`);
+			if (!currentBook) return;
 
 			// Сохраняем информацию о текущей книге в ref
 			currentBookRef.current = currentBook;
 
-			// Используем переданные файлы, если они есть, иначе используем ref
-			const filesToUse = files.length > 0 ? files : allTelegramFilesRef.current;
+			// АВТОМАТИЧЕСКИЙ ПОИСК
+			logToResults(`🔍 Авто-поиск для: "${currentBook.title}" (${currentBook.author})`);
 
-			const matchingFiles = findMatchingFiles(currentBook, filesToUse);
+			// Формируем запросы: точное название, транслит (если был бы), название без серии...
+			// Пока пробуем по названию
+			const filesFound = await performServerSearch(currentBook.title);
 
-			// Важно: устанавливаем файлы непосредственно перед отображением компонента
+			// Если не нашли по названию, попробуем по автору, если результатов мало
+			if (filesFound.length === 0 && currentBook.author) {
+				logToResults(`🔍 Поиск по автору: "${currentBook.author}"`);
+				const authorFiles = await performServerSearch(currentBook.author);
+				filesFound.push(...authorFiles);
+			}
+
 			// Устанавливаем новые файлы в ref
-			currentBookFilesRef.current = matchingFiles;
+			currentBookFilesRef.current = filesFound;
 			setSelectedFileIndex(0); // Выбираем первый файл по умолчанию
 
 			// Увеличиваем ключ для полного перерендеринга FileSelector
 			setFileSelectorKey((prev) => prev + 1);
 
-			if (matchingFiles.length === 0) {
+			if (filesFound.length === 0) {
 				logToResults(
-					"❌ Подходящих файлов не найдено. Автоматический переход к следующей книге через 2 секунды...",
+					"⚠️ Автоматический поиск не дал результатов. Введите запрос вручную.",
 				);
-				// Переходим к следующей книге, если нет подходящих файлов
-				setTimeout(() => {
-					// Вызываем processNextBook через функцию состояния
-					setCurrentBookIndex((prevIndex) => {
-						const nextIndex = prevIndex + 1;
-						if (nextIndex >= books.length) {
-							logToResults("🎉 Обработка завершена! Книга успешно обработана.");
-							setProcessingState({
-								status: "completed",
-								message: "Обработка завершена.",
-							});
-							setShowFileSelector(false); // Скрываем FileSelector при завершении
-							return prevIndex;
-						}
-						// Показываем файлы для следующей книги
-						setTimeout(() => {
-							showFilesForCurrentBook(books, allTelegramFilesRef.current);
-						}, 0);
-						return nextIndex;
-					});
-				}, 2000);
-			} else {
-				// Показываем FileSelector для выбора файла
-				setShowFileSelector(true);
+				// УБРАН АВТО-СКИП! Теперь пользователь сам должен пропустить или найти вручную.
 			}
+
+			// Всегда показываем селектор, чтобы дать возможность ручного поиска
+			setShowFileSelector(true);
 
 			setProcessingState({
 				status: "searching",
 				message: "Ожидание выбора пользователя...",
 			});
 		},
-		[currentBookIndex, logToResults, findMatchingFiles],
+		[currentBookIndex, logToResults],
 	);
 
 	// Обработка следующей книги
@@ -756,27 +607,16 @@ export function FileSearchManager() {
 				return;
 			}
 
-			// Шаг 2: Загружаем полный список файлов из Telegram
-			setProcessingState({
-				status: "loading",
-				message: "Загрузка списка файлов из Telegram...",
-			});
-			const telegramFiles = await loadTelegramFiles();
-			// Файлы уже сохранены в ref в функции loadTelegramFiles
-
-			// Проверяем, что файлы были загружены
-			if (telegramFiles.length === 0) {
-				setProcessingState({
-					status: "error",
-					message: "Не удалось загрузить файлы из Telegram.",
-				});
-				return;
-			}
+			// Шаг 2: Больше не загружаем все файлы. Сразу переходим к поиску для первой книги.
 
 			// Шаг 3: Начинаем обработку первой книги
 			setCurrentBookIndex(0);
 			setSelectedFileIndex(0);
-			await showFilesForCurrentBook(books, telegramFiles); // Передаем книги и файлы напрямую
+
+			// Очищаем ref с файлами
+			allTelegramFilesRef.current = [];
+
+			await showFilesForCurrentBook(books); // Без передачи файлов, запустит серверный поиск
 		} catch (err: any) {
 			// Более детальная обработка ошибок
 			console.error("Ошибка интерактивного поиска:", err);
@@ -832,8 +672,8 @@ export function FileSearchManager() {
 					size="default"
 				>
 					{processingState.status === "loading" ||
-					processingState.status === "searching" ||
-					processingState.status === "processing" ? (
+						processingState.status === "searching" ||
+						processingState.status === "processing" ? (
 						<>
 							<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
 							{processingState.status === "loading"
@@ -861,14 +701,14 @@ export function FileSearchManager() {
 							<FileSelector
 								key={`file-selector-${fileSelectorKey}-${currentBookIndex}-${booksWithoutFiles[currentBookIndex].id}`}
 								book={booksWithoutFiles[currentBookIndex]}
-								files={findMatchingFiles(
-									booksWithoutFiles[currentBookIndex],
-									allTelegramFilesRef.current.length > 0
-										? allTelegramFilesRef.current
-										: [],
-								)}
+								files={
+									currentBookFilesRef.current.length > 0
+										? currentBookFilesRef.current
+										: []
+								}
 								onSelect={handleFileSelect}
 								onSkip={handleSkipBook}
+								onSearch={performServerSearch}
 							/>
 						</div>
 					</div>,

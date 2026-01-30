@@ -11,7 +11,8 @@ export {
 	getS3Client,
 	resetS3Client,
 } from "./client";
-
+// Типы
+export type { S3Object } from "./operations";
 // Операции
 export {
 	checkFileExists,
@@ -21,5 +22,6 @@ export {
 	getObjectAsBuffer,
 	headObject,
 	listBuckets,
+	listObjects,
 	putObject,
 } from "./operations";
