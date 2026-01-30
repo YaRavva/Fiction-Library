@@ -280,13 +280,13 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 
 											{/* Лог */}
 											{result.log_output && (
-												<details className="text-xs">
+												<details className="text-sm">
 													<summary className="cursor-pointer text-muted-foreground hover:text-foreground">
 														Показать лог
 													</summary>
-													<pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto whitespace-pre-wrap">
+													<div className="mt-2 p-2 bg-muted rounded text-sm overflow-x-auto whitespace-pre-wrap">
 														{result.log_output}
-													</pre>
+													</div>
 												</details>
 											)}
 										</div>
