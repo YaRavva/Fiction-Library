@@ -113,7 +113,6 @@ export default function AdminPage() {
 		}
 
 		// Инициализируем окно результатов пустым сообщением
-		console.log("🔍 Initializing lastBookWormReport with empty string");
 		setLastBookWormReport("");
 
 		// Очищаем функции при размонтировании компонента
@@ -163,7 +162,7 @@ export default function AdminPage() {
 				if (data.message === "Auto update started") {
 					setLastBookWormReport(
 						(prev) =>
-							prev + `[${timestamp}] 🚀 Автоматическое обновление ЗАПУЩЕНО!\n`,
+							`${prev}[${timestamp}] 🚀 Автоматическое обновление ЗАПУЩЕНО!\n`,
 					);
 				} else if (data.message === "Auto update not due yet") {
 					const nextRun = data.nextRun
@@ -177,7 +176,7 @@ export default function AdminPage() {
 				} else if (data.message === "Auto update is disabled") {
 					setLastBookWormReport(
 						(prev) =>
-							prev + `[${timestamp}] ℹ️ Авто-проверка: обновление отключено.\n`,
+							`${prev}[${timestamp}] ℹ️ Авто-проверка: обновление отключено.\n`,
 					);
 				} else {
 					setLastBookWormReport(
@@ -186,8 +185,6 @@ export default function AdminPage() {
 							`[${timestamp}] ℹ️ Результат авто-проверки: ${data.message}\n`,
 					);
 				}
-
-				console.log("Auto update check completed:", data);
 			} else {
 				console.error("Auto update check failed:", response.statusText);
 				const timestamp = new Date().toLocaleTimeString("ru-RU");
@@ -374,7 +371,7 @@ export default function AdminPage() {
 				} else if (bookWormRunning) {
 					// Если синхронизация была активна, но теперь не активна - значит завершилась
 					setLastBookWormReport(
-						(prev) => prev + `[${timestamp}] ✅ Синхронизация завершена.\n`,
+						(prev) => `${prev}[${timestamp}] ✅ Синхронизация завершена.\n`,
 					);
 					setBookWormRunning(false);
 				}

@@ -52,36 +52,17 @@ export function FileSearchManager() {
 		const timestamp = new Date().toLocaleTimeString("ru-RU");
 		const logMessage = `[${timestamp}] ${message}\n`;
 
-		// Выводим в консоль для отладки
-		console.log("FileSearchManager log:", message);
-
-		// Проверяем, доступна ли родительская функция обновления результатов
+		// Отправляем в окно результатов через глобальную функцию
 		if (
 			typeof window !== "undefined" &&
 			(window as any).updateFileSearchResults
 		) {
 			try {
 				(window as any).updateFileSearchResults(logMessage);
-				console.log("✅ Message sent to results window:", message);
-			} catch (error) {
-				console.error(
-					"❌ Ошибка при отправке сообщения в окно результатов:",
-					error,
-				);
-				console.error(
-					"Available window properties:",
-					Object.keys(window || {}),
-				);
+			} catch (_error) {
+				// Игнорируем ошибки отправки
 			}
-		} else {
-			console.log("❌ updateFileSearchResults not available");
-			console.log("Available window properties:", Object.keys(window || {}));
 		}
-	};
-
-	// Добавляем функцию для прямого логирования в консоль браузера
-	const _logToConsole = (message: string) => {
-		console.log(`🔍 FileSearch: ${message}`);
 	};
 
 	// Получение токена авторизации

@@ -117,8 +117,6 @@ export function DuplicatesResolverModal({
 				.filter((b) => b.id !== selectedBookId)
 				.map((b) => b.id);
 
-			console.log("Deleting IDs:", idsToDelete);
-
 			if (idsToDelete.length > 0) {
 				const {
 					data: { session },
@@ -176,7 +174,7 @@ export function DuplicatesResolverModal({
 		const k = 1024;
 		const sizes = ["B", "KB", "MB", "GB"];
 		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return Number.parseFloat((bytes / k ** i).toFixed(2)) + " " + sizes[i];
+		return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 	};
 
 	// Helper for filename
