@@ -152,7 +152,7 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 				<div className="flex items-center justify-between">
 					<CardTitle className="text-base font-semibold flex items-center gap-2">
 						<Clock className="h-4 w-4" />
-						История синхронизаций
+						История операций
 					</CardTitle>
 					<Button
 						variant="ghost"
@@ -173,7 +173,7 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 						</div>
 					) : results.length === 0 ? (
 						<div className="text-center py-8 text-muted-foreground">
-							История синхронизаций пуста
+							История операций пуста
 						</div>
 					) : (
 						<div className="space-y-3">
