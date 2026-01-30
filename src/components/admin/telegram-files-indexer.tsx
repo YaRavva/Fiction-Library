@@ -35,7 +35,6 @@ export function TelegramFilesIndexer() {
 	const [supabase] = useState(() => getBrowserSupabase());
 	const [isIndexing, setIsIndexing] = useState(false);
 	const [stats, setStats] = useState<IndexStats | null>(null);
-	const [logs, setLogs] = useState<string[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	// Загрузка статистики индекса
@@ -67,7 +66,6 @@ export function TelegramFilesIndexer() {
 	// Запуск индексации
 	const handleIndex = async () => {
 		setIsIndexing(true);
-		setLogs([]);
 		setError(null);
 
 		try {
@@ -79,8 +77,6 @@ export function TelegramFilesIndexer() {
 				return;
 			}
 
-			setLogs(["🚀 Запуск индексации файлов из Telegram..."]);
-
 			const response = await fetch("/api/admin/telegram-files/index", {
 				method: "POST",
 				headers: { Authorization: `Bearer ${session.access_token}` },
@@ -89,11 +85,9 @@ export function TelegramFilesIndexer() {
 			const data: IndexResult = await response.json();
 
 			if (data.success) {
-				setLogs(data.logs || []);
 				await loadStats();
 			} else {
 				setError(data.error || "Неизвестная ошибка");
-				setLogs(data.logs || []);
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
@@ -166,18 +160,6 @@ export function TelegramFilesIndexer() {
 				{error && (
 					<div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
 						❌ {error}
-					</div>
-				)}
-
-				{/* Лог */}
-				{logs.length > 0 && (
-					<div className="space-y-2">
-						<div className="text-sm font-medium">Лог индексации:</div>
-						<div className="bg-black text-green-400 font-mono text-xs p-4 rounded-lg max-h-64 overflow-y-auto">
-							{logs.map((log, i) => (
-								<div key={i}>{log}</div>
-							))}
-						</div>
 					</div>
 				)}
 			</CardContent>
