@@ -17,8 +17,22 @@ function RegisterContent() {
 	const [loading, setLoading] = useState(true);
 	const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
+	// Validate redirect URL to prevent open redirect attacks
+	const isValidRedirectUrl = (url: string | null): boolean => {
+		if (!url) return false;
+		// Only allow relative URLs starting with /
+		// Reject URLs with protocol (http://, https://, javascript:, etc.)
+		if (!url.startsWith("/")) return false;
+		// Reject URLs with double slashes (protocol-relative URLs)
+		if (url.startsWith("//")) return false;
+		// Reject URLs with colon (potential javascript: protocol)
+		if (url.includes(":") && !url.startsWith("/")) return false;
+		return true;
+	};
+
 	useEffect(() => {
-		setRedirectTo(searchParams.get("redirectTo"));
+		const rawRedirect = searchParams.get("redirectTo");
+		setRedirectTo(isValidRedirectUrl(rawRedirect) ? rawRedirect : null);
 		setLoading(false);
 	}, [searchParams]);
 

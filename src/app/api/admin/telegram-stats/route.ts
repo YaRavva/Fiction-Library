@@ -79,13 +79,10 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		// Temporarily allow access for testing (remove this in production)
-		// if (!user) {
-		//   return NextResponse.json(
-		//     { error: 'Не авторизован' },
-		//     { status: 401 }
-		//   );
-		// }
+		// Require authentication for production safety
+		if (!user) {
+			return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+		}
 
 		// Пытаемся получить последние сохраненные статистические данные
 		console.log("Querying telegram_stats table...");
@@ -191,13 +188,10 @@ export async function POST(request: NextRequest) {
 			user ? "Authenticated" : "Not authenticated",
 		);
 
-		// Temporarily allow access for testing (remove this in production)
-		// if (!user) {
-		//   return NextResponse.json(
-		//     { error: 'Не авторизован' },
-		//     { status: 401 }
-		//   );
-		// }
+		// Require authentication for production safety
+		if (!user) {
+			return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+		}
 
 		// Проверяем, запрошено ли синхронное обновление с прогрессом
 		const url = new URL(request.url);

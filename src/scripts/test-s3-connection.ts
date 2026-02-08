@@ -20,9 +20,7 @@ async function testConnection() {
 	console.log("🔍 Тест подключения к S3 (только чтение)");
 	console.log(`   Bucket: ${process.env.S3_BUCKET_NAME}`);
 	console.log(`   Region: ${process.env.AWS_REGION}`);
-	console.log(
-		`   Access Key: ${process.env.AWS_ACCESS_KEY_ID?.substring(0, 8)}...`,
-	);
+	// Access key is not logged for security reasons
 
 	try {
 		const response = await s3Client.send(

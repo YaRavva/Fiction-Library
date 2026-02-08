@@ -59,10 +59,11 @@ export async function middleware(request: NextRequest) {
 			return supabaseResponse;
 		}
 
-		// const url = request.nextUrl.clone();
-		// url.pathname = "/auth/login";
-		// url.searchParams.set("redirectTo", request.nextUrl.pathname);
-		// return NextResponse.redirect(url);
+		// Redirect to login for unauthenticated users
+		const url = request.nextUrl.clone();
+		url.pathname = "/auth/login";
+		url.searchParams.set("redirectTo", request.nextUrl.pathname);
+		return NextResponse.redirect(url);
 	}
 
 	// Проверяем права администратора для админских маршрутов

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
+import DOMPurify from "dompurify";
 import JSZip from "jszip";
 import {
 	BookOpen,
@@ -766,7 +767,22 @@ function ReaderContent() {
 								<div
 									className="prose prose-zinc dark:prose-invert max-w-none container mx-auto px-4 md:px-12 lg:px-20 leading-relaxed transition-all duration-200 text-justify hyphens-auto pb-20"
 									style={{ fontSize: `${fontSize}px` }}
-									dangerouslySetInnerHTML={{ __html: content }}
+									dangerouslySetInnerHTML={{
+										__html: DOMPurify.sanitize(content, {
+											ALLOWED_TAGS: [
+												"p",
+												"br",
+												"h3",
+												"h4",
+												"div",
+												"strong",
+												"em",
+												"i",
+												"b",
+											],
+											ALLOWED_ATTR: ["class"],
+										}),
+									}}
 								/>
 							) : (
 								<div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
