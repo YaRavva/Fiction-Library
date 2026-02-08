@@ -54,4 +54,11 @@ logs
 # KiloCode specific files
 .kilocode/
 
+# Agent config files with sensitive data
+.claude/settings.local.json
+.gemini/.env
+.gemini/settings.json
+.qoder/settings.json
+.kiro/
+
 stitch_mcp_config.json
