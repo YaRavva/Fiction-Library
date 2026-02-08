@@ -684,7 +684,10 @@ function ReaderContent() {
 
 						{/* Content Selector Overlay */}
 						{showFileSelector && (
-							<div className="absolute top-16 right-4 w-80 bg-card/95 backdrop-blur-xl border shadow-2xl rounded-xl z-30 max-h-[calc(100%-6rem)] overflow-y-auto animate-in slide-in-from-top-2 fade-in duration-200 flex flex-col">
+							<div
+								className="absolute top-16 right-4 min-w-80 max-w-2xl bg-card/95 backdrop-blur-xl border shadow-2xl rounded-xl z-30 max-h-[calc(100%-6rem)] overflow-y-auto animate-in slide-in-from-top-2 fade-in duration-200 flex flex-col resize-x"
+								style={{ width: "20rem", maxWidth: "90vw" }}
+							>
 								<div className="p-3 border-b bg-muted/30 sticky top-0 z-10 flex items-center justify-between">
 									<span className="font-semibold text-sm">Содержание</span>
 									<Button
@@ -710,7 +713,7 @@ function ReaderContent() {
 													variant={
 														selectedFile === file.name ? "secondary" : "ghost"
 													}
-													className="justify-start truncate h-auto py-2 px-3 text-sm w-full font-normal"
+													className="justify-start h-auto py-2 px-3 text-sm w-full font-normal whitespace-normal break-all"
 													onClick={() => handleFileSelect(file.name)}
 												>
 													{file.name}
@@ -734,7 +737,7 @@ function ReaderContent() {
 													key={sBook.id}
 													variant={book.id === sBook.id ? "secondary" : "ghost"}
 													className={cn(
-														"justify-start text-left h-auto py-2 px-3 text-sm w-full font-normal",
+														"justify-start text-left h-auto py-2 px-3 text-sm w-full font-normal whitespace-normal",
 														book.id === sBook.id &&
 															"bg-primary/10 text-primary hover:bg-primary/20",
 													)}
@@ -745,10 +748,10 @@ function ReaderContent() {
 														}
 													}}
 												>
-													<span className="mr-2 text-muted-foreground opacity-70 w-4 text-right inline-block">
+													<span className="mr-2 text-muted-foreground opacity-70 w-4 text-right inline-block shrink-0">
 														{sBook.series_order || "-"}
 													</span>
-													<span className="truncate">{sBook.title}</span>
+													<span className="break-words">{sBook.title}</span>
 												</Button>
 											))}
 										</div>
