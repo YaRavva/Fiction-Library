@@ -1,5 +1,21 @@
 {
 	"mcpServers": {
+		"stitch": {
+			"type": "http",
+			"url": "https://stitch.googleapis.com/mcp",
+			"headers": {
+				"Authorization": "Bearer ${STITCH_ACCESS_TOKEN}",
+				"X-Goog-User-Project": "${GOOGLE_CLOUD_PROJECT}"
+			}
+		},
+		"supabase": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"mcp-remote",
+				"https://mcp.supabase.com/mcp?project_ref=yobwiopkewzyrabwzzgo"
+			]
+		},
 		"shadcn": {
 			"command": "npx",
 			"args": ["shadcn@latest", "mcp"]

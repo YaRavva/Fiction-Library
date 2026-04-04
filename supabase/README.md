@@ -106,9 +106,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
 Для хранения файлов книг используется Supabase Storage с приватным bucket.
 
-**Быстрый старт (5 минут):** См. [docs/quick-start-storage.md](../docs/quick-start-storage.md)
-
-**Подробная инструкция:** См. [docs/storage-setup.md](../docs/storage-setup.md)
+В корневом `docs/` сейчас нет отдельных файлов `quick-start-storage.md` и `storage-setup.md`, поэтому актуальную конфигурацию Storage нужно смотреть по текущим миграциям, коду S3-клиента и переменным окружения проекта.
 
 ### Основные компоненты:
 

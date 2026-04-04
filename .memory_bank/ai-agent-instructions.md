@@ -124,7 +124,7 @@ git log -1 --format="%H"
 - **Миграция файлов**: Безопасность и надежность приоритетны
 
 ### Технологические Ограничения
-- **Next.js 15.5.9**: Обязательная версия
+- **Next.js 16.x**: Актуальная версия проекта
 - **TypeScript**: Строгий режим включен
 - **Supabase**: Единственная БД, RLS обязателен
 - **Cloud.ru S3**: Основное файловое хранилище
@@ -138,7 +138,7 @@ git log -1 --format="%H"
 ## Команды для Быстрого Доступа
 
 ### Чтение Memory Bank
-```bash
+```powershell
 # Основные файлы
 cat .memory_bank/activeContext.md
 cat .memory_bank/systemPatterns.md
@@ -163,21 +163,15 @@ git log --oneline -10
 ### Проектные команды
 ```bash
 # Разработка
-pnpm dev                    # Запуск сервера разработки
-pnpm build                  # Сборка проекта
-pnpm lint                   # Проверка кода
+bun install                 # Установка зависимостей
+bun run dev                 # Запуск сервера разработки
+bun run build               # Сборка проекта
+bun run lint                # Проверка кода
 
-# Telegram синхронизация
-pnpm book-worm             # Основная синхронизация
-pnpm book-worm:scheduled   # Плановая синхронизация
-
-# Система очередей
-pnpm worker                # Обработчик очередей
-pnpm check-download-queue  # Статус очередей
-
-# Тестирование
-pnpm test:telegram-download # Тест Telegram
-pnpm test:queue-system     # Тест очередей
+# Служебные сценарии
+bunx tsx src/scripts/get-all-metadata.ts
+bunx tsx src/scripts/check-book-duplicates.ts
+bunx tsx src/scripts/test-s3-connection.ts
 ```
 
 ## Метрики Эффективности

@@ -85,7 +85,7 @@ interface IBookRepository {
 **Описание**: Система очередей для обработки длительных операций
 **Почему выбран**: Предотвращение таймаутов, масштабируемость, надежность
 **Как использовать**:
-- Добавлять задачи через `src/lib/queue/QueueManager.ts`
+- Добавлять и отслеживать задачи через текущие сервисы фоновой обработки, например `src/lib/task-manager.ts`
 - Обрабатывать через worker процессы
 - Использовать статусы для отслеживания прогресса
 
@@ -287,13 +287,13 @@ await handler.processFiles(100)
 - **Разработка**: Метаданные каждые 30 минут, файлы каждые 2 часа
 - **Продакшен**: Метаданные ежедневно в 02:00, файлы еженедельно в воскресенье 03:00
 
-```bash
+```powershell
 # Linux Cron пример
-0 2 * * * cd /path/to/Fiction-Library && npx tsx src/scripts/scheduled-book-worm.ts
+0 2 * * * curl -X POST https://your-host/api/admin/book-worm/auto-update -H "X-GitHub-Token: <token>"
 
 # Windows Task Scheduler
-# Программа: C:\Program Files\nodejs\npx.cmd
-# Аргументы: tsx src/scripts/scheduled-book-worm.ts
+# Программа: powershell.exe
+# Аргументы: Invoke-RestMethod -Method Post -Uri https://your-host/api/admin/book-worm/auto-update -Headers @{"X-GitHub-Token"="<token>"}
 ```
 
 ### Паттерн 10: Полная синхронизация "Книжного Червя"

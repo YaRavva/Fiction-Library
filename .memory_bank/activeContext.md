@@ -58,7 +58,7 @@
 
 **Доступ к странице**: `/enchanted`
 
-**Технический стек**: Next.js 15.5.9, React 19, Tailwind CSS 4.0, Canvas API, CSS 3D transforms
+**Технический стек**: Next.js 16, React 19, Tailwind CSS 4.0, Canvas API, CSS 3D transforms
 
 ## Активные Задачи
 
