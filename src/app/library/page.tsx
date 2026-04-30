@@ -17,6 +17,7 @@ import { LibraryHero } from "@/components/library/LibraryHero";
 import { ModernBookCard } from "@/components/modern/ModernBookCard";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/page-transition";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
 	Pagination,
 	PaginationContent,
@@ -423,13 +424,16 @@ function LibraryContent() {
 							<Library className="h-6 w-6 text-primary" />
 							<span className="font-bold text-lg">FictionLib</span>
 						</div>
-						<Button
-							variant="ghost"
-							size="icon"
-							onClick={() => setMobileMenuOpen(true)}
-						>
-							<Menu className="h-6 w-6" />
-						</Button>
+						<div className="flex items-center gap-1">
+							<ThemeToggle />
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => setMobileMenuOpen(true)}
+							>
+								<Menu className="h-6 w-6" />
+							</Button>
+						</div>
 					</header>
 
 					{/* Mobile Menu Overlay */}

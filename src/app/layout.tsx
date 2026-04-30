@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Comfortaa } from "next/font/google";
-import { ThemeProvider } from "next-themes";
-import { ToasterProvider } from "@/components/providers/toaster-provider";
-import { MouseGradientBackground } from "@/components/ui/mouse-gradient-background";
+import { AppProviders } from "@/components/providers/app-providers";
 
 const comfortaa = Comfortaa({
 	subsets: ["latin", "cyrillic"],
@@ -24,18 +22,7 @@ export default function RootLayout({
 	return (
 		<html lang="ru" suppressHydrationWarning className={comfortaa.variable}>
 			<body className={comfortaa.className} suppressHydrationWarning>
-				<ThemeProvider
-					attribute="class"
-					defaultTheme="system"
-					enableSystem
-					disableTransitionOnChange
-				>
-					<MouseGradientBackground />
-					<div className="relative z-10 flex min-h-screen flex-col">
-						{children}
-					</div>
-					<ToasterProvider />
-				</ThemeProvider>
+				<AppProviders>{children}</AppProviders>
 			</body>
 		</html>
 	);

@@ -16,6 +16,7 @@ import { ModernBookCard } from "@/components/modern/ModernBookCard";
 import { ModernHero } from "@/components/modern/ModernHero";
 import { ModernSidebar } from "@/components/modern/ModernSidebar";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 // Mock data
 const MOCK_BOOKS = [
@@ -133,13 +134,16 @@ export default function ModernLibraryPage() {
 						</div>
 						<span className="font-bold text-lg">FictionLib</span>
 					</div>
-					<Button
-						variant="ghost"
-						size="icon"
-						onClick={() => setIsMobileMenuOpen(true)}
-					>
-						<Menu className="h-6 w-6" />
-					</Button>
+					<div className="flex items-center gap-1">
+						<ThemeToggle />
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => setIsMobileMenuOpen(true)}
+						>
+							<Menu className="h-6 w-6" />
+						</Button>
+					</div>
 				</header>
 
 				{/* Mobile Menu Overlay */}
