@@ -262,9 +262,9 @@ async function addBookMetadata() {
 										"S3_COVERS_BUCKET_NAME environment variable is not set.",
 									);
 								}
-								const coverPath = `${messageId}_cover.jpg`;
-								await putObject(coverPath, buffer, coversBucket);
-								coverUrl = `https://${coversBucket}.s3.cloud.ru/${coverPath}`;
+							const coverPath = `${messageId}_cover.jpg`;
+							await putObject(coverPath, buffer, coversBucket, "image/jpeg");
+							coverUrl = `https://${coversBucket}.s3.cloud.ru/${coverPath}`;
 								console.log(
 									`✅ Cover uploaded to S3 successfully: ${coverUrl}`,
 								);

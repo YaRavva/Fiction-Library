@@ -615,8 +615,8 @@ export class BookWormService {
 
 			if (!coversBucket) return null;
 
-			await putObject(photoKey, Buffer.from(result), coversBucket);
-			return `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
+		await putObject(photoKey, Buffer.from(result), coversBucket, "image/jpeg");
+		return `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 		} catch (e) {
 			return null; // Silent fail for cover
 		}

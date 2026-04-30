@@ -152,11 +152,12 @@ export async function syncMissingCovers(limit?: number) {
 									process.env.S3_COVERS_BUCKET_NAME ||
 									process.env.S3_BUCKET_NAME ||
 									"fiction-library-covers";
-								await putObject(
-									photoKey,
-									Buffer.from(photoBuffer),
-									coversBucket,
-								);
+							await putObject(
+								photoKey,
+								Buffer.from(photoBuffer),
+								coversBucket,
+								"image/jpeg",
+							);
 								// Генерируем URL для Cloud.ru S3
 								const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 								coverUrls.push(photoUrl);
@@ -197,11 +198,12 @@ export async function syncMissingCovers(limit?: number) {
 									process.env.S3_COVERS_BUCKET_NAME ||
 									process.env.S3_BUCKET_NAME ||
 									"fiction-library-covers";
-								await putObject(
-									photoKey,
-									Buffer.from(photoBuffer),
-									coversBucket,
-								);
+							await putObject(
+								photoKey,
+								Buffer.from(photoBuffer),
+								coversBucket,
+								"image/jpeg",
+							);
 								// Генерируем URL для Cloud.ru S3
 								const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 								coverUrls.push(photoUrl);
