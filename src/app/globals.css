@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
   Use custom CSS variables for your theme.
   See: https://tailwindcss.com/docs/theme#variables
