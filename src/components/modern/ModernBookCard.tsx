@@ -59,7 +59,7 @@ export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
 			{/* Ambient Glow */}
 			<div className="absolute -inset-2 bg-gradient-to-b from-primary/10 to-transparent rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition duration-700" />
 
-			<div className="relative h-full flex flex-col bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)] transition-all duration-500">
+			<div className="relative h-full flex flex-col bg-card/60 backdrop-blur-md border border-border/50 rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)] transition-all duration-500">
 				{/* Cover Section */}
 				<div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
 					{cover ? (
@@ -68,11 +68,11 @@ export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
 							alt={book.title}
 							fill
 							className="object-cover transition-transform duration-700 ease-in-out group-hover:scale-110"
-							sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+							sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
 						/>
 					) : (
 						<div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-							<BookOpen className="w-12 h-12 text-muted-foreground/20" />
+							<BookOpen className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-muted-foreground/20" />
 						</div>
 					)}
 
@@ -81,24 +81,24 @@ export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
 
 					{/* Rating Badge */}
 					{book.rating && book.rating > 0 && (
-						<div className="absolute top-3 right-3 z-10">
-							<div className="flex items-center gap-1 pl-1.5 pr-2 py-1 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 text-white text-xs font-semibold shadow-sm">
-								<Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+						<div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
+							<div className="flex items-center gap-0.5 sm:gap-1 pl-1 sm:pl-1.5 pr-1.5 sm:pr-2 py-0.5 sm:py-1 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 text-white text-[10px] sm:text-xs font-semibold shadow-sm">
+								<Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-amber-400 text-amber-400" />
 								<span>{book.rating}</span>
 							</div>
 						</div>
 					)}
 
-					{/* Quick Actions (Slide Up) */}
-					<div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
+					{/* Quick Actions (Slide Up) - Hidden on mobile, shown on hover for desktop */}
+					<div className="hidden sm:flex absolute inset-0 items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
 						<div className="flex gap-3 translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
 							<a href={`/reader?bookId=${book.id}`} className="no-underline">
 								<Button
 									size="icon"
-									className="rounded-full w-12 h-12 bg-white/90 hover:bg-white text-black shadow-xl border-0 hover:scale-110 transition-all duration-300"
+									className="rounded-full w-10 h-10 sm:w-12 sm:h-12 bg-white/90 hover:bg-white text-black shadow-xl border-0 hover:scale-110 transition-all duration-300"
 									title="Читать"
 								>
-									<BookOpen className="w-5 h-5" />
+									<BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
 								</Button>
 							</a>
 							<a
@@ -108,10 +108,10 @@ export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
 							>
 								<Button
 									size="icon"
-									className="rounded-full w-12 h-12 bg-white/90 hover:bg-white text-black shadow-xl border-0 hover:scale-110 transition-all duration-300 delay-75"
+									className="rounded-full w-10 h-10 sm:w-12 sm:h-12 bg-white/90 hover:bg-white text-black shadow-xl border-0 hover:scale-110 transition-all duration-300 delay-75"
 									title="Скачать"
 								>
-									<Download className="w-5 h-5" />
+									<Download className="w-4 h-4 sm:w-5 sm:h-5" />
 								</Button>
 							</a>
 						</div>
@@ -119,29 +119,29 @@ export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
 				</div>
 
 				{/* Info Section */}
-				<div className="flex-1 p-5 flex flex-col gap-3">
-					<div className="space-y-1">
+				<div className="flex-1 p-3 sm:p-4 md:p-5 flex flex-col gap-2 sm:gap-3">
+					<div className="space-y-0.5 sm:space-y-1">
 						<h3
-							className="font-bold text-lg leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-300"
+							className="font-bold text-sm sm:text-base md:text-lg leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-300"
 							title={book.title}
 						>
 							{book.title}
 						</h3>
 						<p
-							className="text-sm text-muted-foreground font-medium line-clamp-1"
+							className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-1"
 							title={book.author}
 						>
 							{book.author}
 						</p>
 					</div>
 
-					<div className="mt-auto pt-2 flex items-center justify-between gap-2">
-						<div className="flex flex-wrap gap-2">
+					<div className="mt-auto pt-1 sm:pt-2 flex items-center justify-between gap-1 sm:gap-2">
+						<div className="flex flex-wrap gap-1 sm:gap-2">
 							{genres.slice(0, 1).map((genre) => (
 								<Badge
 									key={genre}
 									variant="secondary"
-									className="text-[10px] px-2 py-0.5 h-6 bg-secondary/50 hover:bg-secondary/70 border-0 font-medium transition-colors"
+									className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 sm:h-6 bg-secondary/50 hover:bg-secondary/70 border-0 font-medium transition-colors"
 								>
 									{genre}
 								</Badge>
@@ -149,7 +149,7 @@ export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
 							{format && (
 								<Badge
 									variant="outline"
-									className={`text-[10px] px-2 py-0.5 h-6 border font-semibold ${getFormatColor(
+									className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 sm:h-6 border font-semibold ${getFormatColor(
 										format,
 									)}`}
 								>
@@ -159,7 +159,7 @@ export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
 						</div>
 
 						{book.year && (
-							<span className="text-xs font-medium text-muted-foreground/60 tabular-nums">
+							<span className="text-[10px] sm:text-xs font-medium text-muted-foreground/60 tabular-nums">
 								{book.year}
 							</span>
 						)}

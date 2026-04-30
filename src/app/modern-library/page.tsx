@@ -190,27 +190,27 @@ export default function ModernLibraryPage() {
 
 				<ModernHero />
 
-				<div className="container mx-auto px-4 pb-20 space-y-16">
+				<div className="container mx-auto px-4 pb-12 sm:pb-16 md:pb-20 space-y-12 sm:space-y-14 md:space-y-16">
 					{/* Section: Currently Popular */}
 					<section>
-						<div className="flex items-center justify-between mb-8">
+						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3">
 							<div>
-								<h2 className="text-2xl font-bold tracking-tight">
+								<h2 className="text-xl sm:text-2xl font-bold tracking-tight">
 									Популярное сейчас
 								</h2>
-								<p className="text-muted-foreground text-sm">
+								<p className="text-muted-foreground text-xs sm:text-sm">
 									Самые читаемые книги этой недели
 								</p>
 							</div>
 							<Button
 								variant="ghost"
-								className="gap-2 text-primary hover:text-primary hover:bg-primary/10"
+								className="gap-2 text-primary hover:text-primary hover:bg-primary/10 text-sm"
 							>
 								Смотреть все <ChevronRight className="w-4 h-4" />
 							</Button>
 						</div>
 
-						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
 							{MOCK_BOOKS.map((book, i) => (
 								<ModernBookCard key={book.id} book={book} index={i} />
 							))}
@@ -219,22 +219,22 @@ export default function ModernLibraryPage() {
 
 					{/* Section: New Arrivals */}
 					<section>
-						<div className="flex items-center justify-between mb-8">
+						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3">
 							<div>
-								<h2 className="text-2xl font-bold tracking-tight">Новинки</h2>
-								<p className="text-muted-foreground text-sm">
+								<h2 className="text-xl sm:text-2xl font-bold tracking-tight">Новинки</h2>
+								<p className="text-muted-foreground text-xs sm:text-sm">
 									Последние поступления в библиотеку
 								</p>
 							</div>
 							<Button
 								variant="ghost"
-								className="gap-2 text-primary hover:text-primary hover:bg-primary/10"
+								className="gap-2 text-primary hover:text-primary hover:bg-primary/10 text-sm"
 							>
 								Смотреть все <ChevronRight className="w-4 h-4" />
 							</Button>
 						</div>
 
-						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
 							{RECENT_BOOKS.map((book, i) => (
 								<ModernBookCard key={book.id} book={book} index={i} />
 							))}
@@ -243,8 +243,8 @@ export default function ModernLibraryPage() {
 
 					{/* Section: Categories / Genres */}
 					<section>
-						<h2 className="text-2xl font-bold tracking-tight mb-8">Жанры</h2>
-						<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+						<h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-6 sm:mb-8">Жанры</h2>
+						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
 							{[
 								"Фантастика",
 								"Детективы",
@@ -257,10 +257,10 @@ export default function ModernLibraryPage() {
 							].map((genre) => (
 								<div
 									key={genre}
-									className="h-24 rounded-xl bg-gradient-to-br from-card to-muted border p-6 flex items-center justify-center font-semibold text-lg hover:scale-[1.02] hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
+									className="h-20 sm:h-24 rounded-xl bg-gradient-to-br from-card to-muted border p-4 sm:p-6 flex items-center justify-center font-semibold text-sm sm:text-base md:text-lg hover:scale-[1.02] hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
 								>
 									<div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-									{genre}
+									<span className="relative z-10">{genre}</span>
 								</div>
 							))}
 						</div>

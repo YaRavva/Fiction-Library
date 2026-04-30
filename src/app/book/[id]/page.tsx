@@ -217,17 +217,34 @@ function BookDetailPageContent() {
 	return (
 		<PageTransition>
 			<div className="flex h-screen bg-background overflow-hidden">
-				<AppSidebar
-					user={user}
-					userProfile={userProfile}
-					onLogout={handleLogout}
-				/>
+				{/* Desktop Sidebar - hidden on mobile */}
+				<div className="hidden lg:block">
+					<AppSidebar
+						user={user}
+						userProfile={userProfile}
+						onLogout={handleLogout}
+					/>
+				</div>
 
 				<div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-					<div className="container mx-auto px-4 py-8 max-w-4xl">
+					{/* Mobile Header */}
+					<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card/80 backdrop-blur-xl sticky top-0 z-30">
 						<Button
 							variant="ghost"
-							className="mb-6 hover:bg-transparent hover:text-primary pl-0"
+							size="icon"
+							onClick={() => router.back()}
+						>
+							<ArrowLeft className="h-5 w-5" />
+						</Button>
+						<span className="font-bold text-lg">Детали книги</span>
+						<div className="w-10" /> {/* Spacer for centering */}
+					</header>
+
+					<div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-4xl">
+						{/* Desktop back button */}
+						<Button
+							variant="ghost"
+							className="hidden lg:flex mb-6 hover:bg-transparent hover:text-primary pl-0"
 							onClick={() => router.back()}
 						>
 							<ArrowLeft className="h-5 w-5 mr-2" />

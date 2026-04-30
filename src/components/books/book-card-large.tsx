@@ -94,13 +94,11 @@ export function BookCardLarge({
 			key={book.id}
 			className="w-full mx-auto border rounded-lg bg-card text-card-foreground overflow-hidden"
 		>
-			<div className="p-3">
-				{" "}
-				{/* Using same padding as small cards */}
+			<div className="p-3 sm:p-4 md:p-5">
 				{/* Header with author, title and action buttons */}
-				<div className="flex justify-between items-start mb-3">
-					<div className="flex-1 min-w-0">
-						<div className="text-sm">
+				<div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-3 sm:mb-4">
+					<div className="flex-1 min-w-0 w-full">
+						<div className="text-xs sm:text-sm mb-1">
 							<span className="font-semibold">Автор:</span>{" "}
 							<span
 								className={
@@ -118,13 +116,13 @@ export function BookCardLarge({
 								{book.author}
 							</span>
 						</div>
-						<div className="text-sm">
+						<div className="text-xs sm:text-sm">
 							<span className="font-semibold">Название:</span> {book.title}
 						</div>
 					</div>
 
 					{/* Action buttons in top right corner */}
-					<div className="flex gap-1 ml-2">
+					<div className="flex gap-1 sm:gap-2 ml-0 sm:ml-2 w-full sm:w-auto justify-end">
 						{onLikeToggle && (
 							<TooltipProvider>
 								<Tooltip>
@@ -132,14 +130,14 @@ export function BookCardLarge({
 										<Button
 											size="icon"
 											variant="outline"
-											className={`h-8 w-8 p-0 ${isLiked ? "text-red-500 hover:text-red-600 border-red-200 bg-red-50" : "text-muted-foreground hover:text-red-500"}`}
+											className={`h-7 w-7 sm:h-8 sm:w-8 p-0 ${isLiked ? "text-red-500 hover:text-red-600 border-red-200 bg-red-50" : "text-muted-foreground hover:text-red-500"}`}
 											onClick={(e) => {
 												e.stopPropagation();
 												onLikeToggle();
 											}}
 										>
 											<Heart
-												className={`h-4 w-4 ${isLiked ? "fill-current" : ""}`}
+												className={`h-3 w-3 sm:h-4 sm:w-4 ${isLiked ? "fill-current" : ""}`}
 											/>
 										</Button>
 									</TooltipTrigger>
@@ -163,7 +161,7 @@ export function BookCardLarge({
 											<Button
 												size="icon"
 												variant="outline"
-												className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+												className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
 												disabled={!book.file_url}
 												onClick={(e) => {
 													e.stopPropagation();
@@ -176,7 +174,7 @@ export function BookCardLarge({
 													}
 												}}
 											>
-												<X className="h-4 w-4" />
+												<X className="h-3 w-3 sm:h-4 sm:w-4" />
 											</Button>
 										</TooltipTrigger>
 										<TooltipContent>
@@ -191,14 +189,14 @@ export function BookCardLarge({
 									<Button
 										size="icon"
 										variant="outline"
-										className="h-8 w-8 p-0"
+										className="h-7 w-7 sm:h-8 sm:w-8 p-0"
 										disabled={!book.file_url}
 										onClick={(e) => {
 											e.stopPropagation();
 											onRead(book);
 										}}
 									>
-										<BookOpen className="h-4 w-4" />
+										<BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent>
@@ -212,14 +210,14 @@ export function BookCardLarge({
 									<Button
 										size="icon"
 										variant="outline"
-										className="h-8 w-8 p-0"
+										className="h-7 w-7 sm:h-8 sm:w-8 p-0"
 										disabled={!book.file_url}
 										onClick={(e) => {
 											e.stopPropagation();
 											onDownload(book);
 										}}
 									>
-										<Download className="h-4 w-4" />
+										<Download className="h-3 w-3 sm:h-4 sm:w-4" />
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent>
@@ -229,17 +227,17 @@ export function BookCardLarge({
 						</TooltipProvider>
 					</div>
 				</div>
-				<div className="space-y-3">
+				<div className="space-y-2 sm:space-y-3">
 					{/* Жанр */}
 					{book.genres && book.genres.length > 0 && (
-						<div className="text-sm">
+						<div className="text-xs sm:text-sm">
 							<span className="font-semibold">Жанр:</span>{" "}
 							<span className="inline-flex flex-wrap gap-1">
 								{book.genres.map((genre, idx) => (
 									<Badge
 										key={`${book.id}-genre-${idx}`}
 										variant="secondary"
-										className="text-xs cursor-pointer hover:bg-secondary/80"
+										className="text-[10px] sm:text-xs cursor-pointer hover:bg-secondary/80"
 										onClick={() => onTagClick?.(genre)}
 									>
 										#{genre}
@@ -251,13 +249,13 @@ export function BookCardLarge({
 
 					{/* Рейтинг */}
 					{book.rating && book.rating > 0 && (
-						<div className="text-sm">
+						<div className="text-xs sm:text-sm">
 							<span className="font-semibold">Рейтинг:</span>{" "}
 							{book.rating.toFixed(2)}{" "}
 							{ratingTag && (
 								<Badge
 									variant="secondary"
-									className="text-xs cursor-pointer hover:bg-secondary/80"
+									className="text-[10px] sm:text-xs cursor-pointer hover:bg-secondary/80"
 									onClick={() => onTagClick?.(ratingTag.substring(1))} // Remove # prefix
 								>
 									{ratingTag}
@@ -268,16 +266,16 @@ export function BookCardLarge({
 
 					{/* Описание */}
 					{book.description && (
-						<p className="text-sm leading-relaxed whitespace-pre-wrap">
+						<p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
 							{book.description}
 						</p>
 					)}
 
 					{/* Состав серии */}
 					{seriesComposition && seriesComposition.length > 0 && (
-						<div className="space-y-2">
-							<div className="text-sm font-semibold">Состав:</div>
-							<ol className="text-sm space-y-1 list-decimal list-inside">
+						<div className="space-y-1 sm:space-y-2">
+							<div className="text-xs sm:text-sm font-semibold">Состав:</div>
+							<ol className="text-xs sm:text-sm space-y-1 list-decimal list-inside">
 								{seriesComposition.map((item, idx) => (
 									<li key={`${book.id}-series-${idx}`}>
 										{item.title} ({item.year})
@@ -332,12 +330,12 @@ export function BookCardLarge({
 																priority
 																className="object-cover"
 																unoptimized
-																sizes="(max-width: 640px) 100vw, 384px"
+																sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 384px"
 															/>
 														</div>
 													) : (
-														// Для одинарных обложек используем фиксированную высоту 480px с блюром по бокам
-														<div className="relative w-full h-[480px]">
+														// Для одинарных обложек используем адаптивную высоту с блюром по бокам
+														<div className="relative w-full h-[300px] sm:h-[400px] md:h-[480px]">
 															{/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
 															<div className="absolute inset-0">
 																<Image
@@ -347,14 +345,14 @@ export function BookCardLarge({
 																	priority
 																	className="object-cover scale-110 blur-sm opacity-30"
 																	unoptimized
-																	sizes="(max-width: 640px) 100vw, 384px"
+																	sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 384px"
 																/>
 															</div>
 															{/* Основная обложка по центру */}
 															<div className="relative w-full h-full flex items-center justify-center">
 																<div
+																	className="h-full"
 																	style={{
-																		height: "480px",
 																		display: "flex",
 																		alignItems: "center",
 																		justifyContent: "center",
@@ -363,11 +361,7 @@ export function BookCardLarge({
 																	<img
 																		src={coverUrl}
 																		alt={`Обложка ${idx + 1}`}
-																		style={{
-																			maxHeight: "480px",
-																			maxWidth: "100%",
-																			objectFit: "contain",
-																		}}
+																		className="max-h-full max-w-full object-contain"
 																	/>
 																</div>
 															</div>
@@ -379,8 +373,8 @@ export function BookCardLarge({
 									: // Если нет обложек серии, но есть обложка книги
 										book.cover_url && (
 											<div className="relative w-full overflow-hidden rounded border bg-muted">
-												{/* Контейнер фиксированной высоты 480px */}
-												<div className="relative w-full h-[480px]">
+												{/* Контейнер адаптивной высоты */}
+												<div className="relative w-full h-[300px] sm:h-[400px] md:h-[480px]">
 													{/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
 													<div className="absolute inset-0">
 														<Image
@@ -390,14 +384,14 @@ export function BookCardLarge({
 															priority
 															className="object-cover scale-110 blur-sm opacity-30"
 															unoptimized
-															sizes="(max-width: 640px) 100vw, 384px"
+															sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 384px"
 														/>
 													</div>
 													{/* Основная обложка по центру */}
 													<div className="relative w-full h-full flex items-center justify-center">
 														<div
+															className="h-full"
 															style={{
-																height: "480px",
 																display: "flex",
 																alignItems: "center",
 																justifyContent: "center",
@@ -406,11 +400,7 @@ export function BookCardLarge({
 															<img
 																src={book.cover_url}
 																alt={book.title}
-																style={{
-																	maxHeight: "480px",
-																	maxWidth: "100%",
-																	objectFit: "contain",
-																}}
+																className="max-h-full max-w-full object-contain"
 															/>
 														</div>
 													</div>

@@ -461,8 +461,8 @@ function LibraryContent() {
 					<main className="flex-1 overflow-y-auto scrollbar-hide">
 						<LibraryHero />
 
-						<div className="container mx-auto px-4 pb-12">
-							<div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-300">
+						<div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-10 md:pb-12">
+							<div className="mb-6 sm:mb-8 md:mb-10 animate-in fade-in slide-in-from-top-4 duration-300">
 								<AdvancedSearch
 									onSearch={handleAdvancedSearch}
 									onReset={handleAdvancedSearchReset}
@@ -472,8 +472,8 @@ function LibraryContent() {
 								/>
 							</div>
 
-							<div className="flex items-center justify-between mb-6">
-								<div className="flex items-center gap-2 text-sm text-muted-foreground">
+							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+								<div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
 									{totalBooks} книг найдено
 								</div>
 								<div className="flex items-center gap-4">
@@ -497,7 +497,7 @@ function LibraryContent() {
 									onRead={handleRead}
 								/>
 							) : viewMode === "large-cards" ? (
-								<div className="space-y-6">
+								<div className="space-y-4 sm:space-y-6">
 									{books.map((book) => (
 										<BookCardLarge
 											key={book.id}
@@ -516,7 +516,7 @@ function LibraryContent() {
 									))}
 								</div>
 							) : (
-								<div className="grid gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+								<div className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
 									{books.map((book, i) => (
 										<div
 											key={book.id}
@@ -530,15 +530,15 @@ function LibraryContent() {
 							)}
 
 							{books.length === 0 && (
-								<div className="text-center py-20 text-muted-foreground">
-									<Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
-									<p className="text-lg font-medium">Книги не найдены</p>
-									<p>Попробуйте изменить параметры поиска</p>
+								<div className="text-center py-12 sm:py-16 md:py-20 text-muted-foreground">
+									<Search className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 opacity-20" />
+									<p className="text-base sm:text-lg font-medium">Книги не найдены</p>
+									<p className="text-sm sm:text-base">Попробуйте изменить параметры поиска</p>
 								</div>
 							)}
 
 							{totalPages > 1 && (
-								<div className="mt-12 flex justify-center">
+								<div className="mt-8 sm:mt-10 md:mt-12 flex justify-center">
 									<Pagination>
 										<PaginationContent>
 											<PaginationItem>

@@ -4,18 +4,18 @@ import { motion } from "framer-motion";
 
 export function LibraryHero() {
 	return (
-		<div className="relative w-full py-12 md:py-20 overflow-hidden mb-8">
+		<div className="relative w-full py-6 sm:py-8 md:py-12 lg:py-20 overflow-hidden mb-4 sm:mb-6 md:mb-8">
 			{/* Abstract Background Elements */}
 
 
 			<div className="container mx-auto px-4 relative z-10">
-				<div className="max-w-3xl mx-auto text-center space-y-6">
+				<div className="max-w-3xl mx-auto text-center space-y-3 sm:space-y-4 md:space-y-6">
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.6 }}
 					>
-						<h1 className="text-3xl md:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+						<h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70 px-4 sm:px-0">
 							Ваша личная вселенная
 							<br />
 							<span className="text-primary">книг и историй</span>

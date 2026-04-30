@@ -121,20 +121,20 @@ export function AdvancedSearch({
 	return (
 		<Card
 			className={cn(
-				"border-primary/10 shadow-xl shadow-black/5 bg-card/60 backdrop-blur-xl rounded-2xl overflow-hidden transition-all duration-300",
+				"border-primary/10 shadow-xl shadow-black/5 bg-card/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-300",
 				className,
 			)}
 		>
-			<CardContent className="p-4 space-y-4">
+			<CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
 				{/* Основная строка поиска */}
-				<div className="flex gap-2">
+				<div className="flex flex-col sm:flex-row gap-2">
 					<div className="relative flex-1">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 						<Input
-							placeholder="Поиск по названию, автору или описанию..."
+							placeholder="Поиск по названию, автору..."
 							value={values.query}
 							onChange={(e) => handleFilterChange("query", e.target.value)}
-							className="pl-10 h-11 bg-background/50 border-primary/10 focus-visible:ring-primary/30 rounded-xl text-base"
+							className="pl-10 h-10 sm:h-11 bg-background/50 border-primary/10 focus-visible:ring-primary/30 rounded-xl text-sm sm:text-base"
 							onKeyDown={(e) => {
 								if (e.key === "Enter") {
 									e.preventDefault();
@@ -143,36 +143,39 @@ export function AdvancedSearch({
 							}}
 						/>
 					</div>
-					<Button
-						variant="outline"
-						onClick={() => setIsExpanded(!isExpanded)}
-						className={cn(
-							"h-11 px-4 rounded-xl border-primary/10 bg-background/50 hover:bg-background/80 transition-colors",
-							isExpanded && "bg-primary/10 text-primary border-primary/20",
-						)}
-					>
-						<SlidersHorizontal className="h-4 w-4 mr-2" />
-						<span className="hidden sm:inline">Фильтры</span>
-					</Button>
-					<Button
-						onClick={() => handleSearch()}
-						className="h-11 px-6 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/25 transition-all active:scale-95"
-						disabled={isLoading}
-					>
-						{isLoading ? (
-							<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground" />
-						) : (
-							"Найти"
-						)}
-					</Button>
+					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setIsExpanded(!isExpanded)}
+							className={cn(
+								"h-10 sm:h-11 px-3 sm:px-4 rounded-xl border-primary/10 bg-background/50 hover:bg-background/80 transition-colors flex-1 sm:flex-none",
+								isExpanded && "bg-primary/10 text-primary border-primary/20",
+							)}
+						>
+							<SlidersHorizontal className="h-4 w-4 sm:mr-2" />
+							<span className="hidden sm:inline">Фильтры</span>
+							<span className="sm:hidden">Фильтры</span>
+						</Button>
+						<Button
+							onClick={() => handleSearch()}
+							className="h-10 sm:h-11 px-4 sm:px-6 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/25 transition-all active:scale-95 flex-1 sm:flex-none"
+							disabled={isLoading}
+						>
+							{isLoading ? (
+								<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground" />
+							) : (
+								"Найти"
+							)}
+						</Button>
+					</div>
 				</div>
 
 				{/* Сетка дополнительных фильтров */}
 				{isExpanded && (
-					<div className="space-y-4 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
+					<div className="space-y-3 sm:space-y-4 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
 						<Separator className="opacity-50" />
 
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4">
 							{/* Автор */}
 							<div className="space-y-2">
 								<Label
@@ -230,9 +233,9 @@ export function AdvancedSearch({
 										<SelectValue placeholder="Любые книги" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="any">Любые книги</SelectItem>
-										<SelectItem value="true">Только с файлами</SelectItem>
-										<SelectItem value="false">Только без файлов</SelectItem>
+										<SelectItem value="any">Любые</SelectItem>
+										<SelectItem value="true">С файлами</SelectItem>
+										<SelectItem value="false">Без файлов</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
