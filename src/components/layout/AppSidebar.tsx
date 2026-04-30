@@ -43,9 +43,9 @@ export function AppSidebar({ user, userProfile, onLogout }: AppSidebarProps) {
 	};
 
 	return (
-		<aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 border-r bg-card/30 backdrop-blur-xl p-6 z-40">
+		<aside className="flex flex-col w-full lg:w-64 lg:h-screen lg:sticky lg:top-0 lg:border-r bg-transparent lg:bg-card/30 lg:backdrop-blur-xl lg:p-6 lg:z-40">
 			<div
-				className="flex items-center gap-2 mb-10 cursor-pointer"
+				className="hidden lg:flex items-center gap-2 mb-10 cursor-pointer"
 				onClick={() => router.push("/library")}
 			>
 				<div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">

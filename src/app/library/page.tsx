@@ -433,8 +433,9 @@ function LibraryContent() {
 					{/* Mobile Menu Overlay */}
 					{mobileMenuOpen && (
 						<div className="fixed inset-0 z-50 lg:hidden bg-background/80 backdrop-blur-sm">
-							<div className="fixed inset-y-0 left-0 w-72 bg-card border-r shadow-2xl p-0 flex flex-col">
-								<div className="flex items-center justify-end p-4">
+							<div className="fixed inset-y-0 right-0 w-72 bg-card border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+								<div className="flex items-center justify-between p-4 border-b">
+									<span className="font-bold text-lg">Меню</span>
 									<Button
 										variant="ghost"
 										size="icon"
@@ -443,7 +444,7 @@ function LibraryContent() {
 										<X className="h-6 w-6" />
 									</Button>
 								</div>
-								<div className="flex-1 overflow-y-auto">
+								<div className="flex-1 overflow-y-auto p-6">
 									<AppSidebar
 										user={user}
 										userProfile={userProfile}
