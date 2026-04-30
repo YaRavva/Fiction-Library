@@ -408,11 +408,13 @@ function LibraryContent() {
 		<PageTransition>
 			<div className="flex h-screen bg-transparent overflow-hidden">
 				{/* Desktop Sidebar */}
-				<AppSidebar
-					user={user}
-					userProfile={userProfile}
-					onLogout={handleLogout}
-				/>
+				<div className="hidden lg:block">
+					<AppSidebar
+						user={user}
+						userProfile={userProfile}
+						onLogout={handleLogout}
+					/>
+				</div>
 
 				<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 					{/* Mobile Header */}
