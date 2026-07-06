@@ -293,24 +293,38 @@ export default function AdminPage() {
 			const { data: { session } } = await supabase.auth.getSession();
 			if (!session) return;
 
+			const authHeaders = {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${session.access_token}`,
+			};
+
+			// Step 1: Send verification code
 			if (tgStep === "phone") {
-				// Just move to code step (API sends code on submit_code)
+				const res = await fetch("/api/admin/telegram-relogin", {
+					method: "POST",
+					headers: authHeaders,
+					body: JSON.stringify({ action: "send_code", phone: tgPhone }),
+				});
+				const data = await res.json();
+				if (!res.ok) throw new Error(data.error);
 				setTgStep("code");
 				setTgLoading(false);
 				return;
 			}
 
-			const body: any = { phone: tgPhone, code: tgCode };
+			// Step 2: Sign in with code
+			const body: any = {
+				action: "sign_in",
+				phone: tgPhone,
+				code: tgCode,
+			};
 			if (tgStep === "password") {
 				body.password = tgPassword;
 			}
 
 			const res = await fetch("/api/admin/telegram-relogin", {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${session.access_token}`,
-				},
+				headers: authHeaders,
 				body: JSON.stringify(body),
 			});
 			const data = await res.json();
