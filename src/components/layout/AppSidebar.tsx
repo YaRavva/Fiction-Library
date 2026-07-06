@@ -51,7 +51,7 @@ export function AppSidebar({ user, userProfile, onLogout }: AppSidebarProps) {
 	};
 
 	return (
-		<aside className="flex h-full w-full flex-col border-sidebar-border bg-sidebar text-sidebar-foreground lg:h-screen lg:w-72 lg:border-r">
+		<aside className="relative z-10 flex h-full w-full flex-col border-sidebar-border bg-sidebar text-sidebar-foreground lg:h-screen lg:w-72 lg:border-r">
 			<div className="border-sidebar-border border-b px-5 py-5">
 				<button
 					type="button"

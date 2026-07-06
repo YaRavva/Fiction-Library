@@ -65,7 +65,7 @@ export function BookCard({
 			exit={{ opacity: 0, scale: 0.9 }}
 			transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.5) }}
 			whileHover={{ y: -3 }}
-			className={`group relative w-full h-full ${onBookClick ? "cursor-pointer" : ""}`}
+			className={`group relative w-full h-full overflow-hidden ${onBookClick ? "cursor-pointer" : ""}`}
 			onClick={() => onBookClick?.(book)}
 		>
 			<div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500/20 to-violet-600/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
