@@ -1,7 +1,14 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { Library, Menu, Search, X } from "lucide-react";
+import {
+	BookOpenCheck,
+	Database,
+	Library,
+	Menu,
+	Search,
+	X,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import {
@@ -12,7 +19,6 @@ import { BookCardLarge } from "@/components/books/book-card-large";
 import { BooksTable } from "@/components/books/books-table";
 import { ViewModeToggle } from "@/components/books/view-mode-toggle";
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { LibraryHero } from "@/components/library/LibraryHero";
 import { ModernBookCard } from "@/components/modern/ModernBookCard";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -32,7 +38,6 @@ import type { Book as SupabaseBook } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-// Расширяем тип Book из supabase дополнительными полями
 interface Book extends SupabaseBook {
 	rating?: number;
 	series?: {
@@ -53,42 +58,48 @@ interface UserProfile {
 
 type ViewMode = "large-cards" | "small-cards" | "table";
 
+const defaultFilters: AdvancedSearchFilters = {
+	query: "",
+	author: "",
+	series: "",
+	genre: "",
+	minRating: null,
+	maxRating: null,
+	yearFrom: null,
+	yearTo: null,
+	hasFile: null,
+	tags: [],
+	sortBy: "created_at",
+	sortOrder: "desc",
+};
+
 function LibraryContent() {
 	const [supabase] = useState(() => getBrowserSupabase());
+	const [advancedSearchService] = useState(
+		() => new AdvancedSearchService(supabase),
+	);
 	const router = useRouter();
 	const searchParams = useSearchParams();
+
 	const [user, setUser] = useState<Session["user"] | null>(null);
 	const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 	const [books, setBooks] = useState<Book[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [searchQuery, setSearchQuery] = useState("");
 	const [currentPage, setCurrentPage] = useState(1);
 	const [totalBooks, setTotalBooks] = useState(0);
 	const [viewMode, setViewMode] = useState<ViewMode>("large-cards");
-	const [advancedSearchService] = useState(
-		() => new AdvancedSearchService(supabase),
-	);
+	const [advancedFilters, setAdvancedFilters] =
+		useState<AdvancedSearchFilters>(defaultFilters);
 	const [isAdvancedSearch, setIsAdvancedSearch] = useState(false);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-	const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilters>(
-		{
-			query: "",
-			author: "",
-			series: "",
-			genre: "",
-			minRating: null,
-			maxRating: null,
-			yearFrom: null,
-			yearTo: null,
-			hasFile: null,
-			tags: [],
-			sortBy: "created_at",
-			sortOrder: "desc",
-		},
-	);
+	const initialLimit = searchParams.get("limit");
+	const [booksPerPage] = useState(() => {
+		if (initialLimit === "all") return 0;
+		const limit = parseInt(initialLimit || "100", 10);
+		return Number.isNaN(limit) ? 100 : limit;
+	});
 
-	// Инициализируем viewMode из URL параметра view
 	useEffect(() => {
 		const viewParam = searchParams.get("view") as ViewMode | null;
 		if (
@@ -96,21 +107,20 @@ function LibraryContent() {
 			["large-cards", "small-cards", "table"].includes(viewParam)
 		) {
 			setViewMode(viewParam);
+			return;
 		}
-	}, [searchParams]);
 
-	// Инициализируем booksPerPage из URL параметра limit
-	const initialLimit = searchParams.get("limit");
-	const [booksPerPage] = useState(() => {
-		if (initialLimit === "all") return 0;
-		const limit = parseInt(initialLimit || "100", 10);
-		return Number.isNaN(limit) ? 10 : limit;
-	});
+		const savedViewMode = localStorage.getItem(
+			"libraryViewMode",
+		) as ViewMode | null;
+		if (savedViewMode) setViewMode(savedViewMode);
+	}, [searchParams]);
 
 	const loadBooks = useCallback(
 		async (page = 1) => {
+			setLoading(true);
+
 			try {
-				// Сначала получаем общее количество книг
 				const { count, error: countError } = await supabase
 					.from("books")
 					.select("*", { count: "exact", head: true });
@@ -121,40 +131,25 @@ function LibraryContent() {
 					setTotalBooks(count || 0);
 				}
 
-				// Затем получаем книги для текущей страницы
-				// Если booksPerPage равно 0 ("Все"), то загружаем все книги
-				if (booksPerPage === 0) {
-					const { data, error } = await supabase
-						.from("books")
-						.select(`
-            *,
-            series:series_id(id, title, author, series_composition, cover_urls)
-          `)
-						.order("created_at", { ascending: false });
+				let query = supabase
+					.from("books")
+					.select(`
+						*,
+						series:series_id(id, title, author, series_composition, cover_urls)
+					`)
+					.order("created_at", { ascending: false });
 
-					if (error) {
-						console.error("Error loading books:", error);
-					} else {
-						setBooks(data || []);
-					}
-				} else {
+				if (booksPerPage !== 0) {
 					const from = (page - 1) * booksPerPage;
-					const to = from + booksPerPage - 1;
+					query = query.range(from, from + booksPerPage - 1);
+				}
 
-					const { data, error } = await supabase
-						.from("books")
-						.select(`
-            *,
-            series:series_id(id, title, author, series_composition, cover_urls)
-          `)
-						.order("created_at", { ascending: false })
-						.range(from, to);
+				const { data, error } = await query;
 
-					if (error) {
-						console.error("Error loading books:", error);
-					} else {
-						setBooks(data || []);
-					}
+				if (error) {
+					console.error("Error loading books:", error);
+				} else {
+					setBooks((data || []) as Book[]);
 				}
 			} catch (error) {
 				console.error("Error loading books:", error);
@@ -167,38 +162,30 @@ function LibraryContent() {
 
 	useEffect(() => {
 		const getInitialData = async () => {
-			setLoading(true);
 			try {
-				// 1. Session & Profile
 				const session = await getValidSession(supabase);
 				const authUser = session?.user;
 				setUser(authUser || null);
 
 				if (authUser) {
-					// Fetch user profile
 					const { data: profile } = await supabase
 						.from("profiles")
 						.select("*")
 						.eq("id", authUser.id)
 						.maybeSingle();
 
-					if (profile) {
-						setUserProfile(profile as UserProfile);
-					}
+					if (profile) setUserProfile(profile as UserProfile);
 				}
 
 				await loadBooks(currentPage);
 			} catch (error) {
 				console.error("Error loading initial data:", error);
-			} finally {
 				setLoading(false);
 			}
 		};
 
 		getInitialData();
-
-		return () => {};
-	}, [supabase, router, loadBooks, currentPage]);
+	}, [supabase, loadBooks, currentPage]);
 
 	const handleAdvancedSearch = useCallback(
 		async (filters: AdvancedSearchFilters) => {
@@ -217,7 +204,7 @@ function LibraryContent() {
 				if (result.error) {
 					console.error("Advanced search error:", result.error);
 				} else {
-					setBooks(result.data);
+					setBooks(result.data as Book[]);
 					setTotalBooks(result.count);
 				}
 			} catch (error) {
@@ -229,59 +216,36 @@ function LibraryContent() {
 		[advancedSearchService, booksPerPage],
 	);
 
-	const handleTagClick = (tag: string) => {
-		if (tag.startsWith("выше")) return; // Ignore rating tags for advanced filters for now, or handle appropriately
-
-		const newTags = advancedFilters.tags.includes(tag)
-			? advancedFilters.tags
-			: [...advancedFilters.tags, tag];
-
-		const newFilters = {
-			...advancedFilters,
-			tags: newTags,
-		};
-
-		handleAdvancedSearch(newFilters);
-	};
-
-	const handleAuthorClick = (author: string) => {
-		const newFilters = {
-			...advancedFilters,
-			author: author,
-			query: "", // Clear generic query if selecting specific author
-		};
-		handleAdvancedSearch(newFilters);
-	};
-
-	const handleSearch = (query: string) => {
-		// Update basic search query in filters
-		const newFilters = {
-			...advancedFilters,
-			query: query,
-		};
-		handleAdvancedSearch(newFilters);
-	};
-
 	const handleAdvancedSearchReset = useCallback(() => {
 		setIsAdvancedSearch(false);
-		setAdvancedFilters({
-			query: "",
-			author: "",
-			series: "",
-			genre: "",
-			minRating: null,
-			maxRating: null,
-			yearFrom: null,
-			yearTo: null,
-			hasFile: null,
-			tags: [],
-			sortBy: "created_at",
-			sortOrder: "desc",
-		});
-		setSearchQuery("");
+		setAdvancedFilters(defaultFilters);
 		setCurrentPage(1);
 		loadBooks(1);
 	}, [loadBooks]);
+
+	const handleViewModeChange = (mode: ViewMode) => {
+		setViewMode(mode);
+		localStorage.setItem("libraryViewMode", mode);
+	};
+
+	const handleTagClick = (tag: string) => {
+		if (tag.startsWith("выше")) return;
+
+		handleAdvancedSearch({
+			...advancedFilters,
+			tags: advancedFilters.tags.includes(tag)
+				? advancedFilters.tags
+				: [...advancedFilters.tags, tag],
+		});
+	};
+
+	const handleAuthorClick = (author: string) => {
+		handleAdvancedSearch({
+			...advancedFilters,
+			author,
+			query: "",
+		});
+	};
 
 	const handleLogout = async () => {
 		await supabase.auth.signOut();
@@ -291,8 +255,8 @@ function LibraryContent() {
 	const incrementDownloads = async (bookId: string) => {
 		try {
 			await supabase.rpc("increment_downloads", { book_id: bookId });
-			setBooks(
-				books.map((book) =>
+			setBooks((items) =>
+				items.map((book) =>
 					book.id === bookId
 						? { ...book, downloads_count: book.downloads_count + 1 }
 						: book,
@@ -303,15 +267,26 @@ function LibraryContent() {
 		}
 	};
 
+	const incrementViews = async (bookId: string) => {
+		try {
+			await supabase.rpc("increment_views", { book_id: bookId });
+			setBooks((items) =>
+				items.map((book) =>
+					book.id === bookId
+						? { ...book, views_count: book.views_count + 1 }
+						: book,
+				),
+			);
+		} catch (error) {
+			console.error("Error incrementing views:", error);
+		}
+	};
+
 	const handleDownload = (book: Book) => {
 		if (book.file_url) {
 			incrementDownloads(book.id);
 			window.location.href = `/api/download/${book.id}`;
 		}
-	};
-
-	const handleBookClick = (book: Book) => {
-		router.push(`/book/${book.id}`);
 	};
 
 	const handleRead = (book: Book) => {
@@ -321,19 +296,8 @@ function LibraryContent() {
 		}
 	};
 
-	const incrementViews = async (bookId: string) => {
-		try {
-			await supabase.rpc("increment_views", { book_id: bookId });
-			setBooks(
-				books.map((book) =>
-					book.id === bookId
-						? { ...book, views_count: book.views_count + 1 }
-						: book,
-				),
-			);
-		} catch (error) {
-			console.error("Error incrementing views:", error);
-		}
+	const handleBookClick = (book: Book) => {
+		router.push(`/book/${book.id}`);
 	};
 
 	const handleClearFile = async (bookId: string) => {
@@ -350,51 +314,35 @@ function LibraryContent() {
 				.eq("id", bookId);
 
 			if (error) {
-				console.error("❌ Ошибка при очистке файла:", error);
-				alert("Ошибка при очистке файла");
-			} else {
-				setBooks(
-					books.map((book) =>
-						book.id === bookId
-							? ({
-									...book,
-									file_url: undefined,
-									file_size: undefined,
-									file_format: undefined,
-									telegram_file_id: undefined,
-								} as unknown as Book)
-							: book,
-					),
-				);
-				alert("Файл успешно очищен!");
+				console.error("Error clearing file:", error);
+				window.alert("Не удалось очистить файл.");
+				return;
 			}
+
+			setBooks((items) =>
+				items.map((book) =>
+					book.id === bookId
+						? ({
+								...book,
+								file_url: undefined,
+								file_size: undefined,
+								file_format: undefined,
+								telegram_file_id: undefined,
+							} as Book)
+						: book,
+				),
+			);
 		} catch (error) {
-			console.error("❌ Ошибка:", error);
-			alert("Произошла ошибка при очистке файла");
+			console.error("Error clearing file:", error);
+			window.alert("Произошла ошибка при очистке файла.");
 		}
 	};
 
-	// Загружаем сохраненный режим отображения при монтировании компонента
-	useEffect(() => {
-		const savedViewMode = localStorage.getItem(
-			"libraryViewMode",
-		) as ViewMode | null;
-		if (savedViewMode) {
-			setViewMode(savedViewMode);
-		}
-	}, []);
-
-	// Сохраняем режим отображения при его изменении
-	const handleViewModeChange = (mode: ViewMode) => {
-		setViewMode(mode);
-		localStorage.setItem("libraryViewMode", mode);
-	};
-
-	if (loading) {
+	if (loading && books.length === 0) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-background">
-				<div className="text-center space-y-4">
-					<Library className="h-12 w-12 mx-auto animate-pulse text-primary" />
+			<div className="flex min-h-screen items-center justify-center bg-background">
+				<div className="space-y-4 text-center">
+					<Library className="mx-auto size-10 animate-pulse text-primary" />
 					<p className="text-muted-foreground">Загрузка библиотеки...</p>
 				</div>
 			</div>
@@ -406,8 +354,7 @@ function LibraryContent() {
 
 	return (
 		<PageTransition>
-			<div className="flex h-screen bg-transparent overflow-hidden">
-				{/* Desktop Sidebar */}
+			<div className="flex h-screen overflow-hidden bg-background">
 				<div className="hidden lg:block">
 					<AppSidebar
 						user={user}
@@ -416,59 +363,103 @@ function LibraryContent() {
 					/>
 				</div>
 
-				<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-					{/* Mobile Header */}
-					<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card/80 backdrop-blur-xl sticky top-0 z-30">
-						<div className="flex items-center gap-2">
-							<Library className="h-6 w-6 text-primary" />
-							<span className="font-bold text-lg">FictionLib</span>
-						</div>
-						<div className="flex items-center gap-1">
-							<ThemeToggle />
-							<Button
-								variant="ghost"
-								size="icon"
-								onClick={() => setMobileMenuOpen(true)}
-							>
-								<Menu className="h-6 w-6" />
-							</Button>
+				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+					<header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-xl">
+						<div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+							<div className="min-w-0">
+								<div className="flex items-center gap-2 lg:hidden">
+									<Library className="size-5 text-primary" />
+									<span className="font-semibold">Fiction Library</span>
+								</div>
+								<div className="hidden lg:block">
+									<p className="text-muted-foreground text-xs">Каталог</p>
+									<h1 className="font-semibold text-lg tracking-tight">
+										Библиотека
+									</h1>
+								</div>
+							</div>
+							<div className="flex items-center gap-2">
+								<ThemeToggle />
+								<Button
+									variant="outline"
+									size="icon"
+									className="lg:hidden"
+									onClick={() => setMobileMenuOpen(true)}
+								>
+									<Menu className="size-5" />
+								</Button>
+							</div>
 						</div>
 					</header>
 
-					{/* Mobile Menu Overlay */}
-					{mobileMenuOpen && (
-						<div className="fixed inset-0 z-50 lg:hidden bg-background/80 backdrop-blur-sm">
-							<div className="fixed inset-y-0 right-0 w-72 bg-card border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
-								<div className="flex items-center justify-between p-4 border-b">
-									<span className="font-bold text-lg">Меню</span>
+					{mobileMenuOpen ? (
+						<div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden">
+							<button
+								type="button"
+								className="absolute inset-0 h-full w-full"
+								aria-label="Закрыть меню"
+								onClick={() => setMobileMenuOpen(false)}
+							/>
+							<div className="fixed inset-y-0 left-0 z-10 flex w-72 flex-col bg-sidebar shadow-2xl animate-in slide-in-from-left duration-200">
+								<div className="flex items-center justify-between border-b p-4">
+									<span className="font-semibold">Меню</span>
 									<Button
 										variant="ghost"
 										size="icon"
 										onClick={() => setMobileMenuOpen(false)}
 									>
-										<X className="h-6 w-6" />
+										<X className="size-5" />
 									</Button>
 								</div>
-								<div className="flex-1 overflow-y-auto p-6">
-									<AppSidebar
-										user={user}
-										userProfile={userProfile}
-										onLogout={handleLogout}
-									/>
-								</div>
+								<AppSidebar
+									user={user}
+									userProfile={userProfile}
+									onLogout={handleLogout}
+								/>
 							</div>
-							<div
-								className="flex-1"
-								onClick={() => setMobileMenuOpen(false)}
-							/>
 						</div>
-					)}
+					) : null}
 
 					<main className="flex-1 overflow-y-auto scrollbar-hide">
-						<LibraryHero />
+						<div className="mx-auto w-full max-w-[1480px] px-4 py-5 sm:px-6 lg:px-8">
+							<section className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+								<div className="space-y-2">
+									<p className="text-muted-foreground text-sm">
+										Поиск, фильтрация и быстрый доступ к файлам
+									</p>
+									<div className="flex flex-wrap items-center gap-2">
+										<div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm">
+											<Database className="size-4 text-muted-foreground" />
+											<span className="font-semibold tabular-nums">
+												{totalBooks}
+											</span>
+											<span className="text-muted-foreground">книг в базе</span>
+										</div>
+										<div className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm">
+											<BookOpenCheck className="size-4 text-muted-foreground" />
+											<span className="font-semibold tabular-nums">
+												{books.length}
+											</span>
+											<span className="text-muted-foreground">
+												показано сейчас
+											</span>
+										</div>
+										{isAdvancedSearch ? (
+											<div className="inline-flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-primary text-sm">
+												<Search className="size-4" />
+												активный поиск
+											</div>
+										) : null}
+									</div>
+								</div>
 
-						<div className="container mx-auto px-3 sm:px-4 pb-8 sm:pb-10 md:pb-12">
-							<div className="mb-6 sm:mb-8 md:mb-10 animate-in fade-in slide-in-from-top-4 duration-300">
+								<ViewModeToggle
+									viewMode={viewMode}
+									onViewModeChange={handleViewModeChange}
+								/>
+							</section>
+
+							<div className="mb-5">
 								<AdvancedSearch
 									onSearch={handleAdvancedSearch}
 									onReset={handleAdvancedSearchReset}
@@ -478,38 +469,23 @@ function LibraryContent() {
 								/>
 							</div>
 
-							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-								<div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-									{totalBooks} книг найдено
-								</div>
-								<div className="flex items-center gap-4">
-									<ViewModeToggle
-										viewMode={viewMode}
-										onViewModeChange={handleViewModeChange}
-									/>
-								</div>
-							</div>
-
 							{viewMode === "table" ? (
 								<BooksTable
 									books={books}
-									onDelete={
-										userProfile?.role === "admin"
-											? (book) => handleClearFile(book.id)
-											: undefined
-									}
 									onBookClick={handleBookClick}
 									onDownload={handleDownload}
-									onRead={handleRead}
+									onReadClick={handleRead}
+									onTagClick={handleTagClick}
 								/>
 							) : viewMode === "large-cards" ? (
-								<div className="space-y-4 sm:space-y-6">
+								<div className="space-y-3">
 									{books.map((book) => (
 										<BookCardLarge
 											key={book.id}
 											book={book}
 											onDownload={handleDownload}
 											onRead={handleRead}
+											onBookClick={handleBookClick}
 											onTagClick={handleTagClick}
 											userProfile={userProfile}
 											onFileClear={
@@ -522,47 +498,44 @@ function LibraryContent() {
 									))}
 								</div>
 							) : (
-								<div className="grid gap-3 sm:gap-4 md:gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-									{books.map((book, i) => (
+								<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+									{books.map((book, index) => (
 										<div
 											key={book.id}
+											className="h-full cursor-pointer"
 											onClick={() => handleBookClick(book)}
-											className="cursor-pointer h-full"
 										>
-											<ModernBookCard book={book} index={i} />
+											<ModernBookCard book={book} index={index} />
 										</div>
 									))}
 								</div>
 							)}
 
-							{books.length === 0 && (
-								<div className="text-center py-12 sm:py-16 md:py-20 text-muted-foreground">
-									<Search className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 opacity-20" />
-									<p className="text-base sm:text-lg font-medium">
+							{books.length === 0 ? (
+								<div className="rounded-lg border bg-card py-16 text-center text-muted-foreground">
+									<Search className="mx-auto mb-4 size-10 opacity-30" />
+									<p className="font-medium text-foreground">
 										Книги не найдены
 									</p>
-									<p className="text-sm sm:text-base">
-										Попробуйте изменить параметры поиска
+									<p className="mt-1 text-sm">
+										Измените запрос или сбросьте фильтры.
 									</p>
 								</div>
-							)}
+							) : null}
 
-							{totalPages > 1 && (
-								<div className="mt-8 sm:mt-10 md:mt-12 flex justify-center">
+							{totalPages > 1 ? (
+								<div className="mt-8 flex justify-center">
 									<Pagination>
 										<PaginationContent>
 											<PaginationItem>
 												<PaginationPrevious
 													href="#"
-													onClick={(e) => {
-														e.preventDefault();
+													onClick={(event) => {
+														event.preventDefault();
 														if (currentPage > 1) {
-															setCurrentPage((p) => p - 1);
-															if (booksPerPage === 0) {
-																loadBooks(1);
-															} else {
-																loadBooks(currentPage - 1);
-															}
+															const page = currentPage - 1;
+															setCurrentPage(page);
+															loadBooks(page);
 														}
 													}}
 													className={
@@ -572,53 +545,48 @@ function LibraryContent() {
 													}
 												/>
 											</PaginationItem>
+
 											{Array.from({ length: totalPages }, (_, i) => i + 1)
 												.filter(
-													(p) =>
-														p === 1 ||
-														p === totalPages ||
-														Math.abs(p - currentPage) <= 1,
+													(page) =>
+														page === 1 ||
+														page === totalPages ||
+														Math.abs(page - currentPage) <= 1,
 												)
-												.map((p, i, arr) => (
-													<div key={p} className="flex items-center">
-														{i > 0 && arr[i - 1] !== p - 1 && (
+												.map((page, index, pages) => (
+													<div key={page} className="flex items-center">
+														{index > 0 && pages[index - 1] !== page - 1 ? (
 															<PaginationItem>
 																<span className="px-4 text-muted-foreground">
 																	...
 																</span>
 															</PaginationItem>
-														)}
+														) : null}
 														<PaginationItem>
 															<PaginationLink
 																href="#"
-																isActive={currentPage === p}
-																onClick={(e) => {
-																	e.preventDefault();
-																	setCurrentPage(p);
-																	if (booksPerPage === 0) {
-																		loadBooks(1);
-																	} else {
-																		loadBooks(p);
-																	}
+																isActive={currentPage === page}
+																onClick={(event) => {
+																	event.preventDefault();
+																	setCurrentPage(page);
+																	loadBooks(page);
 																}}
 															>
-																{p}
+																{page}
 															</PaginationLink>
 														</PaginationItem>
 													</div>
 												))}
+
 											<PaginationItem>
 												<PaginationNext
 													href="#"
-													onClick={(e) => {
-														e.preventDefault();
+													onClick={(event) => {
+														event.preventDefault();
 														if (currentPage < totalPages) {
-															setCurrentPage((p) => p + 1);
-															if (booksPerPage === 0) {
-																loadBooks(1);
-															} else {
-																loadBooks(currentPage + 1);
-															}
+															const page = currentPage + 1;
+															setCurrentPage(page);
+															loadBooks(page);
 														}
 													}}
 													className={
@@ -631,7 +599,7 @@ function LibraryContent() {
 										</PaginationContent>
 									</Pagination>
 								</div>
-							)}
+							) : null}
 						</div>
 					</main>
 				</div>
@@ -644,8 +612,8 @@ export default function LibraryPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="min-h-screen flex items-center justify-center bg-background">
-					<Library className="h-12 w-12 mx-auto animate-pulse text-primary" />
+				<div className="flex min-h-screen items-center justify-center bg-background">
+					<Library className="mx-auto size-10 animate-pulse text-primary" />
 				</div>
 			}
 		>

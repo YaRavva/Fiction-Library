@@ -1,10 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { BookOpen, Download, Star } from "lucide-react";
+import { BookOpen, FileCheck2, Star } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface Book {
 	id: string;
@@ -12,12 +11,13 @@ interface Book {
 	author: string;
 	rating?: number;
 	year?: number;
+	publication_year?: number;
 	format?: string;
 	file_format?: string;
+	file_url?: string | null;
 	coverUrl?: string;
 	cover_url?: string;
 	genres?: string[];
-	tags?: string[];
 }
 
 interface ModernBookCardProps {
@@ -25,147 +25,84 @@ interface ModernBookCardProps {
 	index?: number;
 }
 
-export function ModernBookCard({ book, index = 0 }: ModernBookCardProps) {
+export function ModernBookCard({ book }: ModernBookCardProps) {
 	const cover = book.coverUrl || book.cover_url;
 	const format = book.format || book.file_format;
+	const year = book.year || book.publication_year;
 	const genres = book.genres || [];
 
-	const getFormatColor = (fmt: string) => {
-		switch (fmt?.toLowerCase()) {
-			case "pdf":
-				return "bg-red-500/10 text-red-500 border-red-500/10";
-			case "epub":
-				return "bg-emerald-500/10 text-emerald-500 border-emerald-500/10";
-			case "fb2":
-				return "bg-blue-500/10 text-blue-500 border-blue-500/10";
-			default:
-				return "bg-primary/5 text-primary border-primary/10";
-		}
-	};
-
 	return (
-		<motion.div
-			layout
-			initial={{ opacity: 0, y: 15 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{
-				duration: 0.4,
-				ease: "easeOut",
-				delay: Math.min(index * 0.05, 0.5),
-			}}
-			whileHover={{ y: -8, scale: 1.01 }}
-			className="group relative w-full h-full"
-		>
-			{/* Ambient Glow */}
-			<div className="absolute -inset-2 bg-gradient-to-b from-primary/10 to-transparent rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition duration-700" />
+		<article className="group h-full overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+			<div className="relative aspect-[2/3] overflow-hidden bg-muted">
+				{cover ? (
+					<Image
+						src={cover}
+						alt={book.title}
+						fill
+						className="object-cover transition-transform duration-300 group-hover:scale-[1.035]"
+						sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 180px"
+						unoptimized
+					/>
+				) : (
+					<div className="flex h-full items-center justify-center bg-secondary">
+						<BookOpen className="size-10 text-muted-foreground/40" />
+					</div>
+				)}
 
-			<div className="relative h-full flex flex-col bg-card/60 backdrop-blur-md border border-border/50 rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)] transition-all duration-500">
-				{/* Cover Section */}
-				<div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
-					{cover ? (
-						<Image
-							src={cover}
-							alt={book.title}
-							fill
-							className="object-cover transition-transform duration-700 ease-in-out group-hover:scale-110"
-							sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
-						/>
+				<div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
+					{book.rating ? (
+						<span className="inline-flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-1 font-semibold text-xs shadow-sm backdrop-blur">
+							<Star className="size-3 fill-amber-500 text-amber-500" />
+							{book.rating.toFixed(1)}
+						</span>
 					) : (
-						<div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-							<BookOpen className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-muted-foreground/20" />
-						</div>
+						<span />
 					)}
-
-					{/* Gradient Overlay */}
-					<div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-500" />
-
-					{/* Rating Badge */}
-					{book.rating && book.rating > 0 && (
-						<div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
-							<div className="flex items-center gap-0.5 sm:gap-1 pl-1 sm:pl-1.5 pr-1.5 sm:pr-2 py-0.5 sm:py-1 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 text-white text-[10px] sm:text-xs font-semibold shadow-sm">
-								<Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-amber-400 text-amber-400" />
-								<span>{book.rating}</span>
-							</div>
-						</div>
-					)}
-
-					{/* Quick Actions (Slide Up) - Hidden on mobile, shown on hover for desktop */}
-					<div className="hidden sm:flex absolute inset-0 items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-						<div className="flex gap-3 translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
-							<a href={`/reader?bookId=${book.id}`} className="no-underline">
-								<Button
-									size="icon"
-									className="rounded-full w-10 h-10 sm:w-12 sm:h-12 bg-white/90 hover:bg-white text-black shadow-xl border-0 hover:scale-110 transition-all duration-300"
-									title="Читать"
-								>
-									<BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
-								</Button>
-							</a>
-							<a
-								href={`/api/download/${book.id}`}
-								download
-								className="no-underline"
-							>
-								<Button
-									size="icon"
-									className="rounded-full w-10 h-10 sm:w-12 sm:h-12 bg-white/90 hover:bg-white text-black shadow-xl border-0 hover:scale-110 transition-all duration-300 delay-75"
-									title="Скачать"
-								>
-									<Download className="w-4 h-4 sm:w-5 sm:h-5" />
-								</Button>
-							</a>
-						</div>
-					</div>
-				</div>
-
-				{/* Info Section */}
-				<div className="flex-1 p-3 sm:p-4 md:p-5 flex flex-col gap-2 sm:gap-3">
-					<div className="space-y-0.5 sm:space-y-1">
-						<h3
-							className="font-bold text-sm sm:text-base md:text-lg leading-snug line-clamp-2 group-hover:text-primary transition-colors duration-300"
-							title={book.title}
-						>
-							{book.title}
-						</h3>
-						<p
-							className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-1"
-							title={book.author}
-						>
-							{book.author}
-						</p>
-					</div>
-
-					<div className="mt-auto pt-1 sm:pt-2 flex items-center justify-between gap-1 sm:gap-2">
-						<div className="flex flex-wrap gap-1 sm:gap-2">
-							{genres.slice(0, 1).map((genre) => (
-								<Badge
-									key={genre}
-									variant="secondary"
-									className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 sm:h-6 bg-secondary/50 hover:bg-secondary/70 border-0 font-medium transition-colors"
-								>
-									{genre}
-								</Badge>
-							))}
-							{format && (
-								<Badge
-									variant="outline"
-									className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 h-5 sm:h-6 border font-semibold ${getFormatColor(
-										format,
-									)}`}
-								>
-									{format.toUpperCase()}
-								</Badge>
-							)}
-						</div>
-
-						{book.year && (
-							<span className="text-[10px] sm:text-xs font-medium text-muted-foreground/60 tabular-nums">
-								{book.year}
-							</span>
-						)}
-					</div>
+					{book.file_url ? (
+						<span className="inline-flex items-center rounded-md bg-background/90 px-1.5 py-1 text-emerald-700 shadow-sm backdrop-blur dark:text-emerald-300">
+							<FileCheck2 className="size-3.5" />
+						</span>
+					) : null}
 				</div>
 			</div>
-		</motion.div>
+
+			<div className="space-y-3 p-3">
+				<div className="min-w-0 space-y-1">
+					<h3 className="line-clamp-2 font-semibold text-sm leading-snug tracking-tight">
+						{book.title}
+					</h3>
+					<p className="line-clamp-1 text-muted-foreground text-xs">
+						{book.author}
+					</p>
+				</div>
+
+				<div className="flex min-h-6 flex-wrap items-center gap-1.5">
+					{genres.slice(0, 1).map((genre) => (
+						<Badge key={genre} variant="secondary" className="text-[10px]">
+							{genre}
+						</Badge>
+					))}
+					{format ? (
+						<Badge
+							variant="outline"
+							className={cn(
+								"text-[10px] uppercase",
+								format.toLowerCase() === "fb2" &&
+									"border-blue-500/20 text-blue-700 dark:text-blue-300",
+								format.toLowerCase() === "pdf" &&
+									"border-red-500/20 text-red-700 dark:text-red-300",
+							)}
+						>
+							{format}
+						</Badge>
+					) : null}
+					{year ? (
+						<span className="ml-auto text-muted-foreground text-[11px] tabular-nums">
+							{year}
+						</span>
+					) : null}
+				</div>
+			</div>
+		</article>
 	);
 }

@@ -1,22 +1,20 @@
 "use client";
 
 import {
-	BookOpen,
 	Calendar,
 	ChevronDown,
 	ChevronUp,
-	Filter,
+	FileCheck2,
 	Search,
 	SlidersHorizontal,
 	Star,
 	Tag,
-	User,
+	UserRound,
 	X,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -26,10 +24,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-// Типы согласно systemPatterns.md
 export interface AdvancedSearchFilters {
 	query: string;
 	author: string;
@@ -60,378 +56,331 @@ interface AdvancedSearchProps {
 	onFilterChange: (filters: AdvancedSearchFilters) => void;
 }
 
-// Компонент следует паттернам из systemPatterns.md
 export function AdvancedSearch({
 	onSearch,
 	onReset,
 	isLoading = false,
-	className = "",
+	className,
 	values,
 	onFilterChange,
 }: AdvancedSearchProps) {
-	const [isExpanded, setIsExpanded] = useState(false);
+	const [expanded, setExpanded] = useState(false);
 
 	const handleFilterChange = useCallback(
-		(
-			key: keyof AdvancedSearchFilters,
-			value: AdvancedSearchFilters[keyof AdvancedSearchFilters],
+		<K extends keyof AdvancedSearchFilters>(
+			key: K,
+			value: AdvancedSearchFilters[K],
 		) => {
-			onFilterChange({
-				...values,
-				[key]: value,
-			});
+			onFilterChange({ ...values, [key]: value });
 		},
 		[values, onFilterChange],
 	);
 
-	const handleTagAdd = useCallback(
-		(tag: string) => {
-			if (tag.trim() && !values.tags.includes(tag.trim())) {
-				onFilterChange({
-					...values,
-					tags: [...values.tags, tag.trim()],
-				});
-			}
-		},
-		[values, onFilterChange],
-	);
+	const addTag = (tag: string) => {
+		const cleanTag = tag.trim();
+		if (!cleanTag || values.tags.includes(cleanTag)) return;
+		onFilterChange({ ...values, tags: [...values.tags, cleanTag] });
+	};
 
-	const handleTagRemove = useCallback(
-		(tagToRemove: string) => {
-			onFilterChange({
-				...values,
-				tags: values.tags.filter((tag) => tag !== tagToRemove),
-			});
-		},
-		[values, onFilterChange],
-	);
+	const removeTag = (tag: string) => {
+		onFilterChange({
+			...values,
+			tags: values.tags.filter((item) => item !== tag),
+		});
+	};
 
-	const handleSearch = useCallback(
-		(e?: React.FormEvent) => {
-			e?.preventDefault();
-			onSearch(values);
-		},
-		[values, onSearch],
-	);
-
-	const handleReset = useCallback(() => {
-		onReset();
-	}, [onReset]);
+	const runSearch = () => {
+		onSearch(values);
+	};
 
 	return (
-		<Card
+		<section
 			className={cn(
-				"border-primary/10 shadow-xl shadow-black/5 bg-card/60 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-300",
+				"rounded-lg border bg-card p-3 shadow-sm sm:p-4",
 				className,
 			)}
 		>
-			<CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-				{/* Основная строка поиска */}
-				<div className="flex flex-col sm:flex-row gap-2">
-					<div className="relative flex-1">
-						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-						<Input
-							placeholder="Поиск по названию, автору..."
-							value={values.query}
-							onChange={(e) => handleFilterChange("query", e.target.value)}
-							className="pl-10 h-10 sm:h-11 bg-background/50 border-primary/10 focus-visible:ring-primary/30 rounded-xl text-sm sm:text-base"
-							onKeyDown={(e) => {
-								if (e.key === "Enter") {
-									e.preventDefault();
-									handleSearch();
-								}
-							}}
-						/>
-					</div>
-					<div className="flex gap-2">
-						<Button
-							variant="outline"
-							onClick={() => setIsExpanded(!isExpanded)}
-							className={cn(
-								"h-10 sm:h-11 px-3 sm:px-4 rounded-xl border-primary/10 bg-background/50 hover:bg-background/80 transition-colors flex-1 sm:flex-none",
-								isExpanded && "bg-primary/10 text-primary border-primary/20",
-							)}
-						>
-							<SlidersHorizontal className="h-4 w-4 sm:mr-2" />
-							<span className="hidden sm:inline">Фильтры</span>
-							<span className="sm:hidden">Фильтры</span>
-						</Button>
-						<Button
-							onClick={() => handleSearch()}
-							className="h-10 sm:h-11 px-4 sm:px-6 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-lg shadow-primary/25 transition-all active:scale-95 flex-1 sm:flex-none"
-							disabled={isLoading}
-						>
-							{isLoading ? (
-								<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground" />
-							) : (
-								"Найти"
-							)}
-						</Button>
-					</div>
+			<div className="grid gap-2 lg:grid-cols-[1fr_auto]">
+				<div className="relative">
+					<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+					<Input
+						placeholder="Название, автор, серия, жанр..."
+						value={values.query}
+						onChange={(event) =>
+							handleFilterChange("query", event.target.value)
+						}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								runSearch();
+							}
+						}}
+						className="h-10 rounded-md bg-background pl-9"
+					/>
 				</div>
 
-				{/* Сетка дополнительных фильтров */}
-				{isExpanded && (
-					<div className="space-y-3 sm:space-y-4 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
-						<Separator className="opacity-50" />
+				<div className="grid grid-cols-2 gap-2 sm:flex">
+					<Button
+						type="button"
+						variant="outline"
+						className={cn("h-10", expanded && "bg-accent")}
+						onClick={() => setExpanded((value) => !value)}
+					>
+						<SlidersHorizontal className="size-4" />
+						Фильтры
+					</Button>
+					<Button
+						type="button"
+						className="h-10"
+						onClick={runSearch}
+						disabled={isLoading}
+					>
+						{isLoading ? "Ищем..." : "Найти"}
+					</Button>
+				</div>
+			</div>
 
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 sm:gap-x-6 gap-y-3 sm:gap-y-4">
-							{/* Автор */}
-							<div className="space-y-2">
-								<Label
-									htmlFor="author"
-									className="flex items-center gap-2 text-xs font-semibold text-foreground/80 lowercase"
-								>
-									<User className="h-3 w-3 text-primary" />
-									автор
-								</Label>
-								<Input
-									id="author"
-									placeholder="Имя автора"
-									value={values.author}
-									onChange={(e) => handleFilterChange("author", e.target.value)}
-									className="bg-background/40 h-9 text-sm rounded-lg"
-								/>
-							</div>
-
-							{/* Серия */}
-							<div className="space-y-2">
-								<Label
-									htmlFor="series"
-									className="flex items-center gap-2 text-xs font-semibold text-foreground/80 lowercase"
-								>
-									<BookOpen className="h-3 w-3 text-primary" />
-									серия
-								</Label>
-								<Input
-									id="series"
-									placeholder="Название серии"
-									value={values.series}
-									onChange={(e) => handleFilterChange("series", e.target.value)}
-									className="bg-background/40 h-9 text-sm rounded-lg"
-								/>
-							</div>
-
-							{/* Наличие файла */}
-							<div className="space-y-2">
-								<Label className="flex items-center gap-2 text-xs font-semibold text-foreground/80 lowercase">
-									<Filter className="h-3 w-3 text-primary" />
-									наличие файла
-								</Label>
-								<Select
-									value={
-										values.hasFile === null ? "any" : values.hasFile.toString()
-									}
-									onValueChange={(value) =>
-										handleFilterChange(
-											"hasFile",
-											value === "any" ? null : value === "true",
-										)
-									}
-								>
-									<SelectTrigger className="bg-background/40 h-9 text-sm rounded-lg">
-										<SelectValue placeholder="Любые книги" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="any">Любые</SelectItem>
-										<SelectItem value="true">С файлами</SelectItem>
-										<SelectItem value="false">Без файлов</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							{/* Рейтинг */}
-							<div className="space-y-2">
-								<Label className="flex items-center gap-2 text-xs font-semibold text-foreground/80 lowercase">
-									<Star className="h-3 w-3 text-primary" />
-									рейтинг
-								</Label>
-								<div className="grid grid-cols-2 gap-2">
-									<Select
-										value={values.minRating?.toString() || "any"}
-										onValueChange={(value) =>
-											handleFilterChange(
-												"minRating",
-												value === "any" ? null : parseInt(value, 10),
-											)
-										}
-									>
-										<SelectTrigger className="bg-background/40 h-9 text-sm rounded-lg">
-											<SelectValue placeholder="От" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="any">Мин</SelectItem>
-											{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => (
-												<SelectItem key={`min-${r}`} value={r.toString()}>
-													{r}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									<Select
-										value={values.maxRating?.toString() || "any"}
-										onValueChange={(value) =>
-											handleFilterChange(
-												"maxRating",
-												value === "any" ? null : parseInt(value, 10),
-											)
-										}
-									>
-										<SelectTrigger className="bg-background/40 h-9 text-sm rounded-lg">
-											<SelectValue placeholder="До" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="any">Макс</SelectItem>
-											{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => (
-												<SelectItem key={`max-${r}`} value={r.toString()}>
-													{r}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-							</div>
-
-							{/* Год */}
-							<div className="space-y-2">
-								<Label className="flex items-center gap-2 text-xs font-semibold text-foreground/80 lowercase">
-									<Calendar className="h-3 w-3 text-primary" />
-									год публикации
-								</Label>
-								<div className="grid grid-cols-2 gap-2">
-									<Input
-										type="number"
-										placeholder="С"
-										className="bg-background/40 h-9 text-sm rounded-lg"
-										value={values.yearFrom || ""}
-										onChange={(e) =>
-											handleFilterChange(
-												"yearFrom",
-												e.target.value ? parseInt(e.target.value, 10) : null,
-											)
-										}
-									/>
-									<Input
-										type="number"
-										placeholder="По"
-										className="bg-background/40 h-9 text-sm rounded-lg"
-										value={values.yearTo || ""}
-										onChange={(e) =>
-											handleFilterChange(
-												"yearTo",
-												e.target.value ? parseInt(e.target.value, 10) : null,
-											)
-										}
-									/>
-								</div>
-							</div>
-
-							{/* Сортировка */}
-							<div className="space-y-2">
-								<Label className="text-xs font-semibold text-foreground/80 flex items-center gap-2 lowercase">
-									<ChevronDown className="h-3 w-3 text-primary" />
-									сортировать по
-								</Label>
-								<div className="flex gap-2">
-									<Select
-										value={values.sortBy}
-										onValueChange={(v) =>
-											handleFilterChange("sortBy", v as any)
-										}
-									>
-										<SelectTrigger className="bg-background/40 h-9 text-sm rounded-lg flex-1">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="created_at">Новизне</SelectItem>
-											<SelectItem value="title">Названию</SelectItem>
-											<SelectItem value="author">Автору</SelectItem>
-											<SelectItem value="rating">Рейтинг</SelectItem>
-											<SelectItem value="downloads_count">
-												Скачиваниям
-											</SelectItem>
-										</SelectContent>
-									</Select>
-									<Button
-										variant="outline"
-										size="icon"
-										className="h-9 w-9 shrink-0 border-primary/10 bg-background/40 rounded-lg transition-transform active:scale-95"
-										onClick={() =>
-											handleFilterChange(
-												"sortOrder",
-												values.sortOrder === "asc" ? "desc" : "asc",
-											)
-										}
-									>
-										{values.sortOrder === "desc" ? (
-											<ChevronDown className="h-4 w-4" />
-										) : (
-											<ChevronUp className="h-4 w-4" />
-										)}
-									</Button>
-								</div>
-							</div>
-						</div>
-
-						{/* Теги */}
-						<div className="space-y-2">
-							<Label className="flex items-center gap-2 text-xs font-semibold text-foreground/80 lowercase">
-								<Tag className="h-3 w-3 text-primary" />
-								теги
+			{expanded ? (
+				<div className="mt-4 border-t pt-4">
+					<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+						<div className="space-y-1.5">
+							<Label htmlFor="author" className="gap-1.5 text-xs">
+								<UserRound className="size-3.5" />
+								Автор
 							</Label>
-							<div className="flex flex-wrap gap-2 min-h-[40px] p-2 rounded-xl border border-dashed border-primary/20 bg-primary/5 items-center">
-								{values.tags.length === 0 && (
-									<span className="text-xs text-muted-foreground italic px-1">
-										Теги еще не выбраны...
-									</span>
-								)}
-								{values.tags.map((tag) => (
-									<Badge
-										key={tag}
-										variant="secondary"
-										className="pl-2 h-6 gap-1 text-xs bg-background/80 hover:bg-background border-primary/10"
-									>
-										{tag}
-										<button
-											onClick={() => handleTagRemove(tag)}
-											className="rounded-full hover:bg-destructive/20 p-0.5 transition-colors group"
-										>
-											<X className="h-2.5 w-2.5 text-muted-foreground group-hover:text-destructive" />
-										</button>
-									</Badge>
-								))}
-							</div>
 							<Input
-								placeholder="Введите название и нажмите Enter..."
-								className="bg-background/40 h-9 text-sm rounded-lg placeholder:text-muted-foreground/60"
-								onKeyDown={(e) => {
-									if (e.key === "Enter") {
-										e.preventDefault();
-										handleTagAdd(e.currentTarget.value);
-										e.currentTarget.value = "";
-									}
-								}}
+								id="author"
+								value={values.author}
+								placeholder="Например, Лукьяненко"
+								onChange={(event) =>
+									handleFilterChange("author", event.target.value)
+								}
+								className="h-9"
 							/>
 						</div>
 
-						{/* Группа кнопок внизу */}
-						<div className="flex justify-between items-center pt-2 border-t border-primary/5">
-							<Button
-								variant="ghost"
-								onClick={handleReset}
-								className="h-8 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg px-4 transition-colors"
-							>
-								<X className="h-3 w-3 mr-2" />
-								Сбросить все фильтры
-							</Button>
+						<div className="space-y-1.5">
+							<Label htmlFor="series" className="gap-1.5 text-xs">
+								<Tag className="size-3.5" />
+								Серия
+							</Label>
+							<Input
+								id="series"
+								value={values.series}
+								placeholder="Название серии"
+								onChange={(event) =>
+									handleFilterChange("series", event.target.value)
+								}
+								className="h-9"
+							/>
+						</div>
 
-							<div className="text-[10px] text-muted-foreground hidden sm:block italic opacity-60">
-								Нажмите Enter в любом поле для быстрого поиска
+						<div className="space-y-1.5">
+							<Label className="gap-1.5 text-xs">
+								<FileCheck2 className="size-3.5" />
+								Файл
+							</Label>
+							<Select
+								value={values.hasFile === null ? "any" : String(values.hasFile)}
+								onValueChange={(value) =>
+									handleFilterChange(
+										"hasFile",
+										value === "any" ? null : value === "true",
+									)
+								}
+							>
+								<SelectTrigger className="h-9">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="any">Любые книги</SelectItem>
+									<SelectItem value="true">Только с файлом</SelectItem>
+									<SelectItem value="false">Без файла</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-1.5">
+							<Label className="gap-1.5 text-xs">
+								<Star className="size-3.5" />
+								Рейтинг
+							</Label>
+							<div className="grid grid-cols-2 gap-2">
+								<Select
+									value={values.minRating?.toString() || "any"}
+									onValueChange={(value) =>
+										handleFilterChange(
+											"minRating",
+											value === "any" ? null : parseInt(value, 10),
+										)
+									}
+								>
+									<SelectTrigger className="h-9">
+										<SelectValue placeholder="От" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="any">От</SelectItem>
+										{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
+											<SelectItem key={`min-${rating}`} value={`${rating}`}>
+												{rating}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<Select
+									value={values.maxRating?.toString() || "any"}
+									onValueChange={(value) =>
+										handleFilterChange(
+											"maxRating",
+											value === "any" ? null : parseInt(value, 10),
+										)
+									}
+								>
+									<SelectTrigger className="h-9">
+										<SelectValue placeholder="До" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="any">До</SelectItem>
+										{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
+											<SelectItem key={`max-${rating}`} value={`${rating}`}>
+												{rating}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+
+						<div className="space-y-1.5">
+							<Label className="gap-1.5 text-xs">
+								<Calendar className="size-3.5" />
+								Год
+							</Label>
+							<div className="grid grid-cols-2 gap-2">
+								<Input
+									type="number"
+									placeholder="С"
+									value={values.yearFrom || ""}
+									onChange={(event) =>
+										handleFilterChange(
+											"yearFrom",
+											event.target.value
+												? parseInt(event.target.value, 10)
+												: null,
+										)
+									}
+									className="h-9"
+								/>
+								<Input
+									type="number"
+									placeholder="По"
+									value={values.yearTo || ""}
+									onChange={(event) =>
+										handleFilterChange(
+											"yearTo",
+											event.target.value
+												? parseInt(event.target.value, 10)
+												: null,
+										)
+									}
+									className="h-9"
+								/>
+							</div>
+						</div>
+
+						<div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+							<Label htmlFor="tag-input" className="gap-1.5 text-xs">
+								<Tag className="size-3.5" />
+								Теги
+							</Label>
+							<div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border bg-background px-2 py-1.5">
+								{values.tags.map((tag) => (
+									<Badge key={tag} variant="secondary" className="gap-1">
+										{tag}
+										<button type="button" onClick={() => removeTag(tag)}>
+											<X className="size-3" />
+										</button>
+									</Badge>
+								))}
+								<input
+									id="tag-input"
+									className="min-w-36 flex-1 bg-transparent px-1 text-sm outline-none"
+									placeholder="Добавить тег и Enter"
+									onKeyDown={(event) => {
+										if (event.key === "Enter") {
+											event.preventDefault();
+											addTag(event.currentTarget.value);
+											event.currentTarget.value = "";
+										}
+									}}
+								/>
+							</div>
+						</div>
+
+						<div className="space-y-1.5 md:col-span-2 xl:col-span-2">
+							<Label className="gap-1.5 text-xs">Сортировка</Label>
+							<div className="flex gap-2">
+								<Select
+									value={values.sortBy}
+									onValueChange={(value) =>
+										handleFilterChange(
+											"sortBy",
+											value as AdvancedSearchFilters["sortBy"],
+										)
+									}
+								>
+									<SelectTrigger className="h-9">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="created_at">По новизне</SelectItem>
+										<SelectItem value="title">По названию</SelectItem>
+										<SelectItem value="author">По автору</SelectItem>
+										<SelectItem value="rating">По рейтингу</SelectItem>
+										<SelectItem value="downloads_count">
+											По скачиваниям
+										</SelectItem>
+										<SelectItem value="views_count">По просмотрам</SelectItem>
+									</SelectContent>
+								</Select>
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									className="h-9 w-9"
+									onClick={() =>
+										handleFilterChange(
+											"sortOrder",
+											values.sortOrder === "asc" ? "desc" : "asc",
+										)
+									}
+								>
+									{values.sortOrder === "desc" ? (
+										<ChevronDown className="size-4" />
+									) : (
+										<ChevronUp className="size-4" />
+									)}
+								</Button>
 							</div>
 						</div>
 					</div>
-				)}
-			</CardContent>
-		</Card>
+
+					<div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+						<Button
+							type="button"
+							variant="ghost"
+							className="text-muted-foreground hover:text-destructive"
+							onClick={onReset}
+						>
+							<X className="size-4" />
+							Сбросить
+						</Button>
+						<Button type="button" onClick={runSearch} disabled={isLoading}>
+							Применить фильтры
+						</Button>
+					</div>
+				</div>
+			) : null}
+		</section>
 	);
 }

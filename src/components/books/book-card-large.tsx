@@ -1,4 +1,13 @@
-import { BookOpen, Download, Heart, X } from "lucide-react";
+import {
+	BookOpen,
+	Calendar,
+	Download,
+	FileCheck2,
+	FileX2,
+	Star,
+	Trash2,
+	UserRound,
+} from "lucide-react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,11 +17,12 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getBrowserSupabase } from "@/lib/browserSupabase";
 import type { Book } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 interface BookCardLargeProps {
 	book: Book & {
+		rating?: number;
 		series?: {
 			id: string;
 			title: string;
@@ -23,6 +33,7 @@ interface BookCardLargeProps {
 	};
 	onDownload: (book: Book) => void;
 	onRead: (book: Book) => void;
+	onBookClick?: (book: Book) => void;
 	onTagClick?: (tag: string) => void;
 	userProfile?: {
 		id: string;
@@ -30,388 +41,226 @@ interface BookCardLargeProps {
 	} | null;
 	onFileClear?: (bookId: string) => void;
 	onAuthorClick?: (author: string) => void;
-	isLiked?: boolean;
-	onLikeToggle?: () => void;
+}
+
+function formatFileSize(size?: number | null) {
+	if (!size) return null;
+	if (size < 1024 * 1024) return `${Math.round(size / 1024)} КБ`;
+	return `${(size / 1024 / 1024).toFixed(1)} МБ`;
 }
 
 export function BookCardLarge({
 	book,
 	onDownload,
 	onRead,
+	onBookClick,
 	onTagClick,
 	userProfile,
 	onFileClear,
 	onAuthorClick,
-	isLiked,
-	onLikeToggle,
 }: BookCardLargeProps) {
-	const ratingTag = book.rating ? `#выше${Math.floor(book.rating)}` : null;
-	const seriesComposition = book.series?.series_composition;
-	const seriesCoverUrls = book.series?.cover_urls;
+	const hasFile = Boolean(book.file_url);
+	const fileSize = formatFileSize(book.file_size);
+	const visibleGenres = book.genres?.slice(0, 4) || [];
+	const canClearFile =
+		hasFile &&
+		(userProfile?.role === "admin" || process.env.NODE_ENV === "development");
 
-	const handleClearFile = async () => {
-		if (onFileClear) {
-			// Используем переданную функцию для очистки файла
+	const handleOpen = () => {
+		onBookClick?.(book);
+	};
+
+	const clearFile = () => {
+		if (
+			onFileClear &&
+			window.confirm(`Очистить файл для книги "${book.title}"?`)
+		) {
 			onFileClear(book.id);
-		} else {
-			// Если не передана функция onFileClear, реализуем логику здесь
-			try {
-				const supabase = getBrowserSupabase();
-
-				// Очищаем привязку файла к книге
-				const { error } = await supabase
-					.from("books")
-					.update({
-						file_url: null,
-						file_size: null,
-						file_format: null,
-						telegram_file_id: null,
-						updated_at: new Date().toISOString(),
-					})
-					.eq("id", book.id);
-
-				if (error) {
-					console.error("❌ Ошибка при очистке файла:", error);
-					alert("Ошибка при очистке файла");
-				} else {
-					alert("Файл успешно очищен!");
-					// Вместо перезагрузки страницы, обновляем состояние через callback
-					// Если нет callback, то перезагружаем страницу
-					if (!onFileClear) {
-						window.location.reload();
-					}
-				}
-			} catch (error) {
-				console.error("❌ Ошибка:", error);
-				alert("Произошла ошибка при очистке файла");
-			}
 		}
 	};
 
 	return (
-		// Replaced shadcn/ui Card with custom div for full layout control
-		<div
-			key={book.id}
-			className="w-full mx-auto border rounded-lg bg-card text-card-foreground overflow-hidden"
+		<article
+			className={cn(
+				"group grid gap-4 rounded-lg border bg-card p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:grid-cols-[112px_1fr] sm:p-4",
+				onBookClick && "cursor-pointer",
+			)}
+			onClick={handleOpen}
 		>
-			<div className="p-3 sm:p-4 md:p-5">
-				{/* Header with author, title and action buttons */}
-				<div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-3 sm:mb-4">
-					<div className="flex-1 min-w-0 w-full">
-						<div className="text-xs sm:text-sm mb-1">
-							<span className="font-semibold">Автор:</span>{" "}
-							<span
-								className={
-									onAuthorClick
-										? "cursor-pointer hover:text-primary hover:underline transition-all"
-										: ""
-								}
-								onClick={(e) => {
-									if (onAuthorClick) {
-										e.stopPropagation();
-										onAuthorClick(book.author);
-									}
-								}}
+			<div className="relative mx-auto aspect-[2/3] w-28 overflow-hidden rounded-md border bg-muted shadow-sm sm:mx-0 sm:w-full">
+				{book.cover_url ? (
+					<Image
+						src={book.cover_url}
+						alt={book.title}
+						fill
+						className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+						sizes="112px"
+						unoptimized
+					/>
+				) : (
+					<div className="flex h-full items-center justify-center bg-secondary">
+						<BookOpen className="size-9 text-muted-foreground/45" />
+					</div>
+				)}
+			</div>
+
+			<div className="min-w-0 space-y-3">
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div className="min-w-0 space-y-1">
+						<div className="flex flex-wrap items-center gap-2">
+							{book.rating ? (
+								<Badge
+									variant="outline"
+									className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+								>
+									<Star className="size-3 fill-current" />
+									{book.rating.toFixed(1)}
+								</Badge>
+							) : null}
+							<Badge
+								variant="outline"
+								className={cn(
+									"gap-1",
+									hasFile
+										? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+										: "border-muted-foreground/20 text-muted-foreground",
+								)}
 							>
-								{book.author}
-							</span>
+								{hasFile ? (
+									<FileCheck2 className="size-3" />
+								) : (
+									<FileX2 className="size-3" />
+								)}
+								{hasFile ? "Файл доступен" : "Нет файла"}
+							</Badge>
+							{book.file_format ? (
+								<Badge variant="secondary">{book.file_format}</Badge>
+							) : null}
 						</div>
-						<div className="text-xs sm:text-sm">
-							<span className="font-semibold">Название:</span> {book.title}
-						</div>
+
+						<h2 className="line-clamp-2 font-semibold text-[17px] leading-snug tracking-tight sm:text-xl">
+							{book.title}
+						</h2>
+
+						<button
+							type="button"
+							className="inline-flex max-w-full items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
+							onClick={(event) => {
+								event.stopPropagation();
+								onAuthorClick?.(book.author);
+							}}
+						>
+							<UserRound className="size-3.5 shrink-0" />
+							<span className="truncate">{book.author}</span>
+						</button>
 					</div>
 
-					{/* Action buttons in top right corner */}
-					<div className="flex gap-1 sm:gap-2 ml-0 sm:ml-2 w-full sm:w-auto justify-end">
-						{onLikeToggle && (
+					<div className="flex shrink-0 items-center gap-2">
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="icon"
+										variant="outline"
+										disabled={!hasFile}
+										onClick={(event) => {
+											event.stopPropagation();
+											onRead(book);
+										}}
+									>
+										<BookOpen className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Читать</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										size="icon"
+										variant="outline"
+										disabled={!hasFile}
+										onClick={(event) => {
+											event.stopPropagation();
+											onDownload(book);
+										}}
+									>
+										<Download className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Скачать</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+
+						{canClearFile ? (
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
 										<Button
 											size="icon"
-											variant="outline"
-											className={`h-7 w-7 sm:h-8 sm:w-8 p-0 ${isLiked ? "text-red-500 hover:text-red-600 border-red-200 bg-red-50" : "text-muted-foreground hover:text-red-500"}`}
-											onClick={(e) => {
-												e.stopPropagation();
-												onLikeToggle();
+											variant="ghost"
+											className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+											onClick={(event) => {
+												event.stopPropagation();
+												clearFile();
 											}}
 										>
-											<Heart
-												className={`h-3 w-3 sm:h-4 sm:w-4 ${isLiked ? "fill-current" : ""}`}
-											/>
+											<Trash2 className="size-4" />
 										</Button>
 									</TooltipTrigger>
-									<TooltipContent>
-										<p>
-											{isLiked
-												? "Убрать из избранного"
-												: "Добавить в избранное"}
-										</p>
-									</TooltipContent>
+									<TooltipContent>Очистить файл</TooltipContent>
 								</Tooltip>
 							</TooltipProvider>
-						)}
-
-						{(userProfile?.role === "admin" ||
-							process.env.NODE_ENV === "development") &&
-							book.file_url && (
-								<TooltipProvider>
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<Button
-												size="icon"
-												variant="outline"
-												className="h-7 w-7 sm:h-8 sm:w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-												disabled={!book.file_url}
-												onClick={(e) => {
-													e.stopPropagation();
-													if (
-														confirm(
-															`Вы уверены, что хотите очистить файл для книги "${book.title}"?`,
-														)
-													) {
-														handleClearFile();
-													}
-												}}
-											>
-												<X className="h-3 w-3 sm:h-4 sm:w-4" />
-											</Button>
-										</TooltipTrigger>
-										<TooltipContent>
-											<p>Удалить файл книги</p>
-										</TooltipContent>
-									</Tooltip>
-								</TooltipProvider>
-							)}
-						<TooltipProvider>
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										size="icon"
-										variant="outline"
-										className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-										disabled={!book.file_url}
-										onClick={(e) => {
-											e.stopPropagation();
-											onRead(book);
-										}}
-									>
-										<BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>
-									<p>Читать</p>
-								</TooltipContent>
-							</Tooltip>
-						</TooltipProvider>
-						<TooltipProvider>
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										size="icon"
-										variant="outline"
-										className="h-7 w-7 sm:h-8 sm:w-8 p-0"
-										disabled={!book.file_url}
-										onClick={(e) => {
-											e.stopPropagation();
-											onDownload(book);
-										}}
-									>
-										<Download className="h-3 w-3 sm:h-4 sm:w-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>
-									<p>Скачать</p>
-								</TooltipContent>
-							</Tooltip>
-						</TooltipProvider>
+						) : null}
 					</div>
 				</div>
-				<div className="space-y-2 sm:space-y-3">
-					{/* Жанр */}
-					{book.genres && book.genres.length > 0 && (
-						<div className="text-xs sm:text-sm">
-							<span className="font-semibold">Жанр:</span>{" "}
-							<span className="inline-flex flex-wrap gap-1">
-								{book.genres.map((genre, idx) => (
-									<Badge
-										key={`${book.id}-genre-${idx}`}
-										variant="secondary"
-										className="text-[10px] sm:text-xs cursor-pointer hover:bg-secondary/80"
-										onClick={() => onTagClick?.(genre)}
-									>
-										#{genre}
-									</Badge>
-								))}
-							</span>
-						</div>
-					)}
 
-					{/* Рейтинг */}
-					{book.rating && book.rating > 0 && (
-						<div className="text-xs sm:text-sm">
-							<span className="font-semibold">Рейтинг:</span>{" "}
-							{book.rating.toFixed(2)}{" "}
-							{ratingTag && (
-								<Badge
-									variant="secondary"
-									className="text-[10px] sm:text-xs cursor-pointer hover:bg-secondary/80"
-									onClick={() => onTagClick?.(ratingTag.substring(1))} // Remove # prefix
-								>
-									{ratingTag}
-								</Badge>
-							)}
-						</div>
-					)}
+				{book.description ? (
+					<p className="line-clamp-3 text-muted-foreground text-sm leading-6">
+						{book.description}
+					</p>
+				) : null}
 
-					{/* Описание */}
-					{book.description && (
-						<p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
-							{book.description}
-						</p>
-					)}
-
-					{/* Состав серии */}
-					{seriesComposition && seriesComposition.length > 0 && (
-						<div className="space-y-1 sm:space-y-2">
-							<div className="text-xs sm:text-sm font-semibold">Состав:</div>
-							<ol className="text-xs sm:text-sm space-y-1 list-decimal list-inside">
-								{seriesComposition.map((item, idx) => (
-									<li key={`${book.id}-series-${idx}`}>
-										{item.title} ({item.year})
-									</li>
-								))}
-							</ol>
-						</div>
-					)}
-
-					{/* Обложки - only at the bottom of the card */}
-					{(book.cover_url ||
-						(seriesCoverUrls && seriesCoverUrls.length > 0)) && (
-						<div className="space-y-2">
-							<div className="grid grid-cols-1 gap-2">
-								{/* Если есть обложки серии, показываем их */}
-								{seriesCoverUrls && seriesCoverUrls.length > 0
-									? seriesCoverUrls.map((coverUrl, idx) => {
-											// Определяем, является ли обложка широкой (тройной) по соотношению сторон
-											const isWideCover = () => {
-												// Проверяем по URL (старый способ)
-												if (
-													coverUrl.includes("cc917838ccbb10846543e") || // цикл Луна
-													coverUrl.includes("3109e8fdf303b46ee64f1")
-												) {
-													// цикл Одаренные
-													return true;
-												}
-
-												// TODO: В будущем можно добавить динамическую проверку размеров изображения
-												// Пока что для тестирования считаем широкими обложки с определенными характеристиками
-												return false;
-											};
-
-											const wideCover = isWideCover();
-
-											return (
-												<div
-													key={`${book.id}-cover-${idx}`}
-													className="relative w-full overflow-hidden rounded border bg-muted"
-												>
-													{wideCover ? (
-														// Широкие (тройные) обложки показываем в полную ширину без блюра по бокам
-														// Используем object-cover для обрезки по краям
-														<div
-															className="relative w-full"
-															style={{ aspectRatio: "2/3" }}
-														>
-															<Image
-																src={coverUrl}
-																alt={`Обложка ${idx + 1}`}
-																fill
-																priority
-																className="object-cover"
-																unoptimized
-																sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 384px"
-															/>
-														</div>
-													) : (
-														// Для одинарных обложек используем адаптивную высоту с блюром по бокам
-														<div className="relative w-full h-[300px] sm:h-[400px] md:h-[480px]">
-															{/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
-															<div className="absolute inset-0">
-																<Image
-																	src={coverUrl}
-																	alt={`Обложка ${idx + 1}`}
-																	fill
-																	priority
-																	className="object-cover scale-110 blur-sm opacity-30"
-																	unoptimized
-																	sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 384px"
-																/>
-															</div>
-															{/* Основная обложка по центру */}
-															<div className="relative w-full h-full flex items-center justify-center">
-																<div
-																	className="h-full"
-																	style={{
-																		display: "flex",
-																		alignItems: "center",
-																		justifyContent: "center",
-																	}}
-																>
-																	<img
-																		src={coverUrl}
-																		alt={`Обложка ${idx + 1}`}
-																		className="max-h-full max-w-full object-contain"
-																	/>
-																</div>
-															</div>
-														</div>
-													)}
-												</div>
-											);
-										})
-									: // Если нет обложек серии, но есть обложка книги
-										book.cover_url && (
-											<div className="relative w-full overflow-hidden rounded border bg-muted">
-												{/* Контейнер адаптивной высоты */}
-												<div className="relative w-full h-[300px] sm:h-[400px] md:h-[480px]">
-													{/* Блюр-эффект по бокам, если ширина изображения меньше контейнера */}
-													<div className="absolute inset-0">
-														<Image
-															src={book.cover_url}
-															alt={book.title}
-															fill
-															priority
-															className="object-cover scale-110 blur-sm opacity-30"
-															unoptimized
-															sizes="(max-width: 640px) 100vw, (max-width: 768px) 90vw, 384px"
-														/>
-													</div>
-													{/* Основная обложка по центру */}
-													<div className="relative w-full h-full flex items-center justify-center">
-														<div
-															className="h-full"
-															style={{
-																display: "flex",
-																alignItems: "center",
-																justifyContent: "center",
-															}}
-														>
-															<img
-																src={book.cover_url}
-																alt={book.title}
-																className="max-h-full max-w-full object-contain"
-															/>
-														</div>
-													</div>
-												</div>
-											</div>
-										)}
-							</div>
-						</div>
-					)}
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground text-xs">
+					{book.publication_year ? (
+						<span className="inline-flex items-center gap-1">
+							<Calendar className="size-3.5" />
+							{book.publication_year}
+						</span>
+					) : null}
+					{book.series?.title ? <span>Серия: {book.series.title}</span> : null}
+					{fileSize ? <span>{fileSize}</span> : null}
+					{book.downloads_count ? (
+						<span>{book.downloads_count} скач.</span>
+					) : null}
+					{book.views_count ? <span>{book.views_count} просмотров</span> : null}
 				</div>
+
+				{visibleGenres.length > 0 ? (
+					<div className="flex flex-wrap gap-1.5">
+						{visibleGenres.map((genre) => (
+							<Badge
+								key={`${book.id}-${genre}`}
+								variant="outline"
+								className="cursor-pointer bg-background/60 text-xs hover:bg-accent"
+								onClick={(event) => {
+									event.stopPropagation();
+									onTagClick?.(genre);
+								}}
+							>
+								{genre}
+							</Badge>
+						))}
+						{book.genres && book.genres.length > visibleGenres.length ? (
+							<Badge variant="secondary">
+								+{book.genres.length - visibleGenres.length}
+							</Badge>
+						) : null}
+					</div>
+				) : null}
 			</div>
-		</div>
+		</article>
 	);
 }

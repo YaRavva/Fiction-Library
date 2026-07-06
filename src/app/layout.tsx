@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import "./globals.css";
-import { Comfortaa } from "next/font/google";
+import { Manrope } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
+import "./globals.css";
 
-const comfortaa = Comfortaa({
+const manrope = Manrope({
 	subsets: ["latin", "cyrillic"],
-	variable: "--font-comfortaa",
+	variable: "--font-sans",
 	display: "swap",
 });
 
 export const metadata: Metadata = {
-	title: "Fiction Library - Электронная библиотека",
-	description: "Удобная читалка FB2 файлов с возможностью скачивания",
+	title: "Fiction Library - электронная библиотека",
+	description:
+		"Премиальная электронная библиотека с каталогом, поиском и синхронизацией книг.",
 };
 
 export default function RootLayout({
@@ -20,8 +21,8 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="ru" suppressHydrationWarning className={comfortaa.variable}>
-			<body className={comfortaa.className} suppressHydrationWarning>
+		<html lang="ru" suppressHydrationWarning className={manrope.variable}>
+			<body className={manrope.className} suppressHydrationWarning>
 				<AppProviders>{children}</AppProviders>
 			</body>
 		</html>

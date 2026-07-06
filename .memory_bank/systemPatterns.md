@@ -556,3 +556,25 @@ interface PaginatedResponse<T> {
 - Выносить тяжелые операции в очереди
 - Использовать streaming для больших файлов
 - Показывать прогресс длительных операций
+ 
+# UI Pattern Update - 2026-07-06
+
+## Premium Work-Focused Interface
+
+The primary application surfaces now follow a premium editorial/product UI direction rather than the older decorative fantasy/demo direction.
+
+### Rules
+- Use `Manrope` for core UI typography because it supports Cyrillic and remains readable in dense admin/catalog screens.
+- Keep the product shell consistent across `/library` and `/admin`: sidebar, sticky topbar, constrained content width, compact status surfaces.
+- Favor dense, scannable records over oversized cards for real catalog work.
+- Use the fantasy/enchanted treatment only as an optional experience, not as the default working interface.
+- Avoid purple glow, decorative gradient orbs, and large hero-first layouts on operational pages.
+- Use subtle OKLCH paper/ink/brass tokens from `src/app/globals.css`.
+
+### Current Surfaces
+- `src/components/layout/AppSidebar.tsx`: shared premium navigation shell.
+- `src/app/library/page.tsx`: search-first catalog layout with status metrics and view modes.
+- `src/components/books/advanced-search.tsx`: compact filter panel.
+- `src/components/books/book-card-large.tsx`: dense list-style book record.
+- `src/components/modern/ModernBookCard.tsx`: calm grid catalog card.
+- `src/app/admin/page.tsx`: operations dashboard shell around existing sync/indexing components.

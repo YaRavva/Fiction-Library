@@ -235,3 +235,19 @@
 ## Verification
 - [x] `bun run check` passes.
 - [ ] `bun run build` is blocked by missing Supabase environment variables while collecting page data for `/api/admin/duplicates`.
+
+# Progress Update - 2026-07-06 Premium UI Redesign
+
+## Frontend Redesign
+- [x] Replaced the core UI font with Cyrillic-capable `Manrope`.
+- [x] Updated global theme tokens to a calmer premium paper/ink/brass style.
+- [x] Rebuilt the shared sidebar navigation shell.
+- [x] Reworked `/library` into a search-first working catalog layout.
+- [x] Rewrote catalog search, list cards, grid cards, and view-mode controls.
+- [x] Reworked `/admin` into a clearer operations dashboard while preserving existing sync/indexing modules.
+
+## Verification
+- [x] `bun run check` passes.
+- [x] `bun run build` passes.
+- [x] Browser smoke check returns 200 for `/library` and `/admin` with no Next error overlay or console errors.
+- [ ] Full protected-page visual QA still needs an authenticated browser session because local Playwright was redirected to the auth gate.

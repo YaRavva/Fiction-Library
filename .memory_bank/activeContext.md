@@ -359,3 +359,32 @@ Full project cleanup review for obsolete and unused code.
 - Removed confirmed obsolete artifacts: `_old/`, `output/all-metadata.json`, `new-bucket-policy.json`, and `shadix-ui-migration-plan.md`.
 - `bun run check` passes after cleanup and Biome fixes.
 - `bun run build` compiles but fails during page-data collection because required Supabase environment variables are missing for `/api/admin/duplicates`.
+
+# Active Context Update - 2026-07-06 12:07
+
+## Current Focus
+Premium UX redesign for the main application surfaces.
+
+## Active Tasks
+- [x] Confirm user requirements: modern premium visual language, better real-work ergonomics, Cyrillic-capable fonts, and permission to rewrite old UI code where it improves quality/performance.
+- [ ] Replace the current mixed visual system with a stricter product shell, calmer premium theme, and Cyrillic-first typography.
+- [ ] Rework `/library` around search, filters, view modes, result status, and dense usable catalog presentation.
+- [ ] Refactor book cards away from the older oversized text/image stack toward reusable premium catalog cards.
+- [ ] Improve `/admin` as a practical operations dashboard with clearer hierarchy and status surfaces.
+- [ ] Run verification and update Memory Bank results.
+
+## Session Notes
+- Avoid decorative "fantasy" UI as the default product surface; keep atmosphere subtle and functional.
+- Use fonts with Cyrillic support. Prefer a modern UI font such as Manrope over Comfortaa for premium/work-focused screens.
+- The project has accumulated multiple UI styles from previous agents, so redundant old components can be replaced when they block consistency.
+
+## Results
+- [x] Replaced Comfortaa with Manrope (`latin`, `cyrillic`) in `src/app/layout.tsx`.
+- [x] Updated global OKLCH tokens to a stricter paper/ink/brass design language in `src/app/globals.css`.
+- [x] Rebuilt `AppSidebar` as a premium product navigation shell.
+- [x] Rewrote `/library` to remove the hero-first layout and prioritize search, filters, view controls, status metrics, and dense results.
+- [x] Rewrote `AdvancedSearch`, `BookCardLarge`, `ModernBookCard`, and `ViewModeToggle` for a calmer, more consistent catalog UX.
+- [x] Rebuilt `/admin` as a clearer operations dashboard while preserving existing sync/indexer components.
+- [x] `bun run check` passes.
+- [x] `bun run build` passes.
+- [x] Browser smoke check via Playwright with system Edge: `/library` and `/admin` return 200 with no Next error overlay or console errors, but unauthenticated local browser session shows the auth gate rather than the protected catalog/admin content.
