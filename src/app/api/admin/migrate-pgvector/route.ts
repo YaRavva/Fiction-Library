@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-const SUPABASE_ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN || "";
-const PROJECT_REF = "yobwiopkewzyrabwzzgo";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const MIGRATION_SQL = `
 -- 1. Enable pgvector extension
@@ -49,35 +49,33 @@ $$;
 
 /**
  * POST /api/admin/migrate-pgvector
- * Run pgvector migration via Supabase Management API
+ * Run pgvector migration via Supabase SQL API
  */
 export async function POST() {
     try {
-        if (!SUPABASE_ACCESS_TOKEN) {
+        if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
             return NextResponse.json(
-                { error: "SUPABASE_ACCESS_TOKEN not configured" },
+                { error: "Supabase credentials not configured" },
                 { status: 500 }
             );
         }
 
-        // Use Supabase Management API to run SQL
-        const response = await fetch(
-            `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${SUPABASE_ACCESS_TOKEN}`,
-                },
-                body: JSON.stringify({
-                    query: MIGRATION_SQL,
-                }),
-            }
-        );
+        // Use Supabase SQL API (available on project URL)
+        const response = await fetch(`${SUPABASE_URL}/sql`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+            },
+            body: JSON.stringify({
+                query: MIGRATION_SQL,
+            }),
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Supabase Management API error:", errorText);
+            console.error("Supabase SQL API error:", errorText);
             return NextResponse.json(
                 { error: `Migration failed: ${errorText}` },
                 { status: 500 }
