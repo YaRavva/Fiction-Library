@@ -2,6 +2,7 @@ import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { NextResponse } from "next/server";
 import { Api } from "telegram";
+import { computeCheck } from "telegram/Password";
 
 function getApiCredentials() {
 	const apiId = process.env.TELEGRAM_API_ID;
@@ -131,11 +132,7 @@ export async function POST(request: Request) {
 							new Api.account.GetPassword(),
 						);
 
-						// @ts-ignore
-						const inputPassword = await client._client.passwordComputeCheck(
-							password,
-							passwordInfo,
-						);
+						const inputPassword = await computeCheck(passwordInfo, password);
 
 						await client.invoke(
 							new Api.auth.CheckPassword({ password: inputPassword }),
