@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
         // Get all files from telegram_files
         const { data: files, error: filesError } = await serverSupabase
             .from("telegram_files")
-            .select("message_id, filename, mime_type, file_size")
+            .select("message_id, file_name, mime_type, file_size")
             .order("message_id", { ascending: false })
             .limit(2000);
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
             .map((file) => {
                 const fileOption: FileOption = {
                     message_id: file.message_id,
-                    file_name: file.filename,
+                    file_name: file.file_name,
                     mime_type: file.mime_type,
                     file_size: file.file_size,
                 };
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
                 return {
                     message_id: file.message_id,
-                    filename: file.filename,
+                    filename: file.file_name,
                     score: result.score,
                     matchedWords: result.matchedWords,
                     titleMatchCount: result.titleMatchCount,
