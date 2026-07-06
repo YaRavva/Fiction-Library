@@ -2,15 +2,6 @@ import { Api, TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { NextResponse } from "next/server";
 
-// In-memory store for pending logins
-const pendingLogins = new Map<
-	string,
-	{
-		client: TelegramClient;
-		phoneCodeHash: string;
-	}
->();
-
 function getApiCredentials() {
 	const apiId = process.env.TELEGRAM_API_ID;
 	const apiHash = process.env.TELEGRAM_API_HASH;
@@ -22,122 +13,91 @@ function getApiCredentials() {
 
 export async function POST(request: Request) {
 	try {
-		const { step, phone, code, password } = await request.json();
+		const { phone, code, password } = await request.json();
 		const { apiId, apiHash } = getApiCredentials();
 
-		// Step 1: Send code
-		if (step === "send_code") {
-			if (!phone) {
-				return NextResponse.json({ error: "Номер телефона обязателен" }, { status: 400 });
-			}
+		if (!phone || !code) {
+			return NextResponse.json(
+				{ error: "Телефон и код обязательны" },
+				{ status: 400 },
+			);
+		}
 
-			const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
-				connectionRetries: 1,
-			});
-			await client.connect();
+		// Create client and do the full login in one request
+		const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
+			connectionRetries: 1,
+		});
 
-			const result = await client.invoke(
-				new Api.auth.SendCode({
+		await client.connect();
+
+		// Send code request
+		const sendCodeResult = await client.invoke(
+			new Api.auth.SendCode({
+				phoneNumber: phone,
+				apiId,
+				apiHash,
+				settings: new Api.CodeSettings(),
+			}),
+		);
+
+		// Sign in with code
+		try {
+			await client.invoke(
+				new Api.auth.SignIn({
 					phoneNumber: phone,
-					apiId,
-					apiHash,
-					settings: new Api.CodeSettings(),
+					phoneCodeHash: sendCodeResult.phoneCodeHash,
+					phoneCode: code,
 				}),
 			);
 
-			pendingLogins.set(phone, {
-				client,
-				phoneCodeHash: result.phoneCodeHash,
-			});
-
-			return NextResponse.json({ step: "code_sent" });
-		}
-
-		// Step 2: Submit code
-		if (step === "submit_code") {
-			if (!phone || !code) {
-				return NextResponse.json({ error: "Телефон и код обязательны" }, { status: 400 });
-			}
-
-			const pending = pendingLogins.get(phone);
-			if (!pending) {
-				return NextResponse.json({ error: "Сессия истекла. Начните заново." }, { status: 400 });
-			}
-
-			const { client, phoneCodeHash } = pending;
-
-			try {
-				await client.invoke(
-					new Api.auth.SignIn({
-						phoneNumber: phone,
-						phoneCodeHash,
-						phoneCode: code,
-					}),
-				);
-
-				const session = client.session.save();
-				await client.disconnect();
-				pendingLogins.delete(phone);
-
-				return NextResponse.json({ step: "done", session });
-			} catch (err: any) {
-				if (
-					err?.errorMessage === "SESSION_PASSWORD_NEEDED" ||
-					err?.message?.includes("password")
-				) {
-					return NextResponse.json({ step: "password_needed" });
-				}
-				throw err;
-			}
-		}
-
-		// Step 3: Submit 2FA password
-		if (step === "submit_password") {
-			if (!phone || !password) {
-				return NextResponse.json({ error: "Телефон и пароль обязательны" }, { status: 400 });
-			}
-
-			const pending = pendingLogins.get(phone);
-			if (!pending) {
-				return NextResponse.json({ error: "Сессия истекла. Начните заново." }, { status: 400 });
-			}
-
-			const { client } = pending;
-
-			const passwordInfo = await client.invoke(new Api.account.GetPassword());
-
-			const checkPassword = async (pw: string) => {
-				if (passwordInfo.currentAlgo instanceof Api.PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512Iter100000SHA256PrkHash) {
-					const { A, M1 } = await client.passwordComputeCheck({
-						password: pw,
-						salt1: passwordInfo.salt1,
-						salt2: passwordInfo.salt2,
-						srpId: passwordInfo.srpId,
-						algo: passwordInfo.currentAlgo,
-					});
-					return new Api.InputCheckPasswordSRP({
-						srpId: passwordInfo.srpId,
-						A,
-						M1,
-					});
-				}
-				throw new Error("Unsupported password algorithm");
-			};
-
-			const inputPassword = await checkPassword(password);
-
-			await client.invoke(
-				new Api.auth.CheckPassword({ password: inputPassword }),
-			);
-
+			// Login succeeded
 			const session = client.session.save();
 			await client.disconnect();
-			pendingLogins.delete(phone);
+			return NextResponse.json({ session });
+		} catch (signInError: any) {
+			// Check if 2FA is needed
+			if (
+				signInError?.errorMessage === "SESSION_PASSWORD_NEEDED" ||
+				signInError?.message?.includes("password") ||
+				signInError?.errorMessage === "PASSWORD_HASH_INVALID"
+			) {
+				if (!password) {
+					await client.disconnect();
+					return NextResponse.json({ step: "password_needed" });
+				}
 
-			return NextResponse.json({ step: "done", session });
+				// Handle 2FA password
+				try {
+					const passwordInfo = await client.invoke(
+						new Api.account.GetPassword(),
+					);
+
+					// Use GramJS's internal password check
+					// @ts-ignore - accessing internal method
+					const inputPassword = await client._client.passwordComputeCheck(
+						password,
+						passwordInfo,
+					);
+
+					await client.invoke(
+						new Api.auth.CheckPassword({ password: inputPassword }),
+					);
+
+					const session = client.session.save();
+					await client.disconnect();
+					return NextResponse.json({ session });
+				} catch (pwError: any) {
+					await client.disconnect();
+					return NextResponse.json(
+						{ error: `Ошибка пароля: ${pwError.message}` },
+						{ status: 400 },
+					);
+				}
+			}
+
+			await client.disconnect();
+			throw signInError;
 		}
-
-		return NextResponse.json({ error: "Неизвестный шаг" }, { status: 400 });
 	} catch (error: any) {
 		console.error("Telegram relogin error:", error);
 		return NextResponse.json(

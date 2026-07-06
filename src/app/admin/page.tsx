@@ -8,7 +8,6 @@ import {
 	Key,
 	Library,
 	Menu,
-	Phone,
 	ShieldCheck,
 	Loader2,
 	CheckCircle2,
@@ -295,50 +294,31 @@ export default function AdminPage() {
 			if (!session) return;
 
 			if (tgStep === "phone") {
-				const res = await fetch("/api/admin/telegram-relogin", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.access_token}`,
-					},
-					body: JSON.stringify({ step: "send_code", phone: tgPhone }),
-				});
-				const data = await res.json();
-				if (!res.ok) throw new Error(data.error);
-				if (data.step === "done") {
-					setTgSession(data.session);
-					setTgStep("done");
-				} else {
-					setTgStep("code");
-				}
-			} else if (tgStep === "code") {
-				const res = await fetch("/api/admin/telegram-relogin", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.access_token}`,
-					},
-					body: JSON.stringify({ step: "submit_code", phone: tgPhone, code: tgCode }),
-				});
-				const data = await res.json();
-				if (!res.ok) throw new Error(data.error);
-				if (data.step === "done") {
-					setTgSession(data.session);
-					setTgStep("done");
-				} else if (data.step === "password_needed") {
-					setTgStep("password");
-				}
-			} else if (tgStep === "password") {
-				const res = await fetch("/api/admin/telegram-relogin", {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.access_token}`,
-					},
-					body: JSON.stringify({ step: "submit_password", phone: tgPhone, code: tgCode, password: tgPassword }),
-				});
-				const data = await res.json();
-				if (!res.ok) throw new Error(data.error);
+				// Just move to code step (API sends code on submit_code)
+				setTgStep("code");
+				setTgLoading(false);
+				return;
+			}
+
+			const body: any = { phone: tgPhone, code: tgCode };
+			if (tgStep === "password") {
+				body.password = tgPassword;
+			}
+
+			const res = await fetch("/api/admin/telegram-relogin", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session.access_token}`,
+				},
+				body: JSON.stringify(body),
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error);
+
+			if (data.step === "password_needed") {
+				setTgStep("password");
+			} else if (data.session) {
 				setTgSession(data.session);
 				setTgStep("done");
 			}
@@ -548,13 +528,14 @@ export default function AdminPage() {
 																	value={tgPhone}
 																	onChange={(e) => setTgPhone(e.target.value)}
 																	className="h-8 text-sm"
+																	onKeyDown={(e) => e.key === "Enter" && handleTgRelogin()}
 																/>
 																<Button
 																	size="sm"
 																	onClick={handleTgRelogin}
 																	disabled={tgLoading || !tgPhone}
 																>
-																	{tgLoading ? <Loader2 className="size-3 animate-spin" /> : <Phone className="size-3" />}
+																	Далее
 																</Button>
 															</div>
 														</div>
@@ -564,7 +545,7 @@ export default function AdminPage() {
 												{tgStep === "code" && (
 													<>
 														<p className="text-muted-foreground text-xs">
-															Код отправлен на {tgPhone}
+															Введите код, полученный в Telegram на {tgPhone}
 														</p>
 														<div className="space-y-1">
 															<Label className="text-xs">Код из Telegram</Label>
@@ -574,6 +555,7 @@ export default function AdminPage() {
 																	value={tgCode}
 																	onChange={(e) => setTgCode(e.target.value)}
 																	className="h-8 text-sm font-mono"
+																	onKeyDown={(e) => e.key === "Enter" && handleTgRelogin()}
 																/>
 																<Button
 																	size="sm"
@@ -584,6 +566,14 @@ export default function AdminPage() {
 																</Button>
 															</div>
 														</div>
+														<Button
+															variant="ghost"
+															size="sm"
+															className="h-7 text-xs"
+															onClick={() => setTgStep("phone")}
+														>
+															Назад
+														</Button>
 													</>
 												)}
 
@@ -611,6 +601,15 @@ export default function AdminPage() {
 																	{tgLoading ? <Loader2 className="size-3 animate-spin" /> : "OK"}
 																</Button>
 															</div>
+														</div>
+														<Button
+															variant="ghost"
+															size="sm"
+															className="h-7 text-xs"
+															onClick={() => setTgStep("code")}
+														>
+															Назад
+														</Button>
 														</div>
 													</>
 												)}
