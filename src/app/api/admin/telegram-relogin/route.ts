@@ -1,6 +1,7 @@
-import { Api, TelegramClient } from "telegram";
+import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { NextResponse } from "next/server";
+import { Api } from "telegram";
 
 function getApiCredentials() {
 	const apiId = process.env.TELEGRAM_API_ID;
@@ -11,11 +12,29 @@ function getApiCredentials() {
 	return { apiId: parseInt(apiId, 10), apiHash };
 }
 
+// In-memory store for pending logins (phone -> { phoneCodeHash, client })
+const pendingLogins = new Map<
+	string,
+	{ phoneCodeHash: string; client: TelegramClient; ts: number }
+>();
+const PENDING_TTL = 3 * 60 * 1000;
+
+function cleanupPending() {
+	const now = Date.now();
+	for (const [key, val] of pendingLogins) {
+		if (now - val.ts > PENDING_TTL) {
+			val.client.disconnect().catch(() => {});
+			pendingLogins.delete(key);
+		}
+	}
+}
+
 export async function POST(request: Request) {
 	try {
-		const { action, phone, phoneCodeHash, code, password } =
-			await request.json();
+		const { action, phone, code, password } = await request.json();
 		const { apiId, apiHash } = getApiCredentials();
+
+		cleanupPending();
 
 		// --- Step 1: Send verification code ---
 		if (action === "send_code") {
@@ -24,6 +43,13 @@ export async function POST(request: Request) {
 					{ error: "Телефон обязателен" },
 					{ status: 400 },
 				);
+			}
+
+			// Disconnect old client if exists
+			const old = pendingLogins.get(phone);
+			if (old) {
+				old.client.disconnect().catch(() => {});
+				pendingLogins.delete(phone);
 			}
 
 			const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
@@ -41,11 +67,13 @@ export async function POST(request: Request) {
 					}),
 				);
 
-				await client.disconnect();
-				return NextResponse.json({
-					ok: true,
+				pendingLogins.set(phone, {
 					phoneCodeHash: result.phoneCodeHash,
+					client,
+					ts: Date.now(),
 				});
+
+				return NextResponse.json({ ok: true });
 			} catch (err: any) {
 				await client.disconnect();
 				return NextResponse.json(
@@ -55,19 +83,24 @@ export async function POST(request: Request) {
 			}
 		}
 
-		// --- Step 2: Sign in with code (and optional 2FA password) ---
+		// --- Step 2: Sign in with code ---
 		if (action === "sign_in") {
-			if (!phone || !code || !phoneCodeHash) {
+			if (!phone || !code) {
 				return NextResponse.json(
-					{ error: "Телефон, код и phoneCodeHash обязательны" },
+					{ error: "Телефон и код обязательны" },
 					{ status: 400 },
 				);
 			}
 
-			const client = new TelegramClient(new StringSession(""), apiId, apiHash, {
-				connectionRetries: 1,
-			});
-			await client.connect();
+			const pending = pendingLogins.get(phone);
+			if (!pending) {
+				return NextResponse.json(
+					{ error: "Сессия истекла. Запросите код заново." },
+					{ status: 400 },
+				);
+			}
+
+			const { client, phoneCodeHash } = pending;
 
 			try {
 				await client.invoke(
@@ -78,20 +111,18 @@ export async function POST(request: Request) {
 					}),
 				);
 
+				pendingLogins.delete(phone);
 				const session = client.session.save();
 				await client.disconnect();
 				return NextResponse.json({ session });
 			} catch (signInError: any) {
 				const msg =
-					signInError?.errorMessage || signInError?.message || String(signInError);
+					signInError?.errorMessage ||
+					signInError?.message ||
+					String(signInError);
 
-				// 2FA required
-				if (
-					msg === "SESSION_PASSWORD_NEEDED" ||
-					msg.includes("password")
-				) {
+				if (msg === "SESSION_PASSWORD_NEEDED" || msg.includes("password")) {
 					if (!password) {
-						await client.disconnect();
 						return NextResponse.json({ step: "password_needed" });
 					}
 
@@ -110,11 +141,13 @@ export async function POST(request: Request) {
 							new Api.auth.CheckPassword({ password: inputPassword }),
 						);
 
+						pendingLogins.delete(phone);
 						const session = client.session.save();
 						await client.disconnect();
 						return NextResponse.json({ session });
 					} catch (pwError: any) {
 						await client.disconnect();
+						pendingLogins.delete(phone);
 						return NextResponse.json(
 							{ error: `Ошибка пароля: ${pwError.message || pwError}` },
 							{ status: 400 },
@@ -122,9 +155,12 @@ export async function POST(request: Request) {
 					}
 				}
 
-				// Code expired or invalid
 				await client.disconnect();
-				return NextResponse.json({ error: `Ошибка входа: ${msg}` }, { status: 400 });
+				pendingLogins.delete(phone);
+				return NextResponse.json(
+					{ error: `Ошибка входа: ${msg}` },
+					{ status: 400 },
+				);
 			}
 		}
 
