@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN || "";
+const PROJECT_REF = "yobwiopkewzyrabwzzgo";
 
 const MIGRATION_SQL = `
 -- 1. Enable pgvector extension
@@ -49,55 +49,47 @@ $$;
 
 /**
  * POST /api/admin/migrate-pgvector
- * Run pgvector migration via Supabase REST API
+ * Run pgvector migration via Supabase Management API
  */
 export async function POST() {
     try {
-        if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        if (!SUPABASE_ACCESS_TOKEN) {
             return NextResponse.json(
-                { error: "Supabase credentials not configured" },
+                { error: "SUPABASE_ACCESS_TOKEN not configured" },
                 { status: 500 }
             );
         }
 
-        // Execute SQL via Supabase REST API
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "apikey": SUPABASE_SERVICE_KEY,
-                "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
-            },
-            body: JSON.stringify({ sql: MIGRATION_SQL }),
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Supabase API error:", errorText);
-            
-            // Try alternative: direct SQL endpoint
-            const altResponse = await fetch(`${SUPABASE_URL}/sql`, {
+        // Use Supabase Management API to run SQL
+        const response = await fetch(
+            `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
+            {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "apikey": SUPABASE_SERVICE_KEY,
-                    "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+                    "Authorization": `Bearer ${SUPABASE_ACCESS_TOKEN}`,
                 },
-                body: JSON.stringify({ query: MIGRATION_SQL }),
-            });
-
-            if (!altResponse.ok) {
-                const altError = await altResponse.text();
-                return NextResponse.json(
-                    { error: `Migration failed: ${altError}` },
-                    { status: 500 }
-                );
+                body: JSON.stringify({
+                    query: MIGRATION_SQL,
+                }),
             }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Supabase Management API error:", errorText);
+            return NextResponse.json(
+                { error: `Migration failed: ${errorText}` },
+                { status: 500 }
+            );
         }
+
+        const result = await response.json();
 
         return NextResponse.json({
             success: true,
             message: "Migration completed successfully!",
+            result,
         });
     } catch (error: any) {
         console.error("Migration error:", error);
