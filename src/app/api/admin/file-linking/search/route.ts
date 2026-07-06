@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
                     matchedWords: result.matchedWords,
                     titleMatchCount: result.titleMatchCount,
                     authorMatch: result.authorMatch,
+                    fileAuthorParsed: result.fileAuthorParsed,
+                    fileTitleParsed: result.fileTitleParsed,
                 };
             })
             .filter((f) => f.score >= 40) // Lower threshold for manual review

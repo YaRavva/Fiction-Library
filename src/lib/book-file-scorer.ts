@@ -27,6 +27,8 @@ export interface MatchResult {
     matchedWords: string[];
     titleMatchCount: number;
     authorMatch: boolean;
+    fileAuthorParsed?: string;
+    fileTitleParsed?: string;
     details: {
         baseScore: number;
         titleBonus: number;
@@ -58,6 +60,8 @@ const GENERIC_TITLE_WORDS = new Set([
     'земля', 'небо', 'вода', 'огонь', 'свет', 'тьма', 'город', 'лес', 'море', 'гора',
     'король', 'принц', 'принцесса', 'рыцарь', 'маг', 'волшебник', 'дракон', 'герой', 'враг', 'друг',
     'начало', 'конец', 'середина', 'часть', 'том', 'книга', 'выпуск', 'сборник', 'антология',
+    // Genre descriptors that shouldn't contribute to matching
+    'роман', 'эпопе', 'повест', 'рассказ', 'поэм', 'сказк', 'очерк', 'пьес',
 ]);
 
 /**
@@ -174,122 +178,180 @@ function fuzzyMatch(a: string, b: string): boolean {
 }
 
 /**
- * Main scoring function: match a file to a book
+ * Parse a filename into author and title parts.
+ * Common Telegram patterns: "Author - Title.ext", "Author – Title.ext"
+ * If no separator found, the whole name is treated as the title.
  */
-export function scoreFileToBook(file: FileOption, book: BookOption): MatchResult {
-    const fileWords = extractWords(file.file_name);
-    const { titleWords, authorWords, allWords: bookWords } = extractBookWords(book);
-    
-    // Track matches
-    const matchedFileWords = new Set<string>();
-    const matchedTitleWords = new Set<string>();
-    const matchedAuthorWords = new Set<string>();
-    
-    // Match file words against book words
-    for (const fw of fileWords) {
-        for (const bw of bookWords) {
+export function parseFileName(fileName: string): { fileAuthor?: string; fileTitle: string } {
+    let name = fileName;
+    // Remove extension
+    const dotIndex = name.lastIndexOf('.');
+    if (dotIndex > 0) {
+        name = name.substring(0, dotIndex);
+    }
+
+    // Try dash separators in order of preference (longest first to avoid false splits)
+    const separators = [' — ', ' – ', ' - ', ' —', ' –', ' -'];
+    for (const sep of separators) {
+        const idx = name.indexOf(sep);
+        if (idx > 0) {
+            const author = name.substring(0, idx).trim();
+            const title = name.substring(idx + sep.length).trim();
+            if (author && title) {
+                // Make sure title is not empty after cleanup
+                const cleanTitle = title.replace(/[[\](){}【】《》""「」『』]/g, '').trim();
+                if (cleanTitle) {
+                    return { fileAuthor: author, fileTitle: cleanTitle };
+                }
+            }
+        }
+    }
+
+    return { fileTitle: name };
+}
+
+/**
+ * Check if parsed file author matches the book author.
+ * Requires meaningful overlap: at least as many matching words as the shorter name's length.
+ * This prevents false matches on shared first names (Алексей vs Алексей).
+ */
+export function checkAuthorMatch(
+    fileAuthorWords: string[],
+    bookAuthorWords: string[]
+): boolean {
+    if (fileAuthorWords.length === 0 || bookAuthorWords.length === 0) {
+        return false;
+    }
+
+    let matches = 0;
+    for (const fw of fileAuthorWords) {
+        for (const bw of bookAuthorWords) {
             if (fuzzyMatch(fw, bw)) {
-                matchedFileWords.add(fw);
-                
-                // Track where it matched
-                if (titleWords.includes(bw)) {
-                    matchedTitleWords.add(bw);
-                }
-                if (authorWords.includes(bw)) {
-                    matchedAuthorWords.add(bw);
-                }
+                matches++;
                 break;
             }
         }
     }
-    
-    // Calculate base metrics
-    const matchedCount = matchedFileWords.size;
-    const titleMatchCount = matchedTitleWords.size;
-    const authorMatch = matchedAuthorWords.size > 0;
-    const unmatchedCount = fileWords.length - matchedCount;
-    
-    // Calculate match ratios
-    const fileMatchRatio = fileWords.length > 0 ? matchedCount / fileWords.length : 0;
-    const bookMatchRatio = bookWords.length > 0 ? matchedCount / bookWords.length : 0;
-    
+
+    // Require ALL words from the shorter name to match.
+    // Е.g., "Алексей Губарев"(2) vs "Алексей Гришин"(2): 1/2 → false.
+    // Е.g., "Дем Михайлов"(2) vs "Дем Михайлов"(2): 2/2 → true.
+    // Е.g., "А. Глушков"(1) vs "Роман Глушков"(2): 1/1 → true (surname matched).
+    const required = Math.min(fileAuthorWords.length, bookAuthorWords.length);
+    return matches >= required;
+}
+
+/**
+ * Main scoring function: match a file to a book.
+ *
+ * Key design decision: filename is parsed into AUTHOR and TITLE parts.
+ * File TITLE words are matched against book TITLE words only.
+ * File AUTHOR words are checked against book AUTHOR words separately (boolean, no score).
+ * Cross-domain matching is FORBIDDEN — prevents "роман"(жанр) ↔ "Роман"(имя).
+ */
+export function scoreFileToBook(file: FileOption, book: BookOption): MatchResult {
+    const { fileAuthor, fileTitle } = parseFileName(file.file_name);
+    const fileTitleWords = extractWords(fileTitle);
+    const fileAuthorWords = fileAuthor ? extractWords(fileAuthor) : [];
+    const { titleWords: bookTitleWords, authorWords: bookAuthorWords } = extractBookWords(book);
+
+    // Match file TITLE words against book TITLE words only
+    const matchedFileTitleWords = new Set<string>();
+    const matchedBookTitleWords = new Set<string>();
+
+    for (const fw of fileTitleWords) {
+        for (const bw of bookTitleWords) {
+            if (fuzzyMatch(fw, bw)) {
+                matchedFileTitleWords.add(fw);
+                matchedBookTitleWords.add(bw);
+                break;
+            }
+        }
+    }
+
+    // Check author match separately (parsed file author vs book author)
+    const authorMatch = checkAuthorMatch(fileAuthorWords, bookAuthorWords);
+
+    // Calculate base metrics (based ONLY on title matching)
+    const matchedCount = matchedFileTitleWords.size;
+    const titleMatchCount = matchedBookTitleWords.size;
+    const unmatchedCount = fileTitleWords.length - matchedCount;
+
+    const fileMatchRatio = fileTitleWords.length > 0 ? matchedCount / fileTitleWords.length : 0;
+    const bookMatchRatio = bookTitleWords.length > 0 ? matchedCount / bookTitleWords.length : 0;
+
     // Count unique title matches (non-generic)
-    const uniqueTitleMatches = Array.from(matchedTitleWords).filter(
+    const uniqueTitleMatches = Array.from(matchedBookTitleWords).filter(
         w => !GENERIC_TITLE_WORDS.has(w)
     ).length;
-    
+
     // === SCORING ALGORITHM ===
-    
     let baseScore = 0;
     let titleBonus = 0;
     let authorBonus = 0;
     let coverageBonus = 0;
     let penalties = 0;
-    
-    // 1. Base score: +20 per matched word
+
+    // 1. Base score: +20 per matched title word
     baseScore = matchedCount * 20;
-    
-    // 2. Unmatched word penalty: -3 per unmatched word
+
+    // 2. Unmatched word penalty: -3 per unmatched title word
     penalties += unmatchedCount * 3;
-    
-    // 3. Match ratio bonus (if >= 60% of file words matched)
+
+    // 3. Match ratio bonus (if >= 60% of file title words matched)
     if (fileMatchRatio >= 0.6) {
         coverageBonus += Math.floor(15 * fileMatchRatio * 3);
     }
-    
-    // 4. Book coverage bonus (if >= 70% of book words matched)
+
+    // 4. Book coverage bonus (if >= 70% of book title words matched)
     if (bookMatchRatio >= 0.7) {
         coverageBonus += Math.floor(10 * bookMatchRatio * 2);
     }
-    
+
     // 5. Title match bonuses
     if (titleMatchCount >= 2) {
         titleBonus = titleMatchCount * 12;
     } else if (titleMatchCount === 1) {
         titleBonus = 8;
     }
-    
-    // 6. Generic title penalty: if all title matches are generic words
+
+    // 6. Generic title penalty
     if (titleMatchCount > 0 && uniqueTitleMatches === 0) {
         penalties += 30;
     }
-    
-    // 7. No author bonuses — same author can have many unrelated series
-    // Author is only used in the cap check below to allow higher scores
-    // when both title and author align
-    
-    // 8. Penalties for missing matches
+
+    // 7. Only generic or no matches
     if (titleMatchCount === 0) {
         penalties += 40;
     } else if (uniqueTitleMatches === 0) {
-        penalties += 20; // only generic words matched, likely false positive
+        penalties += 20;
     }
-    
+
     // Calculate final score
     let score = baseScore + titleBonus + coverageBonus - penalties;
-    
-    // Apply caps based on match quality
+
+    // Apply caps: author match is a confirmation, not a score multiplier
     if (authorMatch && titleMatchCount >= 2) {
-        // No cap - can reach 100
+        // Full confidence — no cap
     } else if (authorMatch && titleMatchCount === 1 && uniqueTitleMatches >= 1) {
         score = Math.min(score, 80);
     } else if (titleMatchCount >= 2 && uniqueTitleMatches >= 1) {
         score = Math.min(score, 70);
     } else {
-        // Only generic words matched or no author — likely false positive
         score = Math.min(score, 40);
     }
-    
-    // Clamp to 0-100
+
     score = Math.max(0, Math.min(100, score));
-    
+
     return {
         file,
         book,
         score,
-        matchedWords: Array.from(matchedFileWords),
+        matchedWords: Array.from(matchedFileTitleWords),
         titleMatchCount,
         authorMatch,
+        fileAuthorParsed: fileAuthor || undefined,
+        fileTitleParsed: fileTitle,
         details: {
             baseScore,
             titleBonus,
