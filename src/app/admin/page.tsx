@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { EmbeddingPanel } from "@/components/admin/embedding-panel";
+import { FileLinkingPanel } from "@/components/admin/file-linking-panel";
 import { SyncResultsPanel } from "@/components/admin/sync-results-panel";
 import { SyncSettingsShadix } from "@/components/admin/sync-settings-shadix";
 import { TelegramFilesIndexer } from "@/components/admin/telegram-files-indexer";
@@ -461,6 +463,7 @@ export default function AdminPage() {
 										setBookWormInterval={setBookWormInterval}
 									/>
 									<TelegramFilesIndexer />
+									<FileLinkingPanel />
 								</div>
 
 								<aside className="space-y-5">
@@ -477,6 +480,7 @@ export default function AdminPage() {
 										</pre>
 									</div>
 									<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+									<EmbeddingPanel />
 
 									<div className="rounded-lg border bg-card p-4 shadow-sm">
 										<div className="mb-3 flex items-center gap-2">
