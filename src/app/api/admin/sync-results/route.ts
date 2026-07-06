@@ -41,6 +41,7 @@ export interface OperationResult {
 	metadata_errors?: number;
 	files_processed?: number;
 	files_linked?: number;
+	covers_downloaded?: number;
 	files_skipped?: number;
 	files_errors?: number;
 	// Общие поля

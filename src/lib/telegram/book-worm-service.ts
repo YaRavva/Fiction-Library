@@ -508,6 +508,68 @@ export class BookWormService {
 				console.warn("⚠️ Ошибка при привязке файлов:", fileLinkError);
 			}
 
+			// 5. Ретроактивное скачивание обложек для книг без обложек
+			console.log("📸 Скачивание обложек для книг без обложек...");
+			let coversDownloaded = 0;
+
+			try {
+				const { data: booksNoCover, error: coverFetchError } =
+					await serverSupabase
+						.from("books")
+						.select("id, title, author, telegram_post_id, cover_url")
+						.is("cover_url", null)
+						.not("telegram_post_id", "is", null)
+						.in("telegram_post_id", processedMessageIds);
+
+				if (coverFetchError) {
+					console.warn("⚠️ Ошибка загрузки книг без обложек:", coverFetchError);
+				} else if (booksNoCover && booksNoCover.length > 0) {
+					console.log(
+						`📚 Найдено ${booksNoCover.length} книг без обложек для скачивания`,
+					);
+
+					const channel = await this.telegramService.getMetadataChannel();
+					const channelId =
+						typeof channel.id === "object" && channel.id !== null
+							? (channel.id as { toString: () => string }).toString()
+							: String(channel.id);
+
+					for (const book of booksNoCover) {
+						try {
+							const postId = parseInt(book.telegram_post_id!, 10);
+							const messages = (await this.telegramService.getMessages(
+								channelId,
+								1,
+								postId,
+							)) as any[];
+
+							if (messages && messages.length > 0) {
+								const coverUrl = await this.downloadCover(messages[0]);
+								if (coverUrl) {
+									await serverSupabase
+										.from("books")
+										.update({ cover_url: coverUrl })
+										.eq("id", book.id);
+									coversDownloaded++;
+									console.log(
+										`    ✅ Обложка для "${book.title}": ${coverUrl}`,
+									);
+								}
+							}
+						} catch (coverErr) {
+							console.warn(
+								`    ⚠️ Ошибка скачивания обложки для "${book.title}":`,
+								coverErr,
+							);
+						}
+					}
+				} else {
+					console.log("  ℹ️  Все книги уже имеют обложки");
+				}
+			} catch (coverError) {
+				console.warn("⚠️ Ошибка при скачивании обложек:", coverError);
+			}
+
 			// Сводка
 			console.log("\n📊 СВОДКА СИНХРОНИЗАЦИИ:");
 			console.log(`   ========================================`);
@@ -515,6 +577,7 @@ export class BookWormService {
 			console.log(`   Добавлено книг: ${resultImport.added}`);
 			console.log(`   Обновлено книг: ${resultImport.updated}`);
 			console.log(`   Привязано файлов: ${matchedCount}`);
+			console.log(`   Скачано обложек: ${coversDownloaded}`);
 			console.log(`   Пропущено: ${totalSkipped}`);
 			console.log(`   Ошибок: ${resultImport.errors}`);
 
@@ -527,8 +590,9 @@ export class BookWormService {
 				errors: resultImport.errors,
 				details: combinedDetails,
 				matched: matchedCount,
+				coversDownloaded,
 				lastProcessedMessageId: lastMessageId,
-				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Processed: ${newMessages.length}`,
+				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Covers: ${coversDownloaded}, Processed: ${newMessages.length}`,
 				detailedLogs: detailedLogs.sort((a, b) => {
 					const idA = parseInt(a.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);
 					const idB = parseInt(b.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);
@@ -667,10 +731,39 @@ export class BookWormService {
 			return null;
 		}
 
-		const anyMsg = msg as { id: number; media?: any };
+		const anyMsg = msg as unknown as { id: number; media?: any };
+		const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
+		if (!coversBucket) {
+			console.warn("⚠️ downloadCover: S3_COVERS_BUCKET_NAME not set");
+			return null;
+		}
+
 		try {
+			if (!anyMsg.media) return null;
+
+			const mediaType = anyMsg.media.className;
+			let mediaToDownload: any = null;
+
+			// MessageMediaWebPage — основной случай для обложек в Telegram каналах
+			if (mediaType === "MessageMediaWebPage" && anyMsg.media.webpage?.photo) {
+				mediaToDownload = anyMsg.media.webpage.photo;
+			}
+			// MessageMediaPhoto — одиночное фото
+			else if (mediaType === "MessageMediaPhoto" && anyMsg.media.photo) {
+				mediaToDownload = anyMsg.media.photo;
+			}
+			// MessageMediaDocument — документ-изображение
+			else if (mediaType === "MessageMediaDocument" && anyMsg.media.document) {
+				const mimeType = anyMsg.media.document.mimeType;
+				if (mimeType?.startsWith("image/")) {
+					mediaToDownload = anyMsg.media.document;
+				}
+			}
+
+			if (!mediaToDownload) return null;
+
 			const result = await Promise.race([
-				this.telegramService.downloadMedia(msg),
+				this.telegramService.downloadMedia(mediaToDownload),
 				new Promise<null>((resolve) => setTimeout(() => resolve(null), 30000)),
 			]);
 
@@ -678,29 +771,13 @@ export class BookWormService {
 				console.warn(`⚠️ downloadCover: null result for msg ${anyMsg.id}`);
 				return null;
 			}
-			if (!(result instanceof Buffer)) {
-				console.warn(`⚠️ downloadCover: not a Buffer for msg ${anyMsg.id}, type: ${typeof result}`);
-				return null;
-			}
-			if (result.length === 0) {
-				console.warn(`⚠️ downloadCover: empty buffer for msg ${anyMsg.id}`);
+			if (!(result instanceof Buffer) || result.length === 0) {
+				console.warn(`⚠️ downloadCover: empty/non-buffer for msg ${anyMsg.id}`);
 				return null;
 			}
 
 			const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-			const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
-
-			if (!coversBucket) {
-				console.warn(`⚠️ downloadCover: S3_COVERS_BUCKET_NAME not set`);
-				return null;
-			}
-
-			await putObject(
-				photoKey,
-				Buffer.from(result),
-				coversBucket,
-				"image/jpeg",
-			);
+			await putObject(photoKey, Buffer.from(result), coversBucket, "image/jpeg");
 			const url = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 			console.log(`✅ Cover downloaded for msg ${anyMsg.id}: ${url}`);
 			return url;
@@ -881,6 +958,61 @@ export class BookWormService {
 				console.warn("⚠️ Ошибка при привязке файлов:", fileLinkError);
 			}
 
+			// 5. Ретроактивное скачивание обложек для книг без обложек
+			console.log("📸 Скачивание обложек для книг без обложек...");
+			let coversDownloaded = 0;
+
+			try {
+				const { data: booksNoCover, error: coverFetchError } =
+					await serverSupabase
+						.from("books")
+						.select("id, title, author, telegram_post_id, cover_url")
+						.is("cover_url", null)
+						.not("telegram_post_id", "is", null);
+
+				if (coverFetchError) {
+					console.warn("⚠️ Ошибка загрузки книг без обложек:", coverFetchError);
+				} else if (booksNoCover && booksNoCover.length > 0) {
+					console.log(
+						`📚 Найдено ${booksNoCover.length} книг без обложек для скачивания`,
+					);
+
+					for (const book of booksNoCover) {
+						try {
+							const postId = parseInt(book.telegram_post_id!, 10);
+							const messages = (await this.telegramService.getMessages(
+								channelId,
+								1,
+								postId,
+							)) as any[];
+
+							if (messages && messages.length > 0) {
+								const coverUrl = await this.downloadCover(messages[0]);
+								if (coverUrl) {
+									await serverSupabase
+										.from("books")
+										.update({ cover_url: coverUrl })
+										.eq("id", book.id);
+									coversDownloaded++;
+									console.log(
+										`    ✅ Обложка для "${book.title}": ${coverUrl}`,
+									);
+								}
+							}
+						} catch (coverErr) {
+							console.warn(
+								`    ⚠️ Ошибка скачивания обложки для "${book.title}":`,
+								coverErr,
+							);
+						}
+					}
+				} else {
+					console.log("  ℹ️  Все книги уже имеют обложки");
+				}
+			} catch (coverError) {
+				console.warn("⚠️ Ошибка при скачивании обложек:", coverError);
+			}
+
 			// Сводка
 			console.log("\n📊 СВОДКА ПОЛНОЙ СИНХРОНИЗАЦИИ:");
 			console.log(`   ========================================`);
@@ -888,6 +1020,7 @@ export class BookWormService {
 			console.log(`   Добавлено книг: ${resultImport.added}`);
 			console.log(`   Обновлено книг: ${resultImport.updated}`);
 			console.log(`   Привязано файлов: ${matchedCount}`);
+			console.log(`   Скачано обложек: ${coversDownloaded}`);
 			console.log(`   Пропущено: ${totalSkipped}`);
 			console.log(`   Ошибок: ${resultImport.errors}`);
 
@@ -899,7 +1032,8 @@ export class BookWormService {
 				errors: resultImport.errors,
 				details: combinedDetails,
 				matched: matchedCount,
-				message: `Full sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Processed: ${allMessages.length}`,
+				coversDownloaded,
+				message: `Full sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Covers: ${coversDownloaded}, Processed: ${allMessages.length}`,
 				detailedLogs,
 			};
 		} catch (error) {

@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
 ➕ Добавлено книг: ${result.added}
 🔄 Обновлено книг: ${result.updated}
 🔗 Привязано файлов: ${result.matched}
+📸 Скачано обложек: ${result.coversDownloaded || 0}
 🆔 Начато с сообщения ID: ${result.lastProcessedMessageId || "начала"}
 
 💬 ${result.message}`;
@@ -172,6 +173,7 @@ export async function POST(request: NextRequest) {
 						metadata_added: result.added || 0,
 						metadata_updated: result.updated || 0,
 						files_linked: result.matched || 0,
+						covers_downloaded: result.coversDownloaded || 0,
 						log_output: formattedMessage,
 					});
 				}
