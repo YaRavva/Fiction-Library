@@ -1,100 +1,38 @@
 "use client";
 
-import { motion, useMotionValue, useSpring } from "framer-motion";
 import { useEffect, useState } from "react";
 
 export function MouseGradientBackground() {
-	const mouseX = useMotionValue(0);
-	const mouseY = useMotionValue(0);
-
 	const [mounted, setMounted] = useState(false);
-
-	const springConfig = { damping: 25, stiffness: 150, mass: 0.5 };
-	const x = useSpring(mouseX, springConfig);
-	const y = useSpring(mouseY, springConfig);
-
-	const springConfigSlow = { damping: 40, stiffness: 80, mass: 1 };
-	const x2 = useSpring(mouseX, springConfigSlow);
-	const y2 = useSpring(mouseY, springConfigSlow);
+	const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
 
 	useEffect(() => {
 		setMounted(true);
 
-		if (typeof window !== "undefined") {
-			mouseX.set(window.innerWidth / 2);
-			mouseY.set(window.innerHeight / 2);
-		}
-
 		const handleMouseMove = (e: MouseEvent) => {
-			mouseX.set(e.clientX);
-			mouseY.set(e.clientY);
+			setPos({
+				x: e.clientX / window.innerWidth,
+				y: e.clientY / window.innerHeight,
+			});
 		};
 
-		window.addEventListener("mousemove", handleMouseMove);
+		window.addEventListener("mousemove", handleMouseMove, { passive: true });
 		return () => window.removeEventListener("mousemove", handleMouseMove);
-	}, [mouseX, mouseY]);
+	}, []);
 
 	if (!mounted) return null;
 
 	return (
-		<div className="fixed inset-0 overflow-hidden pointer-events-none z-0 user-select-none bg-[#FAFAFA] dark:bg-background transition-colors duration-700">
-			<div className="absolute inset-0 opacity-60 dark:opacity-20 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-purple-100/50 via-transparent to-transparent" />
-			<div className="absolute inset-0 opacity-40 dark:opacity-20 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-amber-100/40 via-transparent to-transparent" />
-
-			<motion.div
-				style={{ x, y }}
-				className="absolute -inset-20 opacity-30 dark:opacity-20"
-			>
-				<div className="w-[800px] h-[800px] rounded-full blur-[120px] bg-gradient-to-r from-amber-200/40 to-purple-200/40 dark:from-amber-500/20 dark:to-purple-500/20 -translate-x-1/2 -translate-y-1/2" />
-			</motion.div>
-
-			<motion.div
-				style={{ x: x2, y: y2 }}
-				className="absolute -inset-20 opacity-20 dark:opacity-15"
-			>
-				<div className="w-[600px] h-[600px] rounded-full blur-[100px] bg-gradient-to-tr from-purple-300/30 to-blue-200/30 dark:from-purple-500/20 dark:to-blue-500/20 -translate-x-1/2 -translate-y-1/2" />
-			</motion.div>
-
-			<motion.div
-				animate={{
-					scale: [1, 1.1, 1],
-					x: [0, 20, 0],
-					y: [0, -20, 0],
-				}}
-				transition={{
-					duration: 10,
-					repeat: Infinity,
-					ease: "easeInOut",
-				}}
-				className="absolute top-[-20%] right-[-10%] w-[80vw] h-[80vw] bg-amber-200/30 dark:bg-amber-900/20 blur-[150px] rounded-full opacity-50 dark:opacity-30"
-			/>
-
-			<motion.div
-				animate={{
-					scale: [1, 1.2, 1],
-					x: [0, -30, 0],
-					y: [0, 30, 0],
-				}}
-				transition={{
-					duration: 15,
-					repeat: Infinity,
-					ease: "easeInOut",
-				}}
-				className="absolute bottom-[-10%] left-[-10%] w-[80vw] h-[80vw] bg-purple-200/30 dark:bg-purple-900/20 blur-[150px] rounded-full opacity-50 dark:opacity-30"
-			/>
-
-			<motion.div
-				animate={{
-					scale: [1, 1.15, 1],
-					opacity: [0.3, 0.5, 0.3],
-				}}
-				transition={{
-					duration: 20,
-					repeat: Infinity,
-					ease: "easeInOut",
-				}}
-				className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[60vw] h-[60vw] bg-pink-100/20 dark:bg-pink-900/10 blur-[180px] rounded-full opacity-40 dark:opacity-20"
-			/>
-		</div>
+		<div
+			className="fixed inset-0 pointer-events-none z-0 bg-[#FAFAFA] dark:bg-background transition-colors duration-700"
+			style={{
+				backgroundImage: `
+					radial-gradient(ellipse at ${pos.x * 100}% ${pos.y * 100}%, rgba(251, 191, 36, 0.08) 0%, transparent 60%),
+					radial-gradient(ellipse at ${(1 - pos.x) * 100}% ${(1 - pos.y) * 100}%, rgba(139, 92, 246, 0.08) 0%, transparent 60%),
+					radial-gradient(ellipse at top left, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+					radial-gradient(ellipse at bottom right, rgba(245, 158, 11, 0.06) 0%, transparent 50%)
+				`,
+			}}
+		/>
 	);
 }

@@ -684,7 +684,7 @@ function ReaderContent() {
 
 						{/* Content Selector Overlay */}
 						{showFileSelector && (
-							<div className="absolute top-16 right-4 w-auto min-w-80 max-w-[min(90vw,600px)] bg-card/95 backdrop-blur-xl border shadow-2xl rounded-xl z-30 max-h-[calc(100%-6rem)] overflow-y-auto animate-in slide-in-from-top-2 fade-in duration-200 flex flex-col">
+							<div className="absolute top-16 right-4 w-auto min-w-80 max-w-[min(90vw,600px)] bg-card border shadow-2xl rounded-xl z-30 max-h-[calc(100%-6rem)] overflow-y-auto animate-in slide-in-from-top-2 fade-in duration-200 flex flex-col">
 								<div className="p-3 border-b bg-muted/30 sticky top-0 z-10 flex items-center justify-between">
 									<span className="font-semibold text-sm">Содержание</span>
 									<Button
@@ -796,7 +796,7 @@ function ReaderContent() {
 
 						{/* Progress Footer */}
 						{book && (
-							<div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 px-4 flex flex-col gap-2 z-20 absolute bottom-0 left-0 right-0">
+							<div className="border-t bg-background p-2 px-4 flex flex-col gap-2 z-20 absolute bottom-0 left-0 right-0">
 								<div className="flex items-center gap-4">
 									<span className="text-xs text-muted-foreground w-12 text-right">
 										{Math.round(progress)}%
@@ -846,7 +846,7 @@ function ReaderContent() {
 
 				{/* Mobile Menu Overlay */}
 				{mobileMenuOpen && (
-					<div className="fixed inset-0 z-50 lg:hidden bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+					<div className="fixed inset-0 z-50 lg:hidden bg-background/80 animate-in fade-in duration-200">
 						<div className="fixed inset-y-0 left-0 w-72 bg-card border-r shadow-2xl p-0 flex flex-col animate-in slide-in-from-left duration-300">
 							<div className="flex items-center justify-end p-4">
 								<Button

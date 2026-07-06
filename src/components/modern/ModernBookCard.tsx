@@ -51,7 +51,7 @@ export function ModernBookCard({ book }: ModernBookCardProps) {
 
 				<div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2">
 					{book.rating ? (
-						<span className="inline-flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-1 font-semibold text-xs shadow-sm backdrop-blur">
+						<span className="inline-flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-1 font-semibold text-xs shadow-sm">
 							<Star className="size-3 fill-amber-500 text-amber-500" />
 							{book.rating.toFixed(1)}
 						</span>
@@ -59,7 +59,7 @@ export function ModernBookCard({ book }: ModernBookCardProps) {
 						<span />
 					)}
 					{book.file_url ? (
-						<span className="inline-flex items-center rounded-md bg-background/90 px-1.5 py-1 text-emerald-700 shadow-sm backdrop-blur dark:text-emerald-300">
+						<span className="inline-flex items-center rounded-md bg-background/90 px-1.5 py-1 text-emerald-700 shadow-sm dark:text-emerald-300">
 							<FileCheck2 className="size-3.5" />
 						</span>
 					) : null}

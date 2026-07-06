@@ -68,7 +68,7 @@ export function BookCard({
 			className={`group relative w-full h-full overflow-hidden ${onBookClick ? "cursor-pointer" : ""}`}
 			onClick={() => onBookClick?.(book)}
 		>
-			<div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500/20 to-violet-600/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+			<div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500/20 to-violet-600/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
 			<div className="relative h-full flex flex-col bg-card/50 border border-white/10 dark:border-white/5 rounded-xl overflow-hidden hover:shadow-xl transition-[box-shadow] duration-200">
 				{/* Cover Section */}
@@ -90,7 +90,7 @@ export function BookCard({
 					{/* Rating Badge */}
 					{book.rating && book.rating > 0 && (
 						<div className="absolute top-3 right-3">
-							<div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white text-xs font-medium">
+							<div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/80 border border-white/10 text-white text-xs font-medium">
 								<Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
 								<span>{book.rating}</span>
 							</div>

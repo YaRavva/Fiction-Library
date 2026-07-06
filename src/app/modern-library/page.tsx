@@ -148,7 +148,7 @@ export default function ModernLibraryPage() {
 
 				{/* Mobile Menu Overlay */}
 				{isMobileMenuOpen && (
-					<div className="fixed inset-0 z-50 lg:hidden bg-background/80 backdrop-blur-sm">
+					<div className="fixed inset-0 z-50 lg:hidden bg-background/80">
 						<div className="fixed inset-y-0 right-0 w-full sm:w-80 bg-card border-l shadow-2xl p-6 flex flex-col animate-in slide-in-from-right duration-200">
 							<div className="flex items-center justify-between mb-8">
 								<span className="font-bold text-xl">Меню</span>

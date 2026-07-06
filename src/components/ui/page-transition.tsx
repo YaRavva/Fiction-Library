@@ -12,25 +12,22 @@ interface PageTransitionProps {
 const pageVariants = {
 	initial: {
 		opacity: 0,
-		y: 20,
-		scale: 0.98,
+		y: 12,
 	},
 	in: {
 		opacity: 1,
 		y: 0,
-		scale: 1,
 	},
 	out: {
 		opacity: 0,
-		y: -20,
-		scale: 1.02,
+		y: -12,
 	},
 };
 
 const pageTransition = {
 	type: "tween" as const,
-	ease: "anticipate" as const,
-	duration: 0.4,
+	ease: "easeOut" as const,
+	duration: 0.25,
 };
 
 export function PageTransition({
@@ -74,55 +71,22 @@ export function ContentTransition({
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0 }}
-					transition={{ duration: 0.2 }}
+					transition={{ duration: 0.15 }}
 					className={`flex items-center justify-center p-8 ${className}`}
 				>
 					<div className="flex items-center space-x-2">
-						<motion.div
-							className="w-2 h-2 bg-primary rounded-full"
-							animate={{
-								scale: [1, 1.2, 1],
-								opacity: [1, 0.5, 1],
-							}}
-							transition={{
-								duration: 1,
-								repeat: Infinity,
-								delay: 0,
-							}}
-						/>
-						<motion.div
-							className="w-2 h-2 bg-primary rounded-full"
-							animate={{
-								scale: [1, 1.2, 1],
-								opacity: [1, 0.5, 1],
-							}}
-							transition={{
-								duration: 1,
-								repeat: Infinity,
-								delay: 0.2,
-							}}
-						/>
-						<motion.div
-							className="w-2 h-2 bg-primary rounded-full"
-							animate={{
-								scale: [1, 1.2, 1],
-								opacity: [1, 0.5, 1],
-							}}
-							transition={{
-								duration: 1,
-								repeat: Infinity,
-								delay: 0.4,
-							}}
-						/>
+						<div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+						<div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.2s]" />
+						<div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.4s]" />
 					</div>
 				</motion.div>
 			) : (
 				<motion.div
 					key="content"
-					initial={{ opacity: 0, y: 10 }}
-					animate={{ opacity: 1, y: 0 }}
-					exit={{ opacity: 0, y: -10 }}
-					transition={{ duration: 0.3 }}
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					exit={{ opacity: 0 }}
+					transition={{ duration: 0.15 }}
 					className={className}
 				>
 					{children}
@@ -161,10 +125,10 @@ export function ListTransition({
 				<motion.div
 					key={index}
 					variants={{
-						hidden: { opacity: 0, y: 20 },
+						hidden: { opacity: 0, y: 10 },
 						visible: { opacity: 1, y: 0 },
 					}}
-					transition={{ duration: 0.3 }}
+					transition={{ duration: 0.2 }}
 				>
 					{child}
 				</motion.div>

@@ -10,29 +10,8 @@ export function ModernHero() {
 		<div className="relative w-full py-8 sm:py-12 md:py-16 lg:py-24 overflow-hidden">
 			{/* Abstract Background Elements */}
 			<div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
-				<motion.div
-					animate={{
-						scale: [1, 1.1, 1],
-						rotate: [0, 5, 0],
-						opacity: [0.3, 0.5, 0.3],
-					}}
-					transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-					className="absolute -top-20 -left-20 w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-primary/20 rounded-full blur-3xl"
-				/>
-				<motion.div
-					animate={{
-						scale: [1, 1.2, 1],
-						x: [0, 50, 0],
-						opacity: [0.2, 0.4, 0.2],
-					}}
-					transition={{
-						duration: 15,
-						repeat: Infinity,
-						ease: "easeInOut",
-						delay: 2,
-					}}
-					className="absolute top-40 right-0 w-64 h-64 sm:w-80 sm:h-80 md:w-[30rem] md:h-[30rem] bg-indigo-500/20 rounded-full blur-3xl"
-				/>
+				<div className="absolute -top-20 -left-20 w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 bg-primary/10 rounded-full" />
+				<div className="absolute top-40 right-0 w-64 h-64 sm:w-80 sm:h-80 md:w-[30rem] md:h-[30rem] bg-indigo-500/10 rounded-full" />
 			</div>
 
 			<div className="container mx-auto px-4 relative z-10">
@@ -63,7 +42,7 @@ export function ModernHero() {
 						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.6, delay: 0.4 }}
-						className="flex flex-col sm:flex-row items-center gap-2 max-w-lg mx-auto bg-card/80 backdrop-blur-xl p-2 rounded-2xl border shadow-lg"
+						className="flex flex-col sm:flex-row items-center gap-2 max-w-lg mx-auto bg-card p-2 rounded-2xl border shadow-lg"
 					>
 						<div className="flex-1 w-full relative">
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

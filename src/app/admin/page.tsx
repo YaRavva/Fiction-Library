@@ -315,7 +315,7 @@ export default function AdminPage() {
 					</header>
 
 					{mobileMenuOpen ? (
-						<div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden">
+						<div className="fixed inset-0 z-50 bg-background/80 lg:hidden">
 							<button
 								type="button"
 								className="absolute inset-0 h-full w-full"
