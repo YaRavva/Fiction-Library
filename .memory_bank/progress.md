@@ -251,3 +251,37 @@
 - [x] `bun run build` passes.
 - [x] Browser smoke check returns 200 for `/library` and `/admin` with no Next error overlay or console errors.
 - [ ] Full protected-page visual QA still needs an authenticated browser session because local Playwright was redirected to the auth gate.
+
+# Progress Update - 2026-07-06 Chromium UI Performance Rule
+
+## UI Performance Guardrails
+- [x] Documented Chromium compositor/repaint issues found after the premium redesign.
+- [x] Banned `backdrop-blur` / `backdrop-filter`, `mix-blend-mode`, and hover-toggled `will-change: transform` from product UI surfaces unless the user explicitly approves an exception.
+- [x] Set static CSS gradients as the default for decorative backgrounds instead of mousemove-driven JS gradients.
+
+# Progress Update - 2026-07-06 Book-File Scoring Fixes + Embeddings
+
+## Scoring Algorithm Fixes
+- [x] Removed author bonus from `scoreFileToBook()` — author match alone should not boost score (same author has many series)
+- [x] Added NFC normalization (`normalize('NFC')`) in `normalizeText()` and `lemmatizeWord()` — fixes Telegram combining-character filenames (`и + U+0306` → `й`)
+- [x] Added `parseFileName()` — splits filename by `—`, `–`, `-` separators into `fileAuthor` / `fileTitle`
+- [x] Strict domain separation — file title words only match book title words; no cross-domain matching to author
+- [x] Added `checkAuthorMatch()` — requires ALL words from the shorter name to match (2/2 for "Дем Михайлов", 1/2 for "Алексей" vs "Алексей"+different surname → fail)
+- [x] Added first-character guard in `fuzzyMatch()` — `a[0] !== b[0]` returns false (prevents `роркх` ↔ `йорк`)
+- [x] Added Unicode dashes U+2013/U+2014 to word split regex
+- [x] Added genre words to `GENERIC_TITLE_WORDS` (`роман`, `эпопе`, `повест`, `рассказ`, `поэм`, `сказк`)
+
+## UI Changes
+- [x] File Linking moved to admin page tab (two-column: book list left, file candidates right)
+- [x] Deleted `/admin/file-linking` separate page
+- [x] Sidebar merged into single "Админ-панель" link
+- [x] All entries in `Автор — Название` format
+
+## Embedding Service
+- [x] Omniroute base URL set to `http://omniroute.ravva.su:20128`
+- [x] Embedding route: `{BASE_URL}/v1/embeddings`
+- [x] Default model: `voyage-ai/voyage-4` (multilingual, 1024 dim)
+- [ ] Vector search blocked — omniroute needs embedding provider credentials configured
+
+## Commits
+- `702917a` — fix: add em dash to split pattern, tighten fuzzyMatch first-char check, move file-linking to admin tab with two-column layout

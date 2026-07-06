@@ -388,3 +388,43 @@ Premium UX redesign for the main application surfaces.
 - [x] `bun run check` passes.
 - [x] `bun run build` passes.
 - [x] Browser smoke check via Playwright with system Edge: `/library` and `/admin` return 200 with no Next error overlay or console errors, but unauthenticated local browser session shows the auth gate rather than the protected catalog/admin content.
+
+# Active Context Update - 2026-07-06 20:20
+
+## Current Focus
+Lock in Chromium-safe UI performance rules after identifying hover/repaint jitter from the previous redesign.
+
+## Active Tasks
+- [x] Record that `backdrop-blur` / `backdrop-filter`, `mix-blend-mode`, and hover-toggled `will-change: transform` are banned on product UI surfaces.
+- [x] Record that decorative mouse-follow gradient backgrounds should be static CSS gradients by default.
+
+## Session Notes
+- The user removed all backdrop blur, removed blend modes, and rewrote `MouseGradientBackground` as static CSS to avoid Chromium layer/repaint bugs.
+- Future redesign work must check hover transforms in Chromium and avoid compositor patterns that can produce jitter, layer desync, or layout shift.
+
+# Active Context Update - 2026-07-06 22:00
+
+## Current Focus
+Book-file scoring fixes, file linking admin tab, and embedding service route update.
+
+## Active Tasks
+- [x] Remove author bonus from scoring — author match must not contribute to file-book matching score
+- [x] Add NFC Unicode normalization in `normalizeText()` and `lemmatizeWord()` — handle `и + U+0306 breve` → `й` in Telegram filenames
+- [x] Add `parseFileName()` to split "Author — Title" with strict domain separation (file title words vs book title words only)
+- [x] Add `checkAuthorMatch()` requiring ALL words from shorter name to match (prevents "Алексей" matching "Алексей" with different surnames)
+- [x] Add genre words (`роман`, `эпопея`, `повесть`, `рассказ`) to `GENERIC_TITLE_WORDS`
+- [x] Add Unicode dashes (em dash `—`, en dash `–`) to split regex pattern
+- [x] Add first-character check in `fuzzyMatch()` — `a[0] !== b[0]` returns false (prevents `роркх` ↔ `йорк`)
+- [x] Fix column name bug: `filename` → `file_name` in Supabase query and search route
+- [x] Move File Linking to admin page tab with two-column layout (books | file candidates)
+- [x] Delete separate `/admin/file-linking` page
+- [x] Update sidebar — merged both admin links into single "Админ-панель" link
+- [x] Change embedding route to `v1/embeddings` with model `voyage-ai/voyage-4`
+- [x] Update memory bank with all changes
+- [ ] Commit and push
+
+## Session Notes
+- All scoring fixes committed and pushed to `origin/main`.
+- Format `Автор — Название` used throughout file-linking UI.
+- Omniroute embedding route now `{OMNIROUTE_BASE_URL}/v1/embeddings`, default model `voyage-ai/voyage-4`.
+- Vector search still blocked until omniroute embedding provider is configured.

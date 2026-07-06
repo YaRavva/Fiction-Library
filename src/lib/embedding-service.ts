@@ -3,7 +3,7 @@
  * Uses OpenAI-compatible API for generating text embeddings
  */
 
-const OMNIROUTE_BASE_URL = process.env.OMNIROUTE_BASE_URL || "https://api.omniroute.com/v1";
+const OMNIROUTE_BASE_URL = process.env.OMNIROUTE_BASE_URL || "http://omniroute.ravva.su:20128";
 const OMNIROUTE_API_KEY = process.env.OMNIROUTE_API_KEY || "";
 
 export interface EmbeddingOptions {
@@ -35,7 +35,7 @@ export async function listEmbeddingModels(): Promise<ModelInfo[]> {
         throw new Error("OMNIROUTE_API_KEY not configured");
     }
 
-    const response = await fetch(`${OMNIROUTE_BASE_URL}/models`, {
+    const response = await fetch(`${OMNIROUTE_BASE_URL}/v1/models`, {
         headers: {
             "Authorization": `Bearer ${OMNIROUTE_API_KEY}`,
             "Content-Type": "application/json",
@@ -70,9 +70,9 @@ export async function generateEmbedding(
         throw new Error("OMNIROUTE_API_KEY not configured");
     }
 
-    const model = options.model || "text-embedding-ada-002";
+    const model = options.model || "voyage-ai/voyage-4";
     
-    const response = await fetch(`${OMNIROUTE_BASE_URL}/embeddings`, {
+    const response = await fetch(`${OMNIROUTE_BASE_URL}/v1/embeddings`, {
         method: "POST",
         headers: {
             "Authorization": `Bearer ${OMNIROUTE_API_KEY}`,

@@ -105,47 +105,59 @@ interface IBookRepository {
 - Разные клиенты для метаданных и файлов
 - Переиспользование соединений
 
-### Паттерн 5: Алгоритм релевантного поиска файлов
-**Описание**: Универсальный алгоритм сопоставления файлов с книгами по названию и автору
-**Почему выбран**: Обеспечивает точное сопоставление даже при различиях в написании и дополнительных элементах
-**Как использовать**:
-- Применять в "Книжном Черве" для автоматического сопоставления
-- Использовать для поиска дубликатов и связывания файлов
-- Настраивать пороги релевантности для разных сценариев
+### Паттерн 5: Единый алгоритм оценки файл→книга (book-file-scorer.ts)
+**Описание**: Централизованная система оценки релевантности файла для книги, заменяет 3 старые дублирующиеся системы.
+**Файл**: `src/lib/book-file-scorer.ts`
+**Как использовать**: Единственный источник scoring-логики — все сервисы (BookWorm, file-linking, file-processing) импортируют `scoreFileToBook()` отсюда.
 
-#### Принципы работы алгоритма:
-1. **Нормализация строк**:
-   - Приведение к NFC нормализации Unicode
-   - Преобразование в нижний регистр
-   - Замена "ё" на "е"
+#### Принципы работы:
 
-2. **Извлечение и очистка слов**:
-   - Разделение по разделителям (пробелы, дефисы, скобки, точки)
-   - Удаление русских союзов ("и", "или", "а", "но", "в", "на")
-   - Удаление дополнительных элементов ("цикл", "серия", "книга", "том", "ru", "en")
-   - Удаление годов в скобках и файловых расширений
+1. **Строгое разделение Author/Title через `parseFileName()`**:
+   - Файл разбивается на `fileAuthor` + `fileTitle` по одному из разделителей: ` — `, ` – `, ` - `, `—`, `–`
+   - File author words сравниваются ТОЛЬКО с book author words
+   - File title words сравниваются ТОЛЬКО с book title words
+   - Перекрёстное совпадение (file author ↔ book title) **не даёт баллов**
 
-3. **Система оценки**:
-   - Точное совпадение слова: 20 баллов
-   - Бонус за высокую долю совпадений (80%+)
-   - Бонус за полное совпадение автора/названия
-   - Штрафы за лишние слова
-   - Минимальный порог: 65 баллов
+2. **`checkAuthorMatch()`** — все слова из более короткого имени должны совпасть:
+   - "Дем Михайлов" vs "Дем Михайлов" → 2/2 ✓
+   - "Алексей" vs "Алексей Губарев" → 1/1 (короткое имя совпало полностью) ✓  
+   - "Алексей" vs "Алексей Гришин" → 1/1 (короткое имя совпало, но автор match не даёт бонуса)
 
-```typescript
-// Пример использования алгоритма релевантности
-import { UniversalFileMatcher } from '@/lib/universal-file-matcher'
+3. **Нормализация**:
+   - NFC (`normalize('NFC')`) — превращает составные символы (`и + U+0306`) в `й`
+   - Лемматизация через `src/lib/lemmatizer.ts` (с кэшем 10000 записей)
+   - Удаление `ё` → `е`, lowercase
 
-// Поиск подходящих файлов для книги
-const matchingFiles = UniversalFileMatcher.findMatchingFiles(book, allFiles)
+4. **fuzzyMatch()**:
+   - Levenshtein distance ≤ 2
+   - **Первая буква должна совпадать** — `a[0] !== b[0]` → false (блокирует `роркх` ↔ `йорк`)
 
-// Проверка релевантности конкретного файла
-const isRelevant = UniversalFileMatcher.isFileRelevant(file, book)
+5. **Оценка (score 0–100)**:
+   - Точное совпадение слова: +15
+   - Нечёткое совпадение (fuzzy): +10
+   - Бонус за совпадение всех title-слов: +10
+   - Штраф за лишние слова: −5 (если слов меньше, неуmatched слово книги −5)
+   - Author match **не добавляет баллов** (проходит как бинарный флаг для UI)
+   - Минимальный порог: **50**
+   - Generic-слова (`роман`, `эпопея`, `цикл`, `серия`, `fb2`, `ru` и т.д.) — не считаются лишними
 
-// Получение детальной информации о сопоставлении
-const matchResult = UniversalFileMatcher.matchFileToBook(file, book)
-console.log(`Оценка: ${matchResult.score}, Совпадения: ${matchResult.matchedWords}`)
+6. **GENERIC_TITLE_WORDS**: `роман`, `эпопе`, `повест`, `рассказ`, `поэм`, `сказк`, `очерк`, `пьес`, `цикл`, `сери`, `книг`, `том`, `часть`, `сборник`, `fb2`, `pdf`, `epub`, `txt`, `ru`, `en`
+
+#### Архитектура
+
+```mermaid
+graph TD
+    A[parseFileName(rawName)] --> B[fileAuthor / fileTitle]
+    B --> C[normalizeText + lemmatizeWords]
+    C --> D[scoreTitleWords]
+    C --> E[checkAuthorMatch]
+    D --> F[totalScore]
+    E --> F
+    F --> G[scoreFileToBook]
+    G --> H[return { score, matchedWords, authorMatch, ... }]
 ```
+
+**Старые удалённые системы**: `UniversalFileMatcher`, старый score в `book-worm-service.ts`, дубли в `file-processing-service-enhanced.ts`. Всё заменено единым `book-file-scorer.ts`.
 
 ### Паттерн 6: Система дедупликации книг
 **Описание**: Автоматическая и ручная система предотвращения и удаления дубликатов книг
@@ -578,3 +590,17 @@ The primary application surfaces now follow a premium editorial/product UI direc
 - `src/components/books/book-card-large.tsx`: dense list-style book record.
 - `src/components/modern/ModernBookCard.tsx`: calm grid catalog card.
 - `src/app/admin/page.tsx`: operations dashboard shell around existing sync/indexing components.
+
+## Chromium Rendering Safety Rules - 2026-07-06
+
+The premium redesign must avoid known Chromium compositor/repaint jitter patterns.
+
+### Hard Rules
+- Do not use `backdrop-blur` / `backdrop-filter` on product surfaces, especially near `position: sticky` elements.
+- Do not use `mix-blend-mode` for UI surfaces that can move, hover, animate, or sit behind animated cards.
+- Do not toggle `will-change: transform` on hover. If compositor promotion is truly needed, keep it stable and verify that it does not introduce layout shift.
+- Prefer static CSS gradients for ambient backgrounds. Do not attach mousemove JS listeners for decorative gradient tracking unless there is a concrete product need and performance is verified.
+- Hover transforms on cards must be tested in Chromium for repaint jitter, layer desync, and layout shift before considering the UI done.
+
+### Reason
+Chromium can render `backdrop-blur` + sticky elements on CPU, `mix-blend-mode` can desynchronize from hover transforms through separate compositing layers, and hover-toggled `will-change` can cause repeated promotion/demotion cycles. These are banned for this project unless the user explicitly approves an exception after visual verification.
