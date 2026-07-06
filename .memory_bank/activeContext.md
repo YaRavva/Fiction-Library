@@ -325,3 +325,18 @@ Memory Bank показал высокую эффективность для ст
 - ⏳ Создание дополнительных анимированных компонентов
 - ⏳ Расширенная интеграция с проектными скриптами
 - ⏳ A/B тестирование пользовательского опыта
+# Active Context Update - 2026-07-06 11:32
+
+## Current Focus
+Update GitHub Actions scheduling for BookWorm automation.
+
+## Active Tasks
+- [x] Diagnose why GitHub Actions stopped running: workflow state is `disabled_inactivity`.
+- [x] Change BookWorm workflow schedule to daily at 00:00 UTC.
+- [x] Add repository keepalive workflow to prevent GitHub scheduled workflow inactivity disabling.
+- [x] Validate workflow YAML and re-enable the existing workflow through GitHub CLI/API.
+
+## Session Notes
+- Existing local working tree has unrelated deleted config files and a new `AGENTS.md`; leave them untouched.
+- GitHub does not expose a workflow YAML setting that disables the inactivity policy. The practical prevention is periodic repository activity.
+- `Auto Update BookWorm` is active again on GitHub after `gh workflow enable 200040587`.

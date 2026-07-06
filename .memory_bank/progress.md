@@ -214,3 +214,11 @@
 - TypeScript strict mode включен
 - Supabase RLS используется для безопасности
 - Cloud.ru S3 для файлового хранилища
+
+# Progress Update - 2026-07-06
+
+## GitHub Actions Scheduling
+- [x] Diagnosed stopped scheduled runs: GitHub workflow state was `disabled_inactivity`.
+- [x] Re-enabled `Auto Update BookWorm` through GitHub CLI/API.
+- [x] Changed BookWorm schedule to `0 0 * * *` (daily at 00:00 UTC).
+- [x] Added `.github/workflows/keepalive.yml` to create a monthly empty commit and keep repository activity fresh, reducing the risk of scheduled workflow inactivity disabling.
