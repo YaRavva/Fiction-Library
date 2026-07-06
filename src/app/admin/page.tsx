@@ -610,7 +610,6 @@ export default function AdminPage() {
 														>
 															Назад
 														</Button>
-														</div>
 													</>
 												)}
 											</div>
