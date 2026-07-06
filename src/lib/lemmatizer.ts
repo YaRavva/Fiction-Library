@@ -123,6 +123,9 @@ function lookupDictionary(word: string): string | null {
  * Приводит слово к нормальной форме (лемматизация) для русского языка
  */
 export function lemmatizeWord(word: string): string {
+	// NFC normalize to handle composed characters (e.g., и + U+0306 breve → й)
+	word = word.normalize('NFC');
+
 	// Проверяем кэш
 	const cached = lemmaCache.get(word);
 	if (cached) {

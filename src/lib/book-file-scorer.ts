@@ -64,7 +64,8 @@ const GENERIC_TITLE_WORDS = new Set([
  * Normalize text: lowercase, replace ё→е, remove extra whitespace
  */
 export function normalizeText(text: string): string {
-    let result = text.toLowerCase().trim();
+    // NFC normalize first to handle combined characters (и + breve → й, etc.)
+    let result = text.normalize('NFC').toLowerCase().trim();
     
     // Replace ё→е
     for (const [from, to] of Object.entries(NORMALIZATION_MAP)) {
