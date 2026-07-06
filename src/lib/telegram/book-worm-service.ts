@@ -597,23 +597,38 @@ export class BookWormService {
 	}
 
 	private async downloadCover(msg: any): Promise<string | null> {
-		if (!this.telegramService) return null;
+		if (!this.telegramService) {
+			console.warn("⚠️ downloadCover: telegramService is null");
+			return null;
+		}
 
-		// Логика загрузки с повторами и таймаутом
-		// (упрощенная версия, чтобы не дублировать огромный блок)
+		const anyMsg = msg as { id: number; media?: any };
 		try {
 			const result = await Promise.race([
 				this.telegramService.downloadMedia(msg),
 				new Promise<null>((resolve) => setTimeout(() => resolve(null), 30000)),
 			]);
 
-			if (!result || !(result instanceof Buffer)) return null;
+			if (!result) {
+				console.warn(`⚠️ downloadCover: null result for msg ${anyMsg.id}`);
+				return null;
+			}
+			if (!(result instanceof Buffer)) {
+				console.warn(`⚠️ downloadCover: not a Buffer for msg ${anyMsg.id}, type: ${typeof result}`);
+				return null;
+			}
+			if (result.length === 0) {
+				console.warn(`⚠️ downloadCover: empty buffer for msg ${anyMsg.id}`);
+				return null;
+			}
 
-			const anyMsg = msg as { id: number };
 			const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
 			const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
 
-			if (!coversBucket) return null;
+			if (!coversBucket) {
+				console.warn(`⚠️ downloadCover: S3_COVERS_BUCKET_NAME not set`);
+				return null;
+			}
 
 			await putObject(
 				photoKey,
@@ -621,9 +636,12 @@ export class BookWormService {
 				coversBucket,
 				"image/jpeg",
 			);
-			return `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
+			const url = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
+			console.log(`✅ Cover downloaded for msg ${anyMsg.id}: ${url}`);
+			return url;
 		} catch (e) {
-			return null; // Silent fail for cover
+			console.warn(`⚠️ downloadCover failed for msg ${anyMsg.id}:`, e);
+			return null;
 		}
 	}
 
