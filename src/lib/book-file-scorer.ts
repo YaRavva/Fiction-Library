@@ -254,39 +254,30 @@ export function scoreFileToBook(file: FileOption, book: BookOption): MatchResult
         penalties += 30;
     }
     
-    // 7. Author bonuses
-    if (authorMatch) {
-        authorBonus = 15;
-        
-        // Extra bonus for exact author match with title
-        if (titleMatchCount >= 2) {
-            authorBonus += 15;
-        } else if (titleMatchCount >= 1) {
-            authorBonus += 20;
-        }
-    }
+    // 7. No author bonuses — same author can have many unrelated series
+    // Author is only used in the cap check below to allow higher scores
+    // when both title and author align
     
     // 8. Penalties for missing matches
-    if (!authorMatch && titleMatchCount === 0) {
+    if (titleMatchCount === 0) {
         penalties += 40;
-    } else if (!authorMatch) {
-        penalties += 20;
+    } else if (uniqueTitleMatches === 0) {
+        penalties += 20; // only generic words matched, likely false positive
     }
     
     // Calculate final score
-    let score = baseScore + titleBonus + authorBonus + coverageBonus - penalties;
+    let score = baseScore + titleBonus + coverageBonus - penalties;
     
     // Apply caps based on match quality
     if (authorMatch && titleMatchCount >= 2) {
         // No cap - can reach 100
-    } else if (authorMatch && titleMatchCount === 1) {
+    } else if (authorMatch && titleMatchCount === 1 && uniqueTitleMatches >= 1) {
         score = Math.min(score, 80);
-    } else if (authorMatch) {
-        score = Math.min(score, 40);
-    } else if (titleMatchCount >= 2) {
+    } else if (titleMatchCount >= 2 && uniqueTitleMatches >= 1) {
         score = Math.min(score, 70);
-    } else if (titleMatchCount === 1) {
-        score = Math.min(score, 60);
+    } else {
+        // Only generic words matched or no author — likely false positive
+        score = Math.min(score, 40);
     }
     
     // Clamp to 0-100
