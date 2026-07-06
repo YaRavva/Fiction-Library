@@ -1,26 +1,16 @@
 import { serverSupabase } from "./serverSupabase";
-import { UniversalFileMatcher } from "./universal-file-matcher-enhanced";
+import {
+    scoreFileToBook,
+    findBestBookForFile,
+    batchMatchFilesToBooks,
+    extractWords,
+    type FileOption,
+    type BookOption,
+    type MatchResult,
+} from "./book-file-scorer";
 
-interface Book {
-	id: string;
-	title: string;
-	author: string;
-	publication_year?: number;
-}
-
-interface FileOption {
-	message_id: number;
-	file_name: string;
-	mime_type: string;
-	file_size?: number;
-}
-
-interface MatchResult {
-	file: FileOption;
-	book: Book;
-	score: number;
-	matchedWords: string[];
-}
+// Re-export types for backward compatibility
+export type { FileOption, BookOption, MatchResult };
 
 /**
  * Универсальный сервис для сопоставления файлов и книг
@@ -41,7 +31,7 @@ export class FileBookMatcherService {
 			file.file_name,
 		);
 
-		let allMatches: Book[] = [];
+		let allMatches: BookOption[] = [];
 
 		if (searchTerms.length > 0) {
 			// Создаем условия поиска для каждого термина
@@ -89,25 +79,8 @@ export class FileBookMatcherService {
 			return null;
 		}
 
-		// Находим лучшее сопоставление, используя UniversalFileMatcher
-		let bestMatch: MatchResult | null = null;
-		let bestScore = 0;
-
-		for (const book of uniqueMatches) {
-			const result = UniversalFileMatcher.matchFileToBook(file, book);
-
-			if (result.score > bestScore) {
-				bestScore = result.score;
-				bestMatch = {
-					file,
-					book,
-					score: result.score,
-					matchedWords: result.matchedWords,
-				};
-			}
-		}
-
-		return bestMatch;
+		// Находим лучшее сопоставление, используя unified scorer
+		return findBestBookForFile(file, uniqueMatches, 50);
 	}
 
 	/**
@@ -116,17 +89,12 @@ export class FileBookMatcherService {
 	 * @param book книга для проверки
 	 * @returns результат сопоставления, если релевантна
 	 */
-	static matchFileWithBook(file: FileOption, book: Book): MatchResult | null {
-		const result = UniversalFileMatcher.matchFileToBook(file, book);
+	static matchFileWithBook(file: FileOption, book: BookOption): MatchResult | null {
+		const result = scoreFileToBook(file, book);
 
-		if (result.score >= 60) {
+		if (result.score >= 50) {
 			// Порог релевантности
-			return {
-				file,
-				book,
-				score: result.score,
-				matchedWords: result.matchedWords,
-			};
+			return result;
 		}
 
 		return null;
@@ -139,21 +107,16 @@ export class FileBookMatcherService {
 	 * @returns отсортированный список релевантных файлов
 	 */
 	static findBestMatchesForBook(
-		book: Book,
+		book: BookOption,
 		files: FileOption[],
 	): MatchResult[] {
 		const results: MatchResult[] = [];
 
 		for (const file of files) {
-			const matchResult = UniversalFileMatcher.matchFileToBook(file, book);
+			const result = scoreFileToBook(file, book);
 
 			// Возвращаем все совпадения, чтобы иметь возможность видеть все оценки
-			results.push({
-				file,
-				book,
-				score: matchResult.score,
-				matchedWords: matchResult.matchedWords,
-			});
+			results.push(result);
 		}
 
 		// Сортируем по убыванию релевантности

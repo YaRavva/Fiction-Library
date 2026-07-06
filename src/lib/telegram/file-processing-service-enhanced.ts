@@ -5,6 +5,7 @@ import { serverSupabase } from "../serverSupabase";
 import { getSupabaseAdmin } from "../supabase";
 import { TelegramService } from "./client";
 import { MetadataExtractionService } from "./metadata-extraction-service";
+import { findBestBookForFile, extractWords, type FileOption, type BookOption } from "../book-file-scorer";
 
 export class EnhancedFileProcessingService {
 	private static instance: EnhancedFileProcessingService;
@@ -25,9 +26,11 @@ export class EnhancedFileProcessingService {
 	/**
 	 * Обрабатывает один файл по ID сообщения с корректной обработкой обложек
 	 * @param messageId ID сообщения с файлом
+	 * @param knownBookId Если известен bookId, пропускаем ILIKE поиск и используем его напрямую
 	 */
 	public async processSingleFileById(
 		messageId: number,
+		knownBookId?: string,
 	): Promise<{ [key: string]: unknown }> {
 		if (!this.telegramClient) {
 			throw new Error("Telegram client not initialized");
@@ -165,146 +168,184 @@ export class EnhancedFileProcessingService {
 			const searchTerms =
 				MetadataExtractionService.extractSearchTerms(originalFilename);
 
+			// Если известен bookId, пропускаем ILIKE поиск
+			let book: { id: string; title: string; author: string } | null = null;
+			
+			if (knownBookId) {
+				console.log(`  🎯 Используем известный bookId: ${knownBookId}`);
+				const { data: knownBook, error: knownBookError } = await serverSupabase
+					.from("books")
+					.select("id, title, author")
+					.eq("id", knownBookId)
+					.single();
+				
+				if (knownBookError || !knownBook) {
+					console.warn(`  ⚠️  Книга с ID ${knownBookId} не найдена`);
+					return {
+						messageId: anyMsg.id,
+						filename: originalFilename,
+						success: false,
+						error: "known_book_not_found",
+						bookId: knownBookId,
+					};
+				}
+				
+				book = knownBook;
+			}
+
 			// Сначала ищем книгу по релевантности без скачивания файла
-			console.log(`  🔍 Поиск книги по релевантности...`);
+			if (!book) {
+				console.log(`  🔍 Поиск книги по релевантности...`);
 
-			// Ищем книги по поисковым терминам
-			let allMatches: unknown[] = [];
+				// Ищем книги по поисковым терминам
+				let allMatches: unknown[] = [];
 
-			// Если у нас есть поисковые термины, используем их для поиска
-			if (searchTerms.length > 0) {
-				// Создаем условия поиска для каждого термина
-				// Поиск по названию и автору с использованием ILIKE
-				const searchPromises = [];
+				// Если у нас есть поисковые термины, используем их для поиска
+				if (searchTerms.length > 0) {
+					// Создаем условия поиска для каждого термина
+					// Поиск по названию и автору с использованием ILIKE
+					const searchPromises = [];
 
-				// Поиск по каждому термину в названии
-				for (const term of searchTerms) {
+					// Поиск по каждому термину в названии
+					for (const term of searchTerms) {
+						searchPromises.push(
+							serverSupabase
+								.from("books")
+								.select("id, title, author")
+								.ilike("title", `%${term}%`)
+								.limit(5),
+						);
+					}
+
+					// Поиск по каждому термину в авторе
+					for (const term of searchTerms) {
+						searchPromises.push(
+							serverSupabase
+								.from("books")
+								.select("id, title, author")
+								.ilike("author", `%${term}%`)
+								.limit(5),
+						);
+					}
+
+					// Выполняем все поисковые запросы параллельно
+					try {
+						const results = await Promise.all(searchPromises);
+
+						// Объединяем все результаты
+						allMatches = results.flatMap((result: any) => result.data || []);
+					} catch (searchError) {
+						console.warn(`  ⚠️  Ошибка при поиске книг:`, searchError);
+					}
+
+					console.log(
+						`  📚 Найдено ${allMatches.length} потенциальных совпадений по терминам`,
+					);
+				}
+
+				// Если книги не найдены по терминам, используем оригинальный метод
+				if (allMatches.length === 0) {
+					const searchPromises = [];
+
+					// Поиск по названию
 					searchPromises.push(
 						serverSupabase
 							.from("books")
 							.select("id, title, author")
-							.ilike("title", `%${term}%`)
+							.ilike("title", `%${title}%`)
 							.limit(5),
 					);
-				}
 
-				// Поиск по каждому термину в авторе
-				for (const term of searchTerms) {
+					// Поиск по автору
 					searchPromises.push(
 						serverSupabase
 							.from("books")
 							.select("id, title, author")
-							.ilike("author", `%${term}%`)
+							.ilike("author", `%${author}%`)
 							.limit(5),
 					);
+
+					// Выполняем все поисковые запросы параллельно
+					try {
+						const results = await Promise.all(searchPromises);
+
+						// Объединяем все результаты
+						allMatches = results.flatMap((result: any) => result.data || []);
+					} catch (searchError) {
+						console.warn(`  ⚠️  Ошибка при поиске книг:`, searchError);
+					}
 				}
 
-				// Выполняем все поисковые запросы параллельно
-				try {
-					const results = await Promise.all(searchPromises);
+				// Удаляем дубликаты по ID
+				const uniqueMatches = allMatches.filter(
+					(bookItem, index, self) =>
+						index ===
+						self.findIndex(
+							(b) => (b as { id: string }).id === (bookItem as { id: string }).id,
+						),
+				);
 
-					// Объединяем все результаты
-					allMatches = results.flatMap((result: any) => result.data || []);
-				} catch (searchError) {
-					console.warn(`  ⚠️  Ошибка при поиске книг:`, searchError);
+				// Если книги не найдены, пропускаем файл
+				if (uniqueMatches.length === 0) {
+					console.log(
+						`  ⚠️  Книга не найдена по релевантности. Файл пропущен: ${originalFilename}`,
+					);
+					return {
+						messageId: anyMsg.id,
+						filename: originalFilename,
+						success: true,
+						skipped: true,
+						reason: "book_not_found",
+						bookTitle: title,
+						bookAuthor: author,
+						searchTerms: searchTerms,
+					};
 				}
 
-				console.log(
-					`  📚 Найдено ${allMatches.length} потенциальных совпадений по терминам`,
-				);
-			}
+				console.log(`  📚 Найдено ${uniqueMatches.length} уникальных совпадений`);
 
-			// Если книги не найдены по терминам, используем оригинальный метод
-			if (allMatches.length === 0) {
-				const searchPromises = [];
-
-				// Поиск по названию
-				searchPromises.push(
-					serverSupabase
-						.from("books")
-						.select("id, title, author")
-						.ilike("title", `%${title}%`)
-						.limit(5),
-				);
-
-				// Поиск по автору
-				searchPromises.push(
-					serverSupabase
-						.from("books")
-						.select("id, title, author")
-						.ilike("author", `%${author}%`)
-						.limit(5),
-				);
-
-				// Выполняем все поисковые запросы параллельно
-				try {
-					const results = await Promise.all(searchPromises);
-
-					// Объединяем все результаты
-					allMatches = results.flatMap((result: any) => result.data || []);
-				} catch (searchError) {
-					console.warn(`  ⚠️  Ошибка при поиске книг:`, searchError);
-				}
-			}
-
-			// Удаляем дубликаты по ID
-			const uniqueMatches = allMatches.filter(
-				(bookItem, index, self) =>
-					index ===
-					self.findIndex(
-						(b) => (b as { id: string }).id === (bookItem as { id: string }).id,
-					),
-			);
-
-			// Если книги не найдены, пропускаем файл
-			if (uniqueMatches.length === 0) {
-				console.log(
-					`  ⚠️  Книга не найдена по релевантности. Файл пропущен: ${originalFilename}`,
-				);
-				return {
-					messageId: anyMsg.id,
-					filename: originalFilename,
-					success: true,
-					skipped: true,
-					reason: "book_not_found",
-					bookTitle: title,
-					bookAuthor: author,
-					searchTerms: searchTerms,
+				// Создаем FileOption для unified scorer
+				const fileOption: FileOption = {
+					message_id: anyMsg.id as number,
+					file_name: originalFilename,
+					mime_type: (anyMsg.document as { [key: string]: unknown })?.mimeType as string,
 				};
-			}
 
-			console.log(`  📚 Найдено ${uniqueMatches.length} уникальных совпадений`);
+				// Конвертируем matches в BookOption[]
+				const bookOptions: BookOption[] = uniqueMatches.map((m) => ({
+					id: (m as { id: string }).id,
+					title: (m as { title: string }).title,
+					author: (m as { author: string }).author,
+				}));
 
-			// Выбираем наиболее релевантную книгу из найденных
-			const bestMatch = MetadataExtractionService.selectBestMatch(
-				uniqueMatches,
-				searchTerms,
-				title,
-				author,
-			);
+				// Используем unified scorer для выбора лучшей книги
+				const bestMatchResult = findBestBookForFile(fileOption, bookOptions, 50);
 
-			// Проверяем, что нашли подходящую книгу
-			if (!bestMatch) {
+				// Проверяем, что нашли подходящую книгу
+				if (!bestMatchResult) {
+					console.log(
+						`  ⚠️  Подходящая книга не найдена по релевантности. Файл пропущен: ${originalFilename}`,
+					);
+					return {
+						messageId: anyMsg.id,
+						filename: originalFilename,
+						success: true,
+						skipped: true,
+						reason: "no_matching_book",
+						bookTitle: title,
+						bookAuthor: author,
+						searchTerms: searchTerms,
+					};
+				}
+
 				console.log(
-					`  ⚠️  Подходящая книга не найдена по релевантности. Файл пропущен: ${originalFilename}`,
+					`  ✅ Выбрана лучшая книга: "${bestMatchResult.book.title}" автора ${bestMatchResult.book.author} (оценка: ${bestMatchResult.score})`,
 				);
-				return {
-					messageId: anyMsg.id,
-					filename: originalFilename,
-					success: true,
-					skipped: true,
-					reason: "no_matching_book",
-					bookTitle: title,
-					bookAuthor: author,
-					searchTerms: searchTerms,
-				};
+
+				book = bestMatchResult.book;
+			} else {
+				console.log(`  ✅ Используем известную книгу: "${book.title}" автора ${book.author}`);
 			}
-
-			console.log(
-				`  ✅ Выбрана лучшая книга: "${(bestMatch as { title: string }).title}" автора ${(bestMatch as { author: string }).author}`,
-			);
-
-			const book = bestMatch as { id: string; title: string; author: string };
 
 			// Проверяем, существует ли запись в telegram_processed_messages для данной книги
 			const { data: existingRecords, error: selectError } = await serverSupabase

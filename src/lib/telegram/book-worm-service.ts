@@ -2,6 +2,7 @@ import {
 	checkForBookDuplicates,
 	normalizeBookText,
 } from "../book-deduplication-service";
+import { findBestFileForBook, batchMatchFilesToBooks, type FileOption, type BookOption, type MatchResult } from "../book-file-scorer";
 import { FileBookMatcherService } from "../file-book-matcher-service";
 import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
@@ -132,7 +133,7 @@ export class BookWormService {
 	}
 
 	/**
-	 * Находит соответствующий файл для книги с использованием универсального алгоритма релевантного поиска
+	 * Находит соответствующий файл для книги с использованием unified scorer
 	 */
 	private async findMatchingFile(
 		book: Book,
@@ -153,24 +154,25 @@ export class BookWormService {
 			`    🔍 Поиск файла для книги: "${book.title}" автора ${book.author}`,
 		);
 
-		// Преобразуем файлы для сопоставления
-		const filesForMatching = files.map((file: any) => ({
+		// Преобразуем файлы в формат FileOption
+		const fileOptions: FileOption[] = files.map((file: any) => ({
 			message_id: file.messageId || file.message_id || 0,
 			file_name: file.filename || "",
 			mime_type: file.mime_type || "unknown",
 			file_size: file.file_size || file.size || undefined,
 		}));
 
-		// Используем универсальный сервис для сопоставления
-		const matches = FileBookMatcherService.findBestMatchesForBook(
-			{ id: book.id, title: book.title, author: book.author },
-			filesForMatching,
-		);
+		// Создаем BookOption
+		const bookOption: BookOption = {
+			id: book.id,
+			title: book.title,
+			author: book.author,
+		};
 
-		if (matches.length > 0) {
-			// Берем лучшее совпадение (оно уже отсортировано по убыванию релевантности)
-			const bestMatch = matches[0];
+		// Используем unified scorer
+		const bestMatch = findBestFileForBook(bookOption, fileOptions, 50);
 
+		if (bestMatch) {
 			// Найдем соответствующий файл из исходного списка
 			const sourceFile = files.find(
 				(file: any) =>
@@ -178,31 +180,12 @@ export class BookWormService {
 					(file.message_id && file.message_id === bestMatch.file.message_id),
 			);
 
-			if (sourceFile && bestMatch.score >= 60) {
-				// Используем тот же порог, что и в универсальном сервисе
+			if (sourceFile) {
 				console.log(
 					`    ✅ Найдено совпадение с рейтингом ${bestMatch.score}: ${sourceFile.filename}`,
 				);
-				console.log(`📊 Ранжирование совпадений:`);
-				for (let i = 0; i < Math.min(3, matches.length); i++) {
-					const match = matches[i];
-					const matchSourceFile = files.find(
-						(file: any) =>
-							(file.messageId && file.messageId === match.file.message_id) ||
-							(file.message_id && file.message_id === match.file.message_id),
-					);
-					if (matchSourceFile) {
-						console.log(
-							`    ${i + 1}. "${book.title}" автора ${book.author} (счет: ${match.score})`,
-						);
-					}
-				}
-
+				console.log(`    📊 Детали: title=${bestMatch.titleMatchCount}, author=${bestMatch.authorMatch}, matched=${bestMatch.matchedWords.length}`);
 				return sourceFile;
-			} else if (sourceFile) {
-				console.log(
-					`    ⚠️  Найдено совпадение, но оценка ниже порога (${bestMatch.score} < 65): ${sourceFile.filename}`,
-				);
 			}
 		}
 
@@ -909,7 +892,7 @@ export class BookWormService {
 				details.filter((d) => (d as any).status === "skipped").length;
 
 			// 5. Привязка файлов ко всем книгам без файлов
-			console.log("🔗 Привязка файлов к книгам...");
+			console.log("🔗 Привязка файлов к книгам (batch mode)...");
 			let matchedCount = 0;
 
 			try {
@@ -941,21 +924,48 @@ export class BookWormService {
 					);
 
 					if (filesToProcess.length > 0) {
-						for (const book of booksWithoutFiles) {
+						// Конвертируем данные в формат FileOption/BookOption
+						const fileOptions: FileOption[] = filesToProcess.map((f: any) => ({
+							message_id: f.messageId || f.message_id || 0,
+							file_name: f.filename || "",
+							mime_type: f.mime_type || "unknown",
+							file_size: f.file_size || f.size || undefined,
+						}));
+
+						const bookOptions: BookOption[] = booksWithoutFiles.map((b: any) => ({
+							id: b.id,
+							title: b.title,
+							author: b.author,
+						}));
+
+						// Выполняем batch matching за один проход
+						console.log(`⚡ Выполняем batch matching (${bookOptions.length} книг x ${fileOptions.length} файлов)...`);
+						const batchMatches = batchMatchFilesToBooks(fileOptions, bookOptions, 50);
+						console.log(`📊 Найдено ${batchMatches.size} совпадений`);
+
+						// Обрабатываем результаты
+						for (const [bookId, matchResult] of batchMatches) {
+							const book = booksWithoutFiles.find((b: any) => b.id === bookId);
+							if (!book) continue;
+
 							try {
-								const matchingFile = await this.findMatchingFile(
-									book,
-									filesToProcess,
+								// Находим оригинальный файл из списка
+								const matchingFile = filesToProcess.find(
+									(f: any) => 
+										(f.messageId && f.messageId === matchResult.file.message_id) ||
+										(f.message_id && f.message_id === matchResult.file.message_id),
 								);
 
 								if (matchingFile) {
 									console.log(
-										`    📨 Найден файл для "${book.title}": ${matchingFile.filename}`,
+										`    📨 Найден файл для "${book.title}": ${matchingFile.filename} (оценка: ${matchResult.score})`,
 									);
 
+									// Pass knownBookId to skip ILIKE search
 									const _result =
 										await this.enhancedFileService?.processSingleFileById(
 											parseInt(matchingFile.messageId as string, 10),
+											bookId,
 										);
 									console.log(`    ✅ Файл привязан`);
 									matchedCount++;
