@@ -519,7 +519,7 @@ export class BookWormService {
 						.select("id, title, author, telegram_post_id, cover_url")
 						.is("cover_url", null)
 						.not("telegram_post_id", "is", null)
-						.in("telegram_post_id", processedMessageIds);
+						.limit(20);
 
 				if (coverFetchError) {
 					console.warn("⚠️ Ошибка загрузки книг без обложек:", coverFetchError);
