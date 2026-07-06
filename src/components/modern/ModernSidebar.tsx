@@ -15,7 +15,7 @@ export function ModernSidebar() {
 	const router = useRouter();
 
 	return (
-		<aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 border-r bg-card/30 backdrop-blur-xl p-6">
+		<aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 border-r bg-card p-6">
 			<div
 				className="flex items-center gap-2 mb-10 cursor-pointer"
 				onClick={() => router.push("/library")}

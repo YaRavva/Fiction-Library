@@ -147,7 +147,7 @@ export default function MyBooksPage() {
 			/>
 			<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 				{/* Header */}
-				<header className="flex items-center justify-between p-4 border-b bg-card/80 backdrop-blur-xl sticky top-0 z-30">
+				<header className="flex items-center justify-between p-4 border-b bg-card sticky top-0 z-30">
 					<div className="flex items-center gap-2">
 						<Library className="h-6 w-6 text-primary" />
 						<span className="font-bold text-lg">Мои книги</span>

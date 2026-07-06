@@ -127,7 +127,7 @@ export default function ModernLibraryPage() {
 
 			<main className="flex-1 overflow-x-hidden">
 				{/* Mobile Header */}
-				<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card/80 backdrop-blur-xl sticky top-0 z-50">
+				<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card sticky top-0 z-50">
 					<div className="flex items-center gap-2">
 						<div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
 							<Book className="w-5 h-5 text-primary-foreground" />

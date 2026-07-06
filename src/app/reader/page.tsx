@@ -585,7 +585,7 @@ function ReaderContent() {
 
 				<div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
 					{/* Mobile Header */}
-					<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card/80 backdrop-blur-xl sticky top-0 z-30">
+					<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card sticky top-0 z-30">
 						<div className="flex items-center gap-2">
 							<BookOpen className="h-6 w-6 text-primary" />
 							<span className="font-bold text-lg truncate max-w-[200px]">
@@ -604,7 +604,7 @@ function ReaderContent() {
 					{/* Reader Content Area */}
 					<div className="flex-1 flex flex-col overflow-hidden relative bg-background">
 						{/* Reader Toolbar (Sticky) */}
-						<div className="flex items-center justify-between p-3 md:p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-20 shadow-sm">
+						<div className="flex items-center justify-between p-3 md:p-4 border-b bg-background sticky top-0 z-20 shadow-sm">
 							<div className="flex items-center gap-3 overflow-hidden">
 								<Button
 									variant="ghost"
@@ -761,7 +761,7 @@ function ReaderContent() {
 						<div
 							ref={scrollRef}
 							onScroll={handleScroll}
-							className="flex-1 overflow-y-auto p-4 md:p-8 lg:px-16 scrollbar-hide relative"
+							className="flex-1 overflow-y-auto p-4 md:p-8 lg:px-16 relative"
 						>
 							{content ? (
 								<div

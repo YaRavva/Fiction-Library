@@ -364,7 +364,7 @@ function LibraryContent() {
 				</div>
 
 				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-					<header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-xl">
+					<header className="sticky top-0 z-30 border-b bg-background">
 						<div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
 							<div className="min-w-0">
 								<div className="flex items-center gap-2 lg:hidden">
@@ -420,7 +420,7 @@ function LibraryContent() {
 						</div>
 					) : null}
 
-					<main className="flex-1 overflow-y-auto scrollbar-hide">
+					<main className="flex-1 overflow-y-auto">
 						<div className="mx-auto w-full max-w-[1480px] px-4 py-5 sm:px-6 lg:px-8">
 							<section className="mb-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
 								<div className="space-y-2">

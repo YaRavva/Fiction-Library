@@ -228,7 +228,7 @@ function BookDetailPageContent() {
 
 				<div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
 					{/* Mobile Header */}
-					<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card/80 backdrop-blur-xl sticky top-0 z-30">
+					<header className="lg:hidden flex items-center justify-between p-4 border-b bg-card sticky top-0 z-30">
 						<Button variant="ghost" size="icon" onClick={() => router.back()}>
 							<ArrowLeft className="h-5 w-5" />
 						</Button>

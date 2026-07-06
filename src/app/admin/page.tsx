@@ -286,7 +286,7 @@ export default function AdminPage() {
 				</div>
 
 				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-					<header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-xl">
+					<header className="sticky top-0 z-30 border-b bg-background">
 						<div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
 							<div className="min-w-0">
 								<div className="flex items-center gap-2 lg:hidden">
@@ -342,7 +342,7 @@ export default function AdminPage() {
 						</div>
 					) : null}
 
-					<main className="flex-1 overflow-y-auto scrollbar-hide">
+					<main className="flex-1 overflow-y-auto">
 						<div className="mx-auto w-full max-w-[1320px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
 							<section className="grid gap-3 md:grid-cols-3">
 								<div className="rounded-lg border bg-card p-4 shadow-sm">
