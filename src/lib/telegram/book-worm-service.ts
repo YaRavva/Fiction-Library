@@ -356,21 +356,19 @@ export class BookWormService {
 					: String(channel.id);
 
 			// Получаем новые сообщения используя minId для эффективности
-			// reverse: true означает получение от старых к новым (что важно для хронологии, но minId обычно лучше работает)
-			// minId исключает само сообщение с minId
 			console.log(
 				`📥 Получаем новые сообщения из канала (после ID ${lastMessageId || 0})...`,
 			);
 
 			const newMessages = (await this.telegramService.getMessages(
 				channelId,
-				200, // Лимит на пакет
-				undefined, // offsetId не используем, так как используем minId
+				200,
+				undefined,
 				{
 					minId: lastMessageId,
-					reverse: true, // Сортировка от старых к новым
+					reverse: true,
 				},
-			)) as any[]; // Type assertion for compatibility
+			)) as any[];
 
 			if (newMessages.length === 0) {
 				console.log(
@@ -389,23 +387,20 @@ export class BookWormService {
 				`✅ Получено ${newMessages.length} новых сообщений для обработки`,
 			);
 
-			// Импортируем новые сообщения как метаданные книг
+			// 2. Обработка сообщений и подготовка метаданных
 			console.log("💾 Обработка сообщений и подготовка метаданных...");
 
-			// Параллельная обработка сообщений чанками (по 5 одновременно)
 			const messageChunks = this.chunkArray(newMessages, 5);
 			const metadataList: BookMetadata[] = [];
 			const details: unknown[] = [];
-			const detailedLogs: string[] = []; // Collect logs here
+			const detailedLogs: string[] = [];
 
 			let processedCount = 0;
 			for (const chunk of messageChunks) {
-				// Запускаем параллельную обработку чанка
 				const results = await Promise.all(
 					chunk.map((msg) => this.processSingleMessage(msg)),
 				);
 
-				// Собираем результаты
 				for (const res of results) {
 					if (res.metadata) {
 						metadataList.push(res.metadata);
@@ -428,7 +423,7 @@ export class BookWormService {
 				`📊 Всего подготовлено метаданных для импорта: ${metadataList.length}`,
 			);
 
-			// Импортируем все метаданные с дедупликацией (Batch Insert/Update)
+			// 3. Импорт метаданных с дедупликацией
 			console.log("💾 Импортируем метаданные в базу данных...");
 			const resultImport =
 				await this.metadataService.importMetadataWithDeduplication(
@@ -437,34 +432,104 @@ export class BookWormService {
 
 			console.log("✅ Импорт новых метаданных завершен");
 
-			// Объединяем details и статистику
 			const combinedDetails = [...details, ...resultImport.details];
 			const totalSkipped =
 				resultImport.skipped +
 				details.filter((d) => (d as any).status === "skipped").length;
 
-			// Выводим сводку
+			// 4. Привязка файлов к новым книгам
+			console.log("🔗 Привязка файлов к новым книгам...");
+			let matchedCount = 0;
+
+			try {
+				// Получаем книги без файлов, которые были обработаны в этом запуске
+				const processedMessageIds = newMessages.map((m: any) => String(m.id));
+
+				const { data: booksToLink, error: booksLinkError } =
+					await serverSupabase
+						.from("books")
+						.select(
+							"id, title, author, telegram_post_id, file_url, telegram_file_id",
+						)
+						.is("file_url", null)
+						.not("title", "is", null)
+						.not("author", "is", null)
+						.in("telegram_post_id", processedMessageIds);
+
+				if (booksLinkError) {
+					console.warn(
+						"⚠️ Ошибка загрузки книг для привязки файлов:",
+						booksLinkError,
+					);
+				} else if (booksToLink && booksToLink.length > 0) {
+					console.log(
+						`📚 Найдено ${booksToLink.length} книг без файлов для привязки`,
+					);
+
+					// Загружаем файлы из архивного канала
+					console.log("📥 Загрузка файлов из Telegram...");
+					const filesToProcess = await this.fileService.getFilesToProcess(2000);
+					console.log(
+						`📊 Загружено ${filesToProcess.length} файлов для сопоставления`,
+					);
+
+					if (filesToProcess.length > 0) {
+						for (const book of booksToLink) {
+							try {
+								const matchingFile = await this.findMatchingFile(
+									book,
+									filesToProcess,
+								);
+
+								if (matchingFile) {
+									console.log(
+										`    📨 Найден файл для "${book.title}": ${matchingFile.filename}`,
+									);
+
+									const _result =
+										await this.enhancedFileService?.processSingleFileById(
+											parseInt(matchingFile.messageId as string, 10),
+										);
+									console.log(`    ✅ Файл привязан`);
+									matchedCount++;
+								}
+							} catch (matchErr) {
+								console.warn(
+									`    ⚠️ Ошибка привязки файла для "${book.title}":`,
+									matchErr,
+								);
+							}
+						}
+					}
+				} else {
+					console.log("  ℹ️  Нет книг без файлов для привязки");
+				}
+			} catch (fileLinkError) {
+				console.warn("⚠️ Ошибка при привязке файлов:", fileLinkError);
+			}
+
+			// Сводка
 			console.log("\n📊 СВОДКА СИНХРОНИЗАЦИИ:");
 			console.log(`   ========================================`);
 			console.log(`   Обработано сообщений: ${newMessages.length}`);
 			console.log(`   Добавлено книг: ${resultImport.added}`);
 			console.log(`   Обновлено книг: ${resultImport.updated}`);
+			console.log(`   Привязано файлов: ${matchedCount}`);
 			console.log(`   Пропущено: ${totalSkipped}`);
 			console.log(`   Ошибок: ${resultImport.errors}`);
 
 			return {
 				processed:
-					resultImport.processed + newMessages.length - metadataList.length, // Total processed messages
+					resultImport.processed + newMessages.length - metadataList.length,
 				added: resultImport.added,
 				updated: resultImport.updated,
 				skipped: totalSkipped,
 				errors: resultImport.errors,
 				details: combinedDetails,
-				matched: 0, // Files logic separated or handled implicitly later
+				matched: matchedCount,
 				lastProcessedMessageId: lastMessageId,
-				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Processed: ${newMessages.length}`,
+				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Processed: ${newMessages.length}`,
 				detailedLogs: detailedLogs.sort((a, b) => {
-					// Sort logs by ID if they start with [ID:...]
 					const idA = parseInt(a.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);
 					const idB = parseInt(b.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);
 					return idA - idB;
@@ -652,149 +717,190 @@ export class BookWormService {
 		console.log("🔄 Запуск полной синхронизации книг...");
 
 		try {
-			// Проверяем, что сервисы инициализированы
 			if (!this.fileService || !this.metadataService || !this.telegramService) {
 				throw new Error(
 					"Необходимые сервисы не инициализированы. Убедитесь, что BookWormService создан через getInstance().",
 				);
 			}
 
-			// 1. Индексируем все сообщения из канала с метаданными для полной проверки
-			console.log("📥 Индексация всех сообщений из канала с метаданными...");
+			// 1. Получаем канал с метаданными
+			const channel = await this.telegramService.getMetadataChannel();
+			const channelId =
+				typeof channel.id === "object" && channel.id !== null
+					? (channel.id as { toString: () => string }).toString()
+					: String(channel.id);
+
+			// 2. Загружаем ВСЕ сообщения из канала с метаданными
+			console.log("📥 Загрузка всех сообщений из канала с метаданными...");
 			const detailedLogs: string[] = [];
-			const onLog = (msg: string) => detailedLogs.push(msg);
 
-			const indexResult = await this.metadataService.indexAllMessages(
-				10000,
-				onLog,
-			); // Увеличиваем размер пакета для более эффективной загрузки
+			const allMessages: any[] = [];
+			let offsetId: number | undefined;
+			let hasMore = true;
+			let batchIndex = 0;
 
-			// 2. Загружаем все сообщения из канала с файлами (все 4249 батчами по 1000)
-			console.log("📥 Загрузка всех файлов из Telegram...");
-			const allFilesToProcess = [];
-			let offsetIdFiles: number | undefined;
-			let hasMoreFiles = true;
-			let fileBatchIndex = 0;
-
-			while (hasMoreFiles) {
-				fileBatchIndex++;
-				console.log(
-					`📥 Получаем батч файлов ${fileBatchIndex} из Telegram (лимит: 1000)...`,
-				);
-				const filesBatch = await this.fileService.getFilesToProcess(
+			while (hasMore) {
+				batchIndex++;
+				console.log(`  📥 Батч ${batchIndex}...`);
+				const batch = (await this.telegramService.getMessages(
+					channelId,
 					1000,
-					offsetIdFiles,
-				);
+					offsetId,
+					{ reverse: false },
+				)) as any[];
 
-				if (filesBatch.length === 0) {
-					console.log("  📌 Больше нет файлов для загрузки");
+				if (batch.length === 0) {
 					break;
 				}
 
-				console.log(
-					`  ✅ Получено ${filesBatch.length} файлов в батче ${fileBatchIndex}`,
-				);
-				allFilesToProcess.push(...filesBatch);
+				allMessages.push(...batch);
+				detailedLogs.push(`  📥 Батч ${batchIndex}: ${batch.length} сообщений`);
 
-				// Устанавливаем offsetIdFiles для следующего батча
-				if (filesBatch.length < 1000) {
-					hasMoreFiles = false;
+				if (batch.length < 1000) {
+					hasMore = false;
 				} else {
-					// Берем минимальный ID из текущего батча для следующей итерации
-					const messageIds = filesBatch
-						.map((item) => parseInt(String(item.messageId), 10))
-						.filter((id) => !Number.isNaN(id) && id > 0);
-
-					if (messageIds.length > 0) {
-						offsetIdFiles = Math.min(...messageIds) - 1;
-					} else {
-						hasMoreFiles = false;
-					}
+					offsetId = Math.max(...batch.map((m: any) => m.id));
 				}
 			}
 
-			console.log(`📊 Всего загружено файлов: ${allFilesToProcess.length}`);
+			console.log(`✅ Всего загружено сообщений: ${allMessages.length}`);
 
-			// 3. Находим все книги в БД без файлов и запускаем универсальный алгоритм привязки файлов
-			console.log("📚 Поиск книг без файлов в базе данных...");
-			const { data: booksWithoutFiles, error: booksError } =
-				await serverSupabase
-					.from("books")
-					.select(
-						"id, title, author, telegram_post_id, file_url, telegram_file_id",
-					)
-					.is("file_url", null) // Только книги без файлов
-					.not("title", "is", null)
-					.not("author", "is", null);
+			// 3. Обработка сообщений и подготовка метаданных
+			console.log("💾 Обработка сообщений и подготовка метаданных...");
 
-			if (booksError) {
-				throw new Error(
-					`Ошибка при загрузке книг без файлов: ${booksError.message}`,
+			const messageChunks = this.chunkArray(allMessages, 5);
+			const metadataList: BookMetadata[] = [];
+			const details: unknown[] = [];
+
+			let processedCount = 0;
+			for (const chunk of messageChunks) {
+				const results = await Promise.all(
+					chunk.map((msg) => this.processSingleMessage(msg)),
 				);
-			}
 
-			if (!booksWithoutFiles || booksWithoutFiles.length === 0) {
-				console.log("⚠️  Нет книг без файлов для сопоставления");
-				return {
-					processed: indexResult.indexed,
-					added: 0,
-					updated: 0,
-					matched: 0,
-					message: `Full sync completed. Indexed ${indexResult.indexed} messages, no books without files found for file matching.`,
-				};
+				for (const res of results) {
+					if (res.metadata) {
+						metadataList.push(res.metadata);
+					}
+					if (res.details) {
+						details.push(res.details);
+					}
+					if (res.log) {
+						detailedLogs.push(res.log);
+					}
+				}
+
+				processedCount += chunk.length;
+				console.log(
+					`  ⏳ Обработано ${processedCount}/${allMessages.length} сообщений...`,
+				);
 			}
 
 			console.log(
-				`✅ Найдено ${booksWithoutFiles.length} книг без файлов для сопоставления`,
+				`📊 Всего подготовлено метаданных для импорта: ${metadataList.length}`,
 			);
 
-			// Для каждой книги без файла ищем соответствующий файл
-			let processedCount = 0;
-			let matchedCount = 0;
-
-			for (const book of booksWithoutFiles) {
-				processedCount++;
-				console.log(`
-📖 Обработка книги: "${book.title}" автора ${book.author} (${processedCount}/${booksWithoutFiles.length})`);
-
-				// Ищем соответствующий файл для книги, используя универсальный алгоритм
-				const matchingFile = await this.findMatchingFile(
-					book,
-					allFilesToProcess,
+			// 4. Импорт метаданных с дедупликацией
+			console.log("💾 Импортируем метаданные в базу данных...");
+			const resultImport =
+				await this.metadataService.importMetadataWithDeduplication(
+					metadataList,
 				);
 
-				if (matchingFile) {
-					console.log(
-						`    📨 Найден соответствующий файл: ${matchingFile.filename}`,
-					);
-					console.log(`    📨 Message ID файла: ${matchingFile.messageId}`);
+			console.log("✅ Импорт метаданных завершен");
 
-					try {
-						// Обрабатываем найденный файл
-						const _result =
-							await this.enhancedFileService?.processSingleFileById(
-								parseInt(matchingFile.messageId as string, 10),
-							);
-						console.log(`    ✅ Файл успешно обработан и привязан к книге`);
-						matchedCount++;
-					} catch (processError) {
-						console.error(`    ❌ Ошибка обработки файла:`, processError);
+			const combinedDetails = [...details, ...resultImport.details];
+			const totalSkipped =
+				resultImport.skipped +
+				details.filter((d) => (d as any).status === "skipped").length;
+
+			// 5. Привязка файлов ко всем книгам без файлов
+			console.log("🔗 Привязка файлов к книгам...");
+			let matchedCount = 0;
+
+			try {
+				const { data: booksWithoutFiles, error: booksLinkError } =
+					await serverSupabase
+						.from("books")
+						.select(
+							"id, title, author, telegram_post_id, file_url, telegram_file_id",
+						)
+						.is("file_url", null)
+						.not("title", "is", null)
+						.not("author", "is", null);
+
+				if (booksLinkError) {
+					console.warn(
+						"⚠️ Ошибка загрузки книг для привязки файлов:",
+						booksLinkError,
+					);
+				} else if (booksWithoutFiles && booksWithoutFiles.length > 0) {
+					console.log(
+						`📚 Найдено ${booksWithoutFiles.length} книг без файлов для привязки`,
+					);
+
+					// Загружаем файлы из архивного канала
+					console.log("📥 Загрузка файлов из Telegram...");
+					const filesToProcess = await this.fileService.getFilesToProcess(2000);
+					console.log(
+						`📊 Загружено ${filesToProcess.length} файлов для сопоставления`,
+					);
+
+					if (filesToProcess.length > 0) {
+						for (const book of booksWithoutFiles) {
+							try {
+								const matchingFile = await this.findMatchingFile(
+									book,
+									filesToProcess,
+								);
+
+								if (matchingFile) {
+									console.log(
+										`    📨 Найден файл для "${book.title}": ${matchingFile.filename}`,
+									);
+
+									const _result =
+										await this.enhancedFileService?.processSingleFileById(
+											parseInt(matchingFile.messageId as string, 10),
+										);
+									console.log(`    ✅ Файл привязан`);
+									matchedCount++;
+								}
+							} catch (matchErr) {
+								console.warn(
+									`    ⚠️ Ошибка привязки файла для "${book.title}":`,
+									matchErr,
+								);
+							}
+						}
 					}
 				} else {
-					console.log(`  ⚠️  Соответствующий файл не найден`);
+					console.log("  ℹ️  Нет книг без файлов для привязки");
 				}
+			} catch (fileLinkError) {
+				console.warn("⚠️ Ошибка при привязке файлов:", fileLinkError);
 			}
 
-			console.log(`
-🏁 Полная синхронизация завершена.`);
+			// Сводка
+			console.log("\n📊 СВОДКА ПОЛНОЙ СИНХРОНИЗАЦИИ:");
+			console.log(`   ========================================`);
+			console.log(`   Всего сообщений: ${allMessages.length}`);
+			console.log(`   Добавлено книг: ${resultImport.added}`);
+			console.log(`   Обновлено книг: ${resultImport.updated}`);
+			console.log(`   Привязано файлов: ${matchedCount}`);
+			console.log(`   Пропущено: ${totalSkipped}`);
+			console.log(`   Ошибок: ${resultImport.errors}`);
 
 			return {
-				processed: indexResult.indexed,
-				added: 0, // В режиме full мы не добавляем книги, а индексируем сообщения
-				updated: 0, // В режиме full мы не обновляем книги, а индексируем сообщения
+				processed: allMessages.length,
+				added: resultImport.added,
+				updated: resultImport.updated,
+				skipped: totalSkipped,
+				errors: resultImport.errors,
+				details: combinedDetails,
 				matched: matchedCount,
-				message: `Full sync completed. Indexed ${indexResult.indexed} messages, matched ${matchedCount} files.`,
-				detailedLogs: detailedLogs,
+				message: `Full sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Processed: ${allMessages.length}`,
+				detailedLogs,
 			};
 		} catch (error) {
 			console.error("❌ Ошибка в полной синхронизации:", error);
