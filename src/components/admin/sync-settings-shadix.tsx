@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, RefreshCw, RotateCcw, Search, Trash2 } from "lucide-react";
+import { Database, RotateCcw, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {

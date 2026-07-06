@@ -1,7 +1,6 @@
+import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
-import fs from "fs";
-import path from "path";
 import { TelegramMetadataService } from "../lib/telegram/metadata-service";
 import { TelegramSyncService } from "../lib/telegram/sync";
 

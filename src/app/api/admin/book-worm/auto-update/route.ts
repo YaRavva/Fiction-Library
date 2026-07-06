@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { saveSyncResult, updateSyncResult } from "../../sync-results/route";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { BookWormService } from "@/lib/telegram/book-worm-service";
+import { saveSyncResult, updateSyncResult } from "../../sync-results/route";
 
 // Интерфейс для хранения настроек автообновления
 interface AutoUpdateSettings {
@@ -365,7 +365,8 @@ export async function POST(request: NextRequest) {
 					await updateSyncResult(supabaseAdmin, syncRecord.id, {
 						status: "failed",
 						completed_at: new Date().toISOString(),
-						error_message: error instanceof Error ? error.message : "Неизвестная ошибка",
+						error_message:
+							error instanceof Error ? error.message : "Неизвестная ошибка",
 					});
 				}
 			});

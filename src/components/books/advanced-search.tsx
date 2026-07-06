@@ -307,7 +307,7 @@ export function AdvancedSearch({
 										onChange={(e) =>
 											handleFilterChange(
 												"yearFrom",
-												e.target.value ? parseInt(e.target.value) : null,
+												e.target.value ? parseInt(e.target.value, 10) : null,
 											)
 										}
 									/>
@@ -319,7 +319,7 @@ export function AdvancedSearch({
 										onChange={(e) =>
 											handleFilterChange(
 												"yearTo",
-												e.target.value ? parseInt(e.target.value) : null,
+												e.target.value ? parseInt(e.target.value, 10) : null,
 											)
 										}
 									/>

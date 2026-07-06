@@ -73,10 +73,16 @@ export function ModernHero() {
 							/>
 						</div>
 						<div className="flex gap-2 w-full sm:w-auto">
-							<Button size="icon" variant="ghost" className="h-10 w-10 shrink-0">
+							<Button
+								size="icon"
+								variant="ghost"
+								className="h-10 w-10 shrink-0"
+							>
 								<SlidersHorizontal className="w-4 h-4" />
 							</Button>
-							<Button className="h-10 rounded-xl px-6 flex-1 sm:flex-none">Найти</Button>
+							<Button className="h-10 rounded-xl px-6 flex-1 sm:flex-none">
+								Найти
+							</Button>
 						</div>
 					</motion.div>
 

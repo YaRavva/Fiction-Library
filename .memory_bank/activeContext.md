@@ -340,3 +340,22 @@ Update GitHub Actions scheduling for BookWorm automation.
 - Existing local working tree has unrelated deleted config files and a new `AGENTS.md`; leave them untouched.
 - GitHub does not expose a workflow YAML setting that disables the inactivity policy. The practical prevention is periodic repository activity.
 - `Auto Update BookWorm` is active again on GitHub after `gh workflow enable 200040587`.
+
+# Active Context Update - 2026-07-06 11:45
+
+## Current Focus
+Full project cleanup review for obsolete and unused code.
+
+## Active Tasks
+- [x] Include existing pending agent-instruction consolidation changes in the next commit.
+- [x] Run repository inventory and initial Biome check.
+- [x] Confirm old/generated artifacts are not referenced by active code.
+- [x] Remove confirmed obsolete files and unused imports.
+- [ ] Run verification, commit, and push.
+
+## Session Notes
+- Current pending user-approved changes: delete legacy `.claude/.kiro/.qoder` agent config files and add `AGENTS.md`.
+- Initial cleanup candidates: `_old/` archival directory and `output/all-metadata.json` generated metadata dump.
+- Removed confirmed obsolete artifacts: `_old/`, `output/all-metadata.json`, `new-bucket-policy.json`, and `shadix-ui-migration-plan.md`.
+- `bun run check` passes after cleanup and Biome fixes.
+- `bun run build` compiles but fails during page-data collection because required Supabase environment variables are missing for `/api/admin/duplicates`.

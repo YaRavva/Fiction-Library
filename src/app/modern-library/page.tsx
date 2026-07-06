@@ -225,7 +225,9 @@ export default function ModernLibraryPage() {
 					<section>
 						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3">
 							<div>
-								<h2 className="text-xl sm:text-2xl font-bold tracking-tight">Новинки</h2>
+								<h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+									Новинки
+								</h2>
 								<p className="text-muted-foreground text-xs sm:text-sm">
 									Последние поступления в библиотеку
 								</p>
@@ -247,7 +249,9 @@ export default function ModernLibraryPage() {
 
 					{/* Section: Categories / Genres */}
 					<section>
-						<h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-6 sm:mb-8">Жанры</h2>
+						<h2 className="text-xl sm:text-2xl font-bold tracking-tight mb-6 sm:mb-8">
+							Жанры
+						</h2>
 						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
 							{[
 								"Фантастика",

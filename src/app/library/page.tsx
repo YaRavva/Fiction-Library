@@ -1,6 +1,6 @@
 "use client";
 
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import { Library, Menu, Search, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -9,7 +9,6 @@ import {
 	type AdvancedSearchFilters,
 } from "@/components/books/advanced-search";
 import { BookCardLarge } from "@/components/books/book-card-large";
-import { BookCard } from "@/components/books/book-card-small";
 import { BooksTable } from "@/components/books/books-table";
 import { ViewModeToggle } from "@/components/books/view-mode-toggle";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -17,7 +16,6 @@ import { LibraryHero } from "@/components/library/LibraryHero";
 import { ModernBookCard } from "@/components/modern/ModernBookCard";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/page-transition";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
 	Pagination,
 	PaginationContent,
@@ -26,6 +24,7 @@ import {
 	PaginationNext,
 	PaginationPrevious,
 } from "@/components/ui/pagination";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getValidSession } from "@/lib/auth-helpers";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
 import { AdvancedSearchService } from "@/lib/services/advancedSearchService";
@@ -198,7 +197,7 @@ function LibraryContent() {
 
 		getInitialData();
 
-		return () => { };
+		return () => {};
 	}, [supabase, router, loadBooks, currentPage]);
 
 	const handleAdvancedSearch = useCallback(
@@ -358,12 +357,12 @@ function LibraryContent() {
 					books.map((book) =>
 						book.id === bookId
 							? ({
-								...book,
-								file_url: undefined,
-								file_size: undefined,
-								file_format: undefined,
-								telegram_file_id: undefined,
-							} as unknown as Book)
+									...book,
+									file_url: undefined,
+									file_size: undefined,
+									file_format: undefined,
+									telegram_file_id: undefined,
+								} as unknown as Book)
 							: book,
 					),
 				);
@@ -539,8 +538,12 @@ function LibraryContent() {
 							{books.length === 0 && (
 								<div className="text-center py-12 sm:py-16 md:py-20 text-muted-foreground">
 									<Search className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 opacity-20" />
-									<p className="text-base sm:text-lg font-medium">Книги не найдены</p>
-									<p className="text-sm sm:text-base">Попробуйте изменить параметры поиска</p>
+									<p className="text-base sm:text-lg font-medium">
+										Книги не найдены
+									</p>
+									<p className="text-sm sm:text-base">
+										Попробуйте изменить параметры поиска
+									</p>
 								</div>
 							)}
 

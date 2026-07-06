@@ -1,5 +1,5 @@
 import type { Message } from "node-telegram-bot-api";
-import { getCoversBucketName, putObject } from "../s3";
+import { putObject } from "../s3";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
 import { type BookMetadata, MetadataParser } from "./parser";
@@ -614,12 +614,12 @@ export class TelegramMetadataService {
 										"S3_COVERS_BUCKET_NAME environment variable is not set.",
 									);
 								}
-							await putObject(
-								photoKey,
-								Buffer.from(photoBuffer),
-								coversBucket,
-								"image/jpeg",
-							);
+								await putObject(
+									photoKey,
+									Buffer.from(photoBuffer),
+									coversBucket,
+									"image/jpeg",
+								);
 								const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 								coverUrls.push(photoUrl);
 								console.log(`  ✅ Обложка загружена: ${photoUrl}`);
@@ -649,12 +649,12 @@ export class TelegramMetadataService {
 										"S3_COVERS_BUCKET_NAME environment variable is not set.",
 									);
 								}
-							await putObject(
-								photoKey,
-								Buffer.from(photoBuffer),
-								coversBucket,
-								"image/jpeg",
-							);
+								await putObject(
+									photoKey,
+									Buffer.from(photoBuffer),
+									coversBucket,
+									"image/jpeg",
+								);
 								const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 								coverUrls.push(photoUrl);
 								console.log(`  ✅ Обложка загружена: ${photoUrl}`);

@@ -465,8 +465,8 @@ export class BookWormService {
 				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Processed: ${newMessages.length}`,
 				detailedLogs: detailedLogs.sort((a, b) => {
 					// Sort logs by ID if they start with [ID:...]
-					const idA = parseInt(a.match(/\[ID:(\d+)\]/)?.[1] || "0");
-					const idB = parseInt(b.match(/\[ID:(\d+)\]/)?.[1] || "0");
+					const idA = parseInt(a.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);
+					const idB = parseInt(b.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);
 					return idA - idB;
 				}),
 			};
@@ -615,8 +615,13 @@ export class BookWormService {
 
 			if (!coversBucket) return null;
 
-		await putObject(photoKey, Buffer.from(result), coversBucket, "image/jpeg");
-		return `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
+			await putObject(
+				photoKey,
+				Buffer.from(result),
+				coversBucket,
+				"image/jpeg",
+			);
+			return `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 		} catch (e) {
 			return null; // Silent fail for cover
 		}

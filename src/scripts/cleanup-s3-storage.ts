@@ -11,10 +11,10 @@
  *   --force - реально удалить файлы
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
-import fs from "fs";
-import path from "path";
 import {
 	deleteObject,
 	getBooksBucketName,

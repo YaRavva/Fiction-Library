@@ -1,9 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ToasterProvider } from "@/components/providers/toaster-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MouseGradientBackground } from "@/components/ui/mouse-gradient-background";
-import { ToasterProvider } from "@/components/providers/toaster-provider";
 
 export function AppProviders({ children }: { children: ReactNode }) {
 	return (

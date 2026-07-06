@@ -1,7 +1,7 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { Book, LogOut, Settings, Shield, User } from "lucide-react";
+import { Book, LogOut, Shield } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

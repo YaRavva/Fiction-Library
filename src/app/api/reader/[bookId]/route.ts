@@ -1,4 +1,3 @@
-import JSZip from "jszip";
 import { NextResponse } from "next/server";
 import { serverSupabase } from "@/lib/serverSupabase";
 

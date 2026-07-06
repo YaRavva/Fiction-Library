@@ -7,7 +7,6 @@ export function LibraryHero() {
 		<div className="relative w-full py-6 sm:py-8 md:py-12 lg:py-20 overflow-hidden mb-4 sm:mb-6 md:mb-8">
 			{/* Abstract Background Elements */}
 
-
 			<div className="container mx-auto px-4 relative z-10">
 				<div className="max-w-3xl mx-auto text-center space-y-3 sm:space-y-4 md:space-y-6">
 					<motion.div

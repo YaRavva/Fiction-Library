@@ -222,3 +222,16 @@
 - [x] Re-enabled `Auto Update BookWorm` through GitHub CLI/API.
 - [x] Changed BookWorm schedule to `0 0 * * *` (daily at 00:00 UTC).
 - [x] Added `.github/workflows/keepalive.yml` to create a monthly empty commit and keep repository activity fresh, reducing the risk of scheduled workflow inactivity disabling.
+
+# Progress Update - 2026-07-06 Code Cleanup Review
+
+## Repository Cleanup
+- [x] Consolidated agent instructions into `AGENTS.md` and included removal of legacy `.claude`, `.kiro`, and `.qoder` config files in the next commit.
+- [x] Removed unused archival directory `_old/`.
+- [x] Removed generated metadata dump `output/all-metadata.json`; it can be regenerated with `src/scripts/get-all-metadata.ts`.
+- [x] Removed stale root artifacts `new-bucket-policy.json` and `shadix-ui-migration-plan.md`.
+- [x] Removed unused imports and applied Biome formatting/import fixes.
+
+## Verification
+- [x] `bun run check` passes.
+- [ ] `bun run build` is blocked by missing Supabase environment variables while collecting page data for `/api/admin/duplicates`.
