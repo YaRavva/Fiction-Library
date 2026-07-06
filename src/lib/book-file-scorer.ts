@@ -88,8 +88,8 @@ export function normalizeText(text: string): string {
 export function extractWords(text: string): string[] {
     const normalized = normalizeText(text);
     
-    // Split on various delimiters
-    const rawWords = normalized.split(/[\s\-_()[\]{}/\\"'`~!@#$%^&*+=|;:<>?]+/);
+    // Split on various delimiters including Unicode dashes (em dash —, en dash –)
+    const rawWords = normalized.split(/[\s\-_()[\]{}/\\"'`~!@#$%^&*+=|;:<>?\u2013\u2014]+/);
     
     const words: string[] = [];
     const seen = new Set<string>();
@@ -152,21 +152,21 @@ export function extractBookWords(book: BookOption): {
 function fuzzyMatch(a: string, b: string): boolean {
     if (a === b) return true;
     
-    // For short words, require exact match
+    // Require exact match for short words
     if (a.length <= 3 || b.length <= 3) {
         return false;
     }
     
-    // Simple levenshtein check (max distance 1)
+    // Words starting with different letters are different words
+    if (a[0] !== b[0]) return false;
+    
+    // Allow one-character edit (insert/delete/replace)
     const lenA = a.length;
     const lenB = b.length;
-    
     if (Math.abs(lenA - lenB) > 1) return false;
     
-    // Quick check: count differences
     let diffs = 0;
     const minLen = Math.min(lenA, lenB);
-    
     for (let i = 0; i < minLen; i++) {
         if (a[i] !== b[i]) {
             diffs++;
@@ -191,7 +191,8 @@ export function parseFileName(fileName: string): { fileAuthor?: string; fileTitl
     }
 
     // Try dash separators in order of preference (longest first to avoid false splits)
-    const separators = [' — ', ' – ', ' - ', ' —', ' –', ' -'];
+    // Supports regular hyphen, en dash (–), and em dash (—) with/without spaces
+    const separators = [' — ', ' – ', ' - ', '—', '–', '-'];
     for (const sep of separators) {
         const idx = name.indexOf(sep);
         if (idx > 0) {

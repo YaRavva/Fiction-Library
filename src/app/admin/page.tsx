@@ -16,6 +16,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { EmbeddingPanel } from "@/components/admin/embedding-panel";
+import { FileLinkingView } from "@/components/admin/file-linking-view";
 import { SyncResultsPanel } from "@/components/admin/sync-results-panel";
 import { SyncSettingsShadix } from "@/components/admin/sync-settings-shadix";
 import { TelegramFilesIndexer } from "@/components/admin/telegram-files-indexer";
@@ -54,6 +55,7 @@ export default function AdminPage() {
 	const [user, setUser] = useState<User | null>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [syncRefreshTrigger, setSyncRefreshTrigger] = useState(0);
+	const [currentTab, setCurrentTab] = useState<"dashboard" | "file-linking">("dashboard");
 
 	// Telegram re-login state
 	const [tgPhone, setTgPhone] = useState("");
@@ -419,6 +421,35 @@ export default function AdminPage() {
 					) : null}
 
 					<main className="flex-1 overflow-y-auto">
+						{/* Tab bar */}
+						<div className="border-b px-4 sm:px-6 lg:px-8">
+							<nav className="-mb-px flex gap-6">
+								<button
+									type="button"
+									onClick={() => setCurrentTab("dashboard")}
+									className={`pb-3 pt-4 text-sm font-medium border-b-2 transition-colors ${
+										currentTab === "dashboard"
+											? "border-primary text-primary"
+											: "border-transparent text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									Дашборд
+								</button>
+								<button
+									type="button"
+									onClick={() => setCurrentTab("file-linking")}
+									className={`pb-3 pt-4 text-sm font-medium border-b-2 transition-colors ${
+										currentTab === "file-linking"
+											? "border-primary text-primary"
+											: "border-transparent text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									File Linking
+								</button>
+							</nav>
+						</div>
+
+						{currentTab === "dashboard" ? (
 						<div className="mx-auto w-full max-w-[1320px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
 							<section className="grid gap-3 md:grid-cols-3">
 								<div className="flex flex-col items-center rounded-lg border bg-card p-4 shadow-sm text-center">
@@ -637,6 +668,9 @@ export default function AdminPage() {
 								</aside>
 							</div>
 						</div>
+						) : (
+							<FileLinkingView />
+						)}
 					</main>
 				</div>
 			</div>

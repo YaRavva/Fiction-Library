@@ -107,25 +107,13 @@ export function AppSidebar({ user, userProfile, onLogout }: AppSidebarProps) {
 							variant="ghost"
 							className={cn(
 								"h-10 w-full justify-start rounded-md px-3 font-medium text-sm",
-								pathname === "/admin" &&
+								pathname?.startsWith("/admin") &&
 									"bg-sidebar-accent text-sidebar-accent-foreground shadow-sm",
 							)}
 							onClick={() => navigate("/admin")}
 						>
 							<ShieldCheck className="size-4" />
-							Дашборд
-						</Button>
-						<Button
-							variant="ghost"
-							className={cn(
-								"h-10 w-full justify-start rounded-md px-3 font-medium text-sm",
-								pathname?.startsWith("/admin/file-linking") &&
-									"bg-sidebar-accent text-sidebar-accent-foreground shadow-sm",
-							)}
-							onClick={() => navigate("/admin/file-linking")}
-						>
-							<Link2 className="size-4" />
-							File Linking
+							Админ-панель
 						</Button>
 					</>
 				)}
