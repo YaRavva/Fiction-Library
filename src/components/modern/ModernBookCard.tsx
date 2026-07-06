@@ -32,14 +32,14 @@ export function ModernBookCard({ book }: ModernBookCardProps) {
 	const genres = book.genres || [];
 
 	return (
-		<article className="group h-full overflow-hidden rounded-lg border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
-			<div className="relative aspect-[2/3] overflow-hidden bg-muted">
+		<article className="group h-full overflow-hidden rounded-lg border bg-card shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
+			<div className="relative aspect-[2/3] overflow-hidden bg-muted will-change-transform">
 				{cover ? (
 					<Image
 						src={cover}
 						alt={book.title}
 						fill
-						className="object-cover transition-transform duration-300 group-hover:scale-[1.035]"
+						className="object-cover transition-transform duration-200 group-hover:scale-[1.035]"
 						sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 180px"
 						unoptimized
 					/>

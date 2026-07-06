@@ -60,26 +60,25 @@ export function BookCard({
 
 	return (
 		<motion.div
-			layout
 			initial={{ opacity: 0, y: 20 }}
 			animate={{ opacity: 1, y: 0 }}
 			exit={{ opacity: 0, scale: 0.9 }}
 			transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.5) }}
-			whileHover={{ y: -5 }}
+			whileHover={{ y: -3 }}
 			className={`group relative w-full h-full ${onBookClick ? "cursor-pointer" : ""}`}
 			onClick={() => onBookClick?.(book)}
 		>
-			<div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500/20 to-violet-600/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-500" />
+			<div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500/20 to-violet-600/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
-			<div className="relative h-full flex flex-col bg-card/50 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300">
+			<div className="relative h-full flex flex-col bg-card/50 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl overflow-hidden hover:shadow-xl transition-[box-shadow] duration-200">
 				{/* Cover Section */}
-				<div className="relative aspect-[2/3] w-full overflow-hidden bg-muted/30">
+				<div className="relative aspect-[2/3] w-full overflow-hidden bg-muted/30 will-change-transform">
 					{book.cover_url ? (
 						<Image
 							src={book.cover_url}
 							alt={book.title}
 							fill
-							className="object-cover transition-transform duration-500 group-hover:scale-105"
+							className="object-cover transition-transform duration-200 group-hover:scale-105"
 							sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
 						/>
 					) : (

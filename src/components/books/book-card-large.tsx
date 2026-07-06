@@ -82,18 +82,18 @@ export function BookCardLarge({
 	return (
 		<article
 			className={cn(
-				"group grid gap-4 rounded-lg border bg-card p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:grid-cols-[112px_1fr] sm:p-4",
+				"group grid gap-4 rounded-lg border bg-card p-3 shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:grid-cols-[112px_1fr] sm:p-4",
 				onBookClick && "cursor-pointer",
 			)}
 			onClick={handleOpen}
 		>
-			<div className="relative mx-auto aspect-[2/3] w-28 overflow-hidden rounded-md border bg-muted shadow-sm sm:mx-0 sm:w-full">
+			<div className="relative mx-auto aspect-[2/3] w-28 overflow-hidden rounded-md border bg-muted shadow-sm sm:mx-0 sm:w-full will-change-transform">
 				{book.cover_url ? (
 					<Image
 						src={book.cover_url}
 						alt={book.title}
 						fill
-						className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+						className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
 						sizes="112px"
 						unoptimized
 					/>
