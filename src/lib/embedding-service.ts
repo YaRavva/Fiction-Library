@@ -3,8 +3,8 @@
  * Uses OpenAI-compatible API for generating text embeddings
  */
 
-const OMNIRoute_BASE_URL = process.env.OMNIRoute_BASE_URL || "https://api.omniroute.com/v1";
-const OMNIRoute_API_KEY = process.env.OMNIRoute_API_KEY || "";
+const OMNIROUTE_BASE_URL = process.env.OMNIROUTE_BASE_URL || "https://api.omniroute.com/v1";
+const OMNIROUTE_API_KEY = process.env.OMNIROUTE_API_KEY || "";
 
 export interface EmbeddingOptions {
     model?: string;
@@ -31,13 +31,13 @@ export interface ModelInfo {
  * Get list of available embedding models from omniroute
  */
 export async function listEmbeddingModels(): Promise<ModelInfo[]> {
-    if (!OMNIRoute_API_KEY) {
-        throw new Error("OMNIRoute_API_KEY not configured");
+    if (!OMNIROUTE_API_KEY) {
+        throw new Error("OMNIROUTE_API_KEY not configured");
     }
 
-    const response = await fetch(`${OMNIRoute_BASE_URL}/models`, {
+    const response = await fetch(`${OMNIROUTE_BASE_URL}/models`, {
         headers: {
-            "Authorization": `Bearer ${OMNIRoute_API_KEY}`,
+            "Authorization": `Bearer ${OMNIROUTE_API_KEY}`,
             "Content-Type": "application/json",
         },
     });
@@ -66,16 +66,16 @@ export async function generateEmbedding(
     text: string,
     options: EmbeddingOptions = {}
 ): Promise<EmbeddingResult> {
-    if (!OMNIRoute_API_KEY) {
-        throw new Error("OMNIRoute_API_KEY not configured");
+    if (!OMNIROUTE_API_KEY) {
+        throw new Error("OMNIROUTE_API_KEY not configured");
     }
 
     const model = options.model || "text-embedding-ada-002";
     
-    const response = await fetch(`${OMNIRoute_BASE_URL}/embeddings`, {
+    const response = await fetch(`${OMNIROUTE_BASE_URL}/embeddings`, {
         method: "POST",
         headers: {
-            "Authorization": `Bearer ${OMNIRoute_API_KEY}`,
+            "Authorization": `Bearer ${OMNIROUTE_API_KEY}`,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -106,8 +106,8 @@ export async function generateEmbeddings(
     texts: string[],
     options: EmbeddingOptions = {}
 ): Promise<EmbeddingResult[]> {
-    if (!OMNIRoute_API_KEY) {
-        throw new Error("OMNIRoute_API_KEY not configured");
+    if (!OMNIROUTE_API_KEY) {
+        throw new Error("OMNIROUTE_API_KEY not configured");
     }
 
     const model = options.model || "text-embedding-ada-002";
@@ -119,10 +119,10 @@ export async function generateEmbeddings(
     for (let i = 0; i < texts.length; i += batchSize) {
         const batch = texts.slice(i, i + batchSize);
         
-        const response = await fetch(`${OMNIRoute_BASE_URL}/embeddings`, {
+        const response = await fetch(`${OMNIROUTE_BASE_URL}/embeddings`, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${OMNIRoute_API_KEY}`,
+                "Authorization": `Bearer ${OMNIROUTE_API_KEY}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
