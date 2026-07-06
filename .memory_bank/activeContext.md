@@ -88,7 +88,7 @@
 
 #### 🎯 Полностью завершенные этапы:
 1. **Этап 1**: Настройка и базовая интеграция ✅
-2. **Этап 2**: Интеграция Action Button в критические компоненты ✅  
+2. **Этап 2**: Интеграция Action Button в критические компоненты ✅
 3. **Этап 3**: Motion Dialog и анимированные переходы ✅
 
 #### 📊 Статистика интеграции:
@@ -271,7 +271,7 @@
 ### 🏆 Общая Оценка: 9/10
 Memory Bank показал высокую эффективность для структурированной разработки. Система особенно полезна для:
 - Поддержания архитектурной консистентности
-- Ускорения onboarding новых разработчиков  
+- Ускорения onboarding новых разработчиков
 - Предотвращения технического долга
 - Автоматизации документирования процессов
 
@@ -327,33 +327,33 @@ Memory Bank показал высокую эффективность для ст
 - ⏳ A/B тестирование пользовательского опыта
 # Active Context Update - 2026-07-06 11:32
 
-## Current Focus
+## Текущий фокус
 Update GitHub Actions scheduling for BookWorm automation.
 
-## Active Tasks
+## Активные задачи
 - [x] Diagnose why GitHub Actions stopped running: workflow state is `disabled_inactivity`.
 - [x] Change BookWorm workflow schedule to daily at 00:00 UTC.
 - [x] Add repository keepalive workflow to prevent GitHub scheduled workflow inactivity disabling.
 - [x] Validate workflow YAML and re-enable the existing workflow through GitHub CLI/API.
 
-## Session Notes
+## Заметки сессии
 - Existing local working tree has unrelated deleted config files and a new `AGENTS.md`; leave them untouched.
 - GitHub does not expose a workflow YAML setting that disables the inactivity policy. The practical prevention is periodic repository activity.
 - `Auto Update BookWorm` is active again on GitHub after `gh workflow enable 200040587`.
 
 # Active Context Update - 2026-07-06 11:45
 
-## Current Focus
+## Текущий фокус
 Full project cleanup review for obsolete and unused code.
 
-## Active Tasks
+## Активные задачи
 - [x] Include existing pending agent-instruction consolidation changes in the next commit.
 - [x] Run repository inventory and initial Biome check.
 - [x] Confirm old/generated artifacts are not referenced by active code.
 - [x] Remove confirmed obsolete files and unused imports.
 - [ ] Run verification, commit, and push.
 
-## Session Notes
+## Заметки сессии
 - Current pending user-approved changes: delete legacy `.claude/.kiro/.qoder` agent config files and add `AGENTS.md`.
 - Initial cleanup candidates: `_old/` archival directory and `output/all-metadata.json` generated metadata dump.
 - Removed confirmed obsolete artifacts: `_old/`, `output/all-metadata.json`, `new-bucket-policy.json`, and `shadix-ui-migration-plan.md`.
@@ -362,10 +362,10 @@ Full project cleanup review for obsolete and unused code.
 
 # Active Context Update - 2026-07-06 12:07
 
-## Current Focus
+## Текущий фокус
 Premium UX redesign for the main application surfaces.
 
-## Active Tasks
+## Активные задачи
 - [x] Confirm user requirements: modern premium visual language, better real-work ergonomics, Cyrillic-capable fonts, and permission to rewrite old UI code where it improves quality/performance.
 - [ ] Replace the current mixed visual system with a stricter product shell, calmer premium theme, and Cyrillic-first typography.
 - [ ] Rework `/library` around search, filters, view modes, result status, and dense usable catalog presentation.
@@ -373,7 +373,7 @@ Premium UX redesign for the main application surfaces.
 - [ ] Improve `/admin` as a practical operations dashboard with clearer hierarchy and status surfaces.
 - [ ] Run verification and update Memory Bank results.
 
-## Session Notes
+## Заметки сессии
 - Avoid decorative "fantasy" UI as the default product surface; keep atmosphere subtle and functional.
 - Use fonts with Cyrillic support. Prefer a modern UI font such as Manrope over Comfortaa for premium/work-focused screens.
 - The project has accumulated multiple UI styles from previous agents, so redundant old components can be replaced when they block consistency.
@@ -391,40 +391,93 @@ Premium UX redesign for the main application surfaces.
 
 # Active Context Update - 2026-07-06 20:20
 
-## Current Focus
+## Текущий фокус
 Lock in Chromium-safe UI performance rules after identifying hover/repaint jitter from the previous redesign.
 
-## Active Tasks
+## Активные задачи
 - [x] Record that `backdrop-blur` / `backdrop-filter`, `mix-blend-mode`, and hover-toggled `will-change: transform` are banned on product UI surfaces.
 - [x] Record that decorative mouse-follow gradient backgrounds should be static CSS gradients by default.
 
-## Session Notes
+## Заметки сессии
 - The user removed all backdrop blur, removed blend modes, and rewrote `MouseGradientBackground` as static CSS to avoid Chromium layer/repaint bugs.
 - Future redesign work must check hover transforms in Chromium and avoid compositor patterns that can produce jitter, layer desync, or layout shift.
 
-# Active Context Update - 2026-07-06 22:00
+# Обновление активного контекста - 2026-07-06 22:00
 
-## Current Focus
+## Текущий фокус
 Book-file scoring fixes, file linking admin tab, and embedding service route update.
 
-## Active Tasks
-- [x] Remove author bonus from scoring — author match must not contribute to file-book matching score
-- [x] Add NFC Unicode normalization in `normalizeText()` and `lemmatizeWord()` — handle `и + U+0306 breve` → `й` in Telegram filenames
-- [x] Add `parseFileName()` to split "Author — Title" with strict domain separation (file title words vs book title words only)
-- [x] Add `checkAuthorMatch()` requiring ALL words from shorter name to match (prevents "Алексей" matching "Алексей" with different surnames)
-- [x] Add genre words (`роман`, `эпопея`, `повесть`, `рассказ`) to `GENERIC_TITLE_WORDS`
-- [x] Add Unicode dashes (em dash `—`, en dash `–`) to split regex pattern
-- [x] Add first-character check in `fuzzyMatch()` — `a[0] !== b[0]` returns false (prevents `роркх` ↔ `йорк`)
-- [x] Fix column name bug: `filename` → `file_name` in Supabase query and search route
-- [x] Move File Linking to admin page tab with two-column layout (books | file candidates)
-- [x] Delete separate `/admin/file-linking` page
-- [x] Update sidebar — merged both admin links into single "Админ-панель" link
-- [x] Change embedding route to `v1/embeddings` with model `voyage-ai/voyage-4`
-- [x] Update memory bank with all changes
-- [ ] Commit and push
+## Активные задачи
+- [x] Удалить бонус автора из scoring — совпадение автора не должно добавлять вклад в оценку соответствия файл-книга
+- [x] Добавить NFC Unicode-нормализацию в `normalizeText()` и `lemmatizeWord()` — обрабатывать `и + U+0306 breve` → `й` в именах файлов Telegram
+- [x] Добавить `parseFileName()` для разбиения "Автор — Название" со строгим разделением доменов: слова названия файла сравниваются только со словами названия книги
+- [x] Добавить `checkAuthorMatch()`, требующий совпадения всех слов из более короткого имени; это предотвращает совпадение "Алексей" с другим "Алексей" при разных фамилиях
+- [x] Добавить жанровые слова (`роман`, `эпопея`, `повесть`, `рассказ`) в `GENERIC_TITLE_WORDS`
+- [x] Добавить Unicode-тире (em dash `—`, en dash `–`) в regex-шаблон разделения
+- [x] Добавить проверку первого символа в `fuzzyMatch()` — `a[0] !== b[0]` возвращает false (предотвращает `роркх` ↔ `йорк`)
+- [x] Исправить ошибку имени колонки: `filename` → `file_name` в Supabase-запросе и search route
+- [x] Перенести File Linking во вкладку админки с двухколоночным layout (книги | кандидаты файлов)
+- [x] Удалить отдельную страницу `/admin/file-linking`
+- [x] Обновить боковую навигацию — объединить обе admin-ссылки в одну ссылку "Админ-панель"
+- [x] Изменить маршрут эмбеддингов на `v1/embeddings` с моделью `voyage-ai/voyage-4`
+- [x] Обновить Банк памяти всеми изменениями
+- [ ] Создать коммит и отправить изменения
 
-## Session Notes
-- All scoring fixes committed and pushed to `origin/main`.
-- Format `Автор — Название` used throughout file-linking UI.
-- Omniroute embedding route now `{OMNIROUTE_BASE_URL}/v1/embeddings`, default model `voyage-ai/voyage-4`.
-- Vector search still blocked until omniroute embedding provider is configured.
+## Заметки сессии
+- Все исправления scoring уже закоммичены и отправлены в `origin/main`.
+- Формат `Автор — Название` используется во всем UI file-linking.
+- Маршрут эмбеддингов Omniroute теперь `{OMNIROUTE_BASE_URL}/v1/embeddings`, модель по умолчанию `voyage-ai/voyage-4`.
+- Векторный поиск все еще заблокирован до настройки провайдера эмбеддингов omniroute.
+
+
+# Обновление активного контекста - 2026-07-06 22:35
+
+## Текущий фокус
+Безопасный для Chromium премиальный редизайн обновленной двухвкладочной админки.
+
+## Активные задачи
+- [x] Проверить обновленную страницу админки с новой структурой вкладок `dashboard` / `file-linking`.
+- [x] Переработать заголовок админки как компактный операционный центр со статусными плитками и сегментированными контролами вкладок.
+- [x] Переработать вкладку `file-linking` как плотное двухколоночное пространство проверки: очередь/поиск слева, просмотр кандидатов справа.
+- [x] Сохранить существующее поведение админки и API-вызовы, изменив только UI-структуру вокруг них.
+- [x] Проверить, что измененные файлы не возвращают запрещенные Chromium-паттерны: `backdrop-blur`, `backdrop-filter`, `mix-blend-mode`, hover `will-change`, mousemove-градиенты.
+- [x] Запустить целевую проверку Biome и production-сборку.
+- [x] Выполнить browser smoke check локального маршрута `/admin`. Маршрут возвращает 200, но без авторизованной admin-сессии редиректит на `/auth/login`, поэтому визуальная QA защищенного контента все еще требует залогиненный браузер.
+
+## Заметки сессии
+- Измененные файлы: `src/app/admin/page.tsx`, `src/components/admin/file-linking-view.tsx`.
+- `bunx biome check src\app\admin\page.tsx src\components\admin\file-linking-view.tsx` проходит.
+- `bun run build` проходит. Предупреждения ограничены существующей deprecated-конвенцией `middleware` и устаревшими данными Browserslist/caniuse-lite.
+- Полный `bun run check` остается заблокирован несвязанными существующими проблемами форматирования и lint в API/embedding вне измененных файлов.
+
+# Обновление активного контекста - 2026-07-06 22:55
+
+## Текущий фокус
+Перевод всей смысловой информации Банка памяти на русский язык.
+
+## Активные задачи
+- [x] Проверить все файлы `.memory_bank/*.md` на англоязычные смысловые строки.
+- [x] Перевести свежие и исторические англоязычные блоки на русский.
+- [x] Сохранить без перевода точные имена технологий, файлов, команд, переменных окружения, API-маршрутов и идентификаторов.
+- [x] Исправить места, где автоматическая замена затронула имена файлов.
+- [x] Проверить отсутствие хвостовых пробелов через `git diff --check`.
+
+## Заметки сессии
+- Технические термины вроде `Next.js`, `TypeScript`, `Supabase`, `GitHub Actions`, `API`, `CLI`, путей и команд оставлены как точные идентификаторы.
+- Эвристическая проверка англоязычной прозы в Банке памяти после перевода не нашла оставшихся смысловых английских строк.
+
+# Обновление активного контекста - 2026-07-06 23:20
+
+## Текущий фокус
+Исправление маршрутов Omniroute embeddings под кастомный `OMNIROUTE_BASE_URL`, который может уже заканчиваться на `/v1`.
+
+## Активные задачи
+- [x] Нормализовать `OMNIROUTE_BASE_URL`: удалить хвостовые слэши и добавлять `/v1` только если его еще нет.
+- [x] Перевести `models`, одиночные embeddings и batch embeddings на единый построитель URL.
+- [x] Унифицировать модель по умолчанию для одиночного и batch-режима: `voyage-ai/voyage-4`.
+- [x] Проверить реальный вызов `/v1/models` и `/v1/embeddings` без вывода секретов из `.env`.
+
+## Заметки сессии
+- Если `.env` содержит base URL вида `.../v1`, сервис теперь вызывает `.../v1/embeddings`, а не `.../v1/v1/embeddings`.
+- Если base URL задан без `/v1`, сервис сам добавляет версионный префикс и вызывает `.../v1/embeddings`.
+- Smoke-тест Omniroute подтвердил доступность списка моделей и генерацию embedding для `voyage-ai/voyage-4` с размерностью 1024.

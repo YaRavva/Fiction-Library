@@ -1,5 +1,23 @@
 # Прогресс Проекта: Fiction Library
 
+# Обновление прогресса - 2026-07-06: редизайн двухвкладочной админки
+
+## Изменения UI
+- [x] `src/app/admin/page.tsx` переработан в премиальную оболочку операционного центра для двухвкладочной админки.
+- [x] В заголовок админки добавлены компактные статусные плитки, простой текстовый переключатель вкладок заменен сегментированным контролом.
+- [x] `src/components/admin/file-linking-view.tsx` перестроен как сфокусированное двухколоночное рабочее пространство сопоставления: очередь книг, поиск, карточки кандидатов, шкалы оценки и понятные бейджи совпадений.
+- [x] Поведение вкладок `dashboard` / `file-linking` и существующие API-вызовы сохранены.
+- [x] Соблюдено правило безопасности Chromium: в измененных файлах админки нет `backdrop-blur`, `backdrop-filter`, `mix-blend-mode`, hover-переключения `will-change` и декоративной логики градиентов на `mousemove`.
+
+## Проверка
+- [x] `bunx biome check src\app\admin\page.tsx src\components\admin\file-linking-view.tsx` проходит.
+- [x] `bun run build` проходит.
+- [x] Проверка через `rg` по запрещенным Chromium-паттернам рендера не находит совпадений в измененных файлах админки.
+- [x] Browser smoke через системный Edge доходит до `http://localhost:3000/admin` со статусом 200, но локальная авторизация перенаправляет на `/auth/login?redirectTo=%2Fadmin`; для визуальной QA защищенной админки нужна авторизованная admin-сессия.
+- [ ] Полный `bun run check` все еще заблокирован несвязанными существующими lint/format-проблемами в admin API и embedding-файлах вне этого редизайна.
+
+## Контроль изменений
+- Последний проверенный коммит перед этим незакоммиченным редизайном: `64ddf57ea0b452cd7493beda82aa9d1e804fa25d`.
 ## Статус
 
 **Текущая Фаза**: Миграция на Shadix UI завершена ✅  
@@ -58,7 +76,7 @@
 - [x] Классификация документов по актуальности и важности
 - [x] Интеграция ключевой информации в Memory Bank:
   - [x] PRD.md → productContext.md (пользовательские истории, метрики)
-  - [x] DEVELOPMENT_PLAN.md → progress.md (roadmap, приоритеты)
+  - [x] DEVELOPMENT_PLAN.md → progress.md (дорожная карта, приоритеты)
   - [x] ENVIRONMENT_VARIABLES.md + DEPLOYMENT.md → techContext.md
   - [x] Алгоритмы и паттерны → systemPatterns.md
 - [x] Удаление 32 устаревших и дублирующих файлов
@@ -81,7 +99,7 @@
 
 ### ✅ Эпик 6: Миграция на Shadix UI (Завершен)
 - [x] Анализ документации Shadix UI и планирование миграции
-- [x] Настройка Shadix UI registry в components.json
+- [x] Настройка Shadix UI реестра в components.json
 - [x] Установка Framer Motion зависимости
 - [x] Создание Action Button компонента с подтверждениями
 - [x] Создание Motion Dialog с 7 вариантами анимаций
@@ -105,20 +123,20 @@
   - Технологии: Canvas API, CSS 3D transforms, Tailwind CSS 4.0
 - [x] **ОБНОВЛЕНИЕ ТЕМЫ shadcn/ui**: Изменена тема с new-york/neutral на nova/stone/amber
   - Стиль: nova (более мягкие углы и тени)
-  - Base color: stone (теплый серый)
-  - Accent theme: amber (золотисто-оранжевый)
+  - Базовый цвет: stone (теплый серый)
+  - Акцентная тема: amber (золотисто-оранжевый)
   - Шрифт: Comfortaa (Google Fonts, поддержка латиницы и кириллицы)
   - Цвет текста кнопки Default: белый в светлой теме
   - Обновлены CSS переменные в OKLCH формате
   - Документация синхронизирована
-- [ ] FB2 Reader компонент для чтения в браузере
+- [ ] Компонент FB2 Reader для чтения в браузере
 - [ ] Оптимизация производительности загрузки изображений
 - [ ] Дальнейшее улучшение UX/UI интерфейса
 - [ ] Система закладок и заметок к тексту
 - [ ] Пользовательские рейтинги книг (1-10)
 
 ### ⏳ Эпик 8: Деплой и мониторинг (Планируется)
-- [ ] Настройка production окружения на Vercel
+- [ ] Настройка production-окружения на Vercel
 - [ ] Мониторинг производительности и ошибок
 - [ ] Система резервного копирования
 - [ ] Документация для пользователей
@@ -145,12 +163,12 @@
 *Нет критических проблем на данный момент*
 
 ### 🟡 Важные
-- **Memory Bank Testing**: Необходимо протестировать работу системы с реальными задачами разработки
-- **Documentation Sync**: Нужно настроить автоматическую синхронизацию документации с изменениями кода
+- **Тестирование Банка памяти**: Необходимо протестировать работу системы с реальными задачами разработки
+- **Синхронизация документации**: Нужно настроить автоматическую синхронизацию документации с изменениями кода
 
 ### 🟢 Незначительные
-- **Code Examples**: Добавить больше примеров кода в systemPatterns.md
-- **Mermaid Diagrams**: Расширить диаграммы для сложных процессов
+- **Примеры кода**: Добавить больше примеров кода в systemPatterns.md
+- **Диаграммы Mermaid**: Расширить диаграммы для сложных процессов
 
 ## Статистика Разработки
 
@@ -182,8 +200,8 @@
 
 ### Высокий Приоритет
 1. **Тестирование производительности**: Проверить анимации на мобильных устройствах
-2. **Bundle size анализ**: Оптимизировать размер после добавления Framer Motion
-3. **Accessibility аудит**: Добавить поддержку screen readers для анимаций
+2. **Анализ размера bundle**: Оптимизировать размер после добавления Framer Motion
+3. **Аудит доступности**: Добавить поддержку скринридеров для анимаций
 
 ### Средний Приоритет
 1. **A/B тестирование**: Сравнить конверсию до и после анимаций
@@ -204,84 +222,97 @@
 - Миграция файлов между хранилищами должна быть безопасной и надежной
 
 ### Архитектурные Решения
-- Repository Pattern используется для абстракции данных
-- Queue Pattern для асинхронных операций
-- Service Layer для бизнес-логики
-- Factory Pattern для Telegram клиентов
+- Паттерн Repository используется для абстракции данных
+- Паттерн Queue для асинхронных операций
+- Слой Service для бизнес-логики
+- Паттерн Factory для Telegram клиентов
 
 ### Технические Ограничения
 - Node.js 18+ обязателен для совместимости
-- TypeScript strict mode включен
+- Строгий режим TypeScript включен
 - Supabase RLS используется для безопасности
 - Cloud.ru S3 для файлового хранилища
 
-# Progress Update - 2026-07-06
+# Обновление прогресса - 2026-07-06
 
-## GitHub Actions Scheduling
-- [x] Diagnosed stopped scheduled runs: GitHub workflow state was `disabled_inactivity`.
-- [x] Re-enabled `Auto Update BookWorm` through GitHub CLI/API.
-- [x] Changed BookWorm schedule to `0 0 * * *` (daily at 00:00 UTC).
-- [x] Added `.github/workflows/keepalive.yml` to create a monthly empty commit and keep repository activity fresh, reducing the risk of scheduled workflow inactivity disabling.
+## Расписание GitHub Actions
+- [x] Диагностирована остановка запланированных запусков: состояние workflow GitHub было `disabled_inactivity`.
+- [x] `Auto Update BookWorm` повторно включен через GitHub CLI/API.
+- [x] Расписание BookWorm изменено на `0 0 * * *` (ежедневно в 00:00 UTC).
+- [x] Добавлен `.github/workflows/keepalive.yml`, который создает ежемесячный пустой коммит и поддерживает активность репозитория, снижая риск отключения scheduled workflow из-за неактивности.
 
-# Progress Update - 2026-07-06 Code Cleanup Review
+# Обновление прогресса - 2026-07-06 Code Cleanup Review
 
-## Repository Cleanup
-- [x] Consolidated agent instructions into `AGENTS.md` and included removal of legacy `.claude`, `.kiro`, and `.qoder` config files in the next commit.
-- [x] Removed unused archival directory `_old/`.
-- [x] Removed generated metadata dump `output/all-metadata.json`; it can be regenerated with `src/scripts/get-all-metadata.ts`.
-- [x] Removed stale root artifacts `new-bucket-policy.json` and `shadix-ui-migration-plan.md`.
-- [x] Removed unused imports and applied Biome formatting/import fixes.
+## Очистка репозитория
+- [x] Инструкции для агентов объединены в `AGENTS.md`; удаление устаревших конфигов `.claude`, `.kiro` и `.qoder` включено в следующий коммит.
+- [x] Удален неиспользуемый архивный каталог `_old/`.
+- [x] Удален сгенерированный дамп метаданных `output/all-metadata.json`; его можно пересоздать через `src/scripts/get-all-metadata.ts`.
+- [x] Удалены устаревшие корневые артефакты `new-bucket-policy.json` и `shadix-ui-migration-plan.md`.
+- [x] Удалены неиспользуемые импорты и применены исправления форматирования/импортов Biome.
 
-## Verification
-- [x] `bun run check` passes.
-- [ ] `bun run build` is blocked by missing Supabase environment variables while collecting page data for `/api/admin/duplicates`.
+## Проверка
+- [x] `bun run check` проходит.
+- [ ] `bun run build` заблокирован отсутствующими переменными окружения Supabase при сборе данных страницы для `/api/admin/duplicates`.
 
-# Progress Update - 2026-07-06 Premium UI Redesign
+# Обновление прогресса - 2026-07-06 Premium UI Redesign
 
-## Frontend Redesign
-- [x] Replaced the core UI font with Cyrillic-capable `Manrope`.
-- [x] Updated global theme tokens to a calmer premium paper/ink/brass style.
-- [x] Rebuilt the shared sidebar navigation shell.
-- [x] Reworked `/library` into a search-first working catalog layout.
-- [x] Rewrote catalog search, list cards, grid cards, and view-mode controls.
-- [x] Reworked `/admin` into a clearer operations dashboard while preserving existing sync/indexing modules.
+## Редизайн клиентской части
+- [x] Основной UI-шрифт заменен на `Manrope` с поддержкой кириллицы.
+- [x] Глобальные токены темы обновлены в более спокойном премиальном стиле бумага/чернила/латунь.
+- [x] Перестроена общая оболочка боковой навигации.
+- [x] `/library` переработан в рабочий каталог, где поиск стоит на первом месте.
+- [x] Переписаны поиск каталога, карточки списка, карточки сетки и переключатели режима просмотра.
+- [x] `/admin` переработан в более ясный операционный дашборд с сохранением существующих модулей синхронизации и индексации.
 
-## Verification
-- [x] `bun run check` passes.
-- [x] `bun run build` passes.
-- [x] Browser smoke check returns 200 for `/library` and `/admin` with no Next error overlay or console errors.
-- [ ] Full protected-page visual QA still needs an authenticated browser session because local Playwright was redirected to the auth gate.
+## Проверка
+- [x] `bun run check` проходит.
+- [x] `bun run build` проходит.
+- [x] Browser smoke check возвращает 200 для `/library` и `/admin`, без Next error overlay и консольных ошибок.
+- [ ] Полная визуальная QA защищенных страниц все еще требует авторизованной браузерной сессии, потому что локальный Playwright был перенаправлен на auth gate.
 
-# Progress Update - 2026-07-06 Chromium UI Performance Rule
+# Обновление прогресса - 2026-07-06 Chromium UI Performance Rule
 
-## UI Performance Guardrails
-- [x] Documented Chromium compositor/repaint issues found after the premium redesign.
-- [x] Banned `backdrop-blur` / `backdrop-filter`, `mix-blend-mode`, and hover-toggled `will-change: transform` from product UI surfaces unless the user explicitly approves an exception.
-- [x] Set static CSS gradients as the default for decorative backgrounds instead of mousemove-driven JS gradients.
+## Ограничения производительности UI
+- [x] Задокументированы проблемы compositor/repaint в Chromium, найденные после премиального редизайна.
+- [x] `backdrop-blur` / `backdrop-filter`, `mix-blend-mode` и hover-переключаемый `will-change: transform` запрещены на продуктовых UI-поверхностях, если пользователь явно не одобрит исключение.
+- [x] Статические CSS-градиенты зафиксированы как вариант по умолчанию для декоративных фонов вместо JS-градиентов, завязанных на `mousemove`.
 
-# Progress Update - 2026-07-06 Book-File Scoring Fixes + Embeddings
+# Обновление прогресса - 2026-07-06 Book-File Scoring Fixes + Embeddings
 
-## Scoring Algorithm Fixes
-- [x] Removed author bonus from `scoreFileToBook()` — author match alone should not boost score (same author has many series)
-- [x] Added NFC normalization (`normalize('NFC')`) in `normalizeText()` and `lemmatizeWord()` — fixes Telegram combining-character filenames (`и + U+0306` → `й`)
-- [x] Added `parseFileName()` — splits filename by `—`, `–`, `-` separators into `fileAuthor` / `fileTitle`
-- [x] Strict domain separation — file title words only match book title words; no cross-domain matching to author
-- [x] Added `checkAuthorMatch()` — requires ALL words from the shorter name to match (2/2 for "Дем Михайлов", 1/2 for "Алексей" vs "Алексей"+different surname → fail)
-- [x] Added first-character guard in `fuzzyMatch()` — `a[0] !== b[0]` returns false (prevents `роркх` ↔ `йорк`)
-- [x] Added Unicode dashes U+2013/U+2014 to word split regex
-- [x] Added genre words to `GENERIC_TITLE_WORDS` (`роман`, `эпопе`, `повест`, `рассказ`, `поэм`, `сказк`)
+## Исправления алгоритма оценки
+- [x] Удален бонус автора из `scoreFileToBook()` — совпадение автора само по себе не должно повышать оценку, потому что у одного автора может быть много серий.
+- [x] Добавлена NFC-нормализация (`normalize('NFC')`) в `normalizeText()` и `lemmatizeWord()` — исправляет Telegram-имена файлов с составными символами (`и + U+0306` → `й`).
+- [x] Добавлен `parseFileName()` — разбивает имя файла по разделителям `—`, `–`, `-` на `fileAuthor` / `fileTitle`.
+- [x] Строгое разделение доменов — слова названия файла сравниваются только со словами названия книги; перекрестного сравнения с автором нет.
+- [x] Добавлен `checkAuthorMatch()` — требует совпадения всех слов из более короткого имени (2/2 для "Дем Михайлов", 1/2 для "Алексей" против "Алексей" + другая фамилия → не проходит).
+- [x] Добавлена проверка первой буквы в `нечеткоеMatch()` — `a[0] !== b[0]` возвращает false (предотвращает `роркх` ↔ `йорк`).
+- [x] В regex разделения слов добавлены Unicode-тире U+2013/U+2014.
+- [x] В `GENERIC_TITLE_WORDS` добавлены жанровые слова (`роман`, `эпопе`, `повест`, `рассказ`, `поэм`, `сказк`).
 
-## UI Changes
-- [x] File Linking moved to admin page tab (two-column: book list left, file candidates right)
-- [x] Deleted `/admin/file-linking` separate page
-- [x] Sidebar merged into single "Админ-панель" link
-- [x] All entries in `Автор — Название` format
+## Изменения UI
+- [x] Привязка файлов перенесена во вкладку админки (две колонки: список книг слева, кандидаты файлов справа).
+- [x] Отдельная страница `/admin/file-linking` удалена.
+- [x] Боковая навигация сведена к одной ссылке "Админ-панель".
+- [x] Все записи приведены к формату `Автор — Название`.
 
-## Embedding Service
-- [x] Omniroute base URL set to `http://omniroute.ravva.su:20128`
-- [x] Embedding route: `{BASE_URL}/v1/embeddings`
-- [x] Default model: `voyage-ai/voyage-4` (multilingual, 1024 dim)
-- [ ] Vector search blocked — omniroute needs embedding provider credentials configured
+## Сервис эмбеддингов
+- [x] Базовый URL Omniroute установлен как `http://omniroute.ravva.su:20128`.
+- [x] Маршрут эмбеддингов: `{BASE_URL}/v1/embeddings`.
+- [x] Модель по умолчанию: `voyage-ai/voyage-4` (мультиязычная, 1024 измерения).
+- [ ] Векторный поиск заблокирован — для omniroute нужно настроить учетные данные провайдера эмбеддингов.
 
-## Commits
-- `702917a` — fix: add em dash to split pattern, tighten fuzzyMatch first-char check, move file-linking to admin tab with two-column layout
+## Коммиты
+- `702917a` — fix: добавить em dash в шаблон разделения, ужесточить проверку первой буквы в нечеткоеMatch, перенести file-linking во вкладку админки с двухколоночным layout
+
+# Обновление прогресса - 2026-07-06 Embeddings Base URL
+
+## Сервис эмбеддингов
+- [x] В `src/lib/embedding-service.ts` добавлен единый построитель URL для Omniroute API.
+- [x] `OMNIROUTE_BASE_URL` теперь может быть задан как с `/v1`, так и без него; итоговые маршруты остаются `.../v1/models` и `.../v1/embeddings`.
+- [x] Batch embeddings исправлены: больше не используют маршрут без `/v1`.
+- [x] Модель по умолчанию для одиночного и batch-режима унифицирована на `voyage-ai/voyage-4`.
+- [x] Реальный smoke-тест подтвердил: список моделей доступен, `voyage-ai/voyage-4` возвращает embedding размерности 1024.
+
+## Проверка
+- [x] `bunx biome check src\lib\embedding-service.ts src\app\api\admin\embedding\route.ts src\app\api\admin\embedding\search\route.ts` проходит.
+- [x] `bunx tsc --noEmit --pretty false --skipLibCheck src\lib\embedding-service.ts` проходит.

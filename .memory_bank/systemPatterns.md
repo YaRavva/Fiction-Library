@@ -81,15 +81,15 @@ interface IBookRepository {
 }
 ```
 
-### Паттерн 2: Queue Pattern для Асинхронных Задач
+### Паттерн 2: Паттерн Queue для Асинхронных Задач
 **Описание**: Система очередей для обработки длительных операций
 **Почему выбран**: Предотвращение таймаутов, масштабируемость, надежность
 **Как использовать**:
 - Добавлять и отслеживать задачи через текущие сервисы фоновой обработки, например `src/lib/task-manager.ts`
-- Обрабатывать через worker процессы
+- Обрабатывать через worker-процессы
 - Использовать статусы для отслеживания прогресса
 
-### Паттерн 3: Service Layer для Бизнес-Логики
+### Паттерн 3: Слой Service для Бизнес-Логики
 **Описание**: Выделение бизнес-логики в отдельные сервисы
 **Почему выбран**: Переиспользование логики, четкое разделение ответственности
 **Как использовать**:
@@ -97,7 +97,7 @@ interface IBookRepository {
 - Один сервис = одна область ответственности
 - Инжектировать репозитории как зависимости
 
-### Паттерн 4: Factory Pattern для Telegram клиентов
+### Паттерн 4: Паттерн Factory для Telegram клиентов
 **Описание**: Создание различных типов Telegram клиентов в зависимости от задач
 **Почему выбран**: Гибкость в работе с разными каналами и типами операций
 **Как использовать**:
@@ -114,9 +114,9 @@ interface IBookRepository {
 
 1. **Строгое разделение Author/Title через `parseFileName()`**:
    - Файл разбивается на `fileAuthor` + `fileTitle` по одному из разделителей: ` — `, ` – `, ` - `, `—`, `–`
-   - File author words сравниваются ТОЛЬКО с book author words
-   - File title words сравниваются ТОЛЬКО с book title words
-   - Перекрёстное совпадение (file author ↔ book title) **не даёт баллов**
+   - Слова автора файла сравниваются ТОЛЬКО с словами автора книги
+   - Слова названия файла сравниваются ТОЛЬКО с словами названия книги
+   - Перекрёстное совпадение (автор файла ↔ название книги) **не даёт баллов**
 
 2. **`checkAuthorMatch()`** — все слова из более короткого имени должны совпасть:
    - "Дем Михайлов" vs "Дем Михайлов" → 2/2 ✓
@@ -126,20 +126,20 @@ interface IBookRepository {
 3. **Нормализация**:
    - NFC (`normalize('NFC')`) — превращает составные символы (`и + U+0306`) в `й`
    - Лемматизация через `src/lib/lemmatizer.ts` (с кэшем 10000 записей)
-   - Удаление `ё` → `е`, lowercase
+   - Удаление `ё` → `е`, нижний регистр
 
-4. **fuzzyMatch()**:
-   - Levenshtein distance ≤ 2
+4. **нечеткоеMatch()**:
+   - расстояние Левенштейна ≤ 2
    - **Первая буква должна совпадать** — `a[0] !== b[0]` → false (блокирует `роркх` ↔ `йорк`)
 
-5. **Оценка (score 0–100)**:
+5. **Оценка (оценка 0–100)**:
    - Точное совпадение слова: +15
-   - Нечёткое совпадение (fuzzy): +10
-   - Бонус за совпадение всех title-слов: +10
-   - Штраф за лишние слова: −5 (если слов меньше, неуmatched слово книги −5)
-   - Author match **не добавляет баллов** (проходит как бинарный флаг для UI)
+   - Нечёткое совпадение (нечеткое): +10
+   - Бонус за совпадение всех слов названия: +10
+   - Штраф за лишние слова: −5 (если слов меньше, несовпавшее слово книги −5)
+   - Совпадение автора **не добавляет баллов** (проходит как бинарный флаг для UI)
    - Минимальный порог: **50**
-   - Generic-слова (`роман`, `эпопея`, `цикл`, `серия`, `fb2`, `ru` и т.д.) — не считаются лишними
+   - Общие слова (`роман`, `эпопея`, `цикл`, `серия`, `fb2`, `ru` и т.д.) — не считаются лишними
 
 6. **GENERIC_TITLE_WORDS**: `роман`, `эпопе`, `повест`, `рассказ`, `поэм`, `сказк`, `очерк`, `пьес`, `цикл`, `сери`, `книг`, `том`, `часть`, `сборник`, `fb2`, `pdf`, `epub`, `txt`, `ru`, `en`
 
@@ -157,7 +157,7 @@ graph TD
     G --> H[return { score, matchedWords, authorMatch, ... }]
 ```
 
-**Старые удалённые системы**: `UniversalFileMatcher`, старый score в `book-worm-service.ts`, дубли в `file-processing-service-enhanced.ts`. Всё заменено единым `book-file-scorer.ts`.
+**Старые удалённые системы**: `UniversalFileMatcher`, старая оценка в `book-worm-service.ts`, дубли в `file-processing-service-enhanced.ts`. Всё заменено единым `book-file-scorer.ts`.
 
 ### Паттерн 6: Система дедупликации книг
 **Описание**: Автоматическая и ручная система предотвращения и удаления дубликатов книг
@@ -200,7 +200,7 @@ const bestBook = BookDeduplicationService.selectBestBookFromDuplicates(duplicate
 **Описание**: Система фоновой загрузки файлов с отслеживанием прогресса и возобновляемостью
 **Почему выбран**: Предотвращение таймаутов, надежность, пользовательский опыт
 **Как использовать**:
-- Запускать через админ-панель или API endpoints
+- Запускать через админ-панель или API-endpoint-ы
 - Мониторить прогресс через TaskManager
 - Использовать для массовой загрузки файлов
 
@@ -264,7 +264,7 @@ await handler.processFiles(100)
 1. **Пошаговая миграция** (`migrate-to-cloud-ru.ts`):
    - Обработка файлов один за другим
    - Максимальная надежность
-   - Подходит для production среды
+   - Подходит для production-среды
 
 2. **Параллельная миграция** (`migrate-to-cloud-ru-concurrent.ts`):
    - Одновременная обработка до 5 файлов
@@ -562,45 +562,60 @@ interface PaginatedResponse<T> {
 ### Оптимизация запросов
 - Использовать индексы в базе данных
 - Пагинировать большие списки
-- Использовать lazy loading для изображений
+- Использовать ленивую загрузку для изображений
 
 ### Асинхронная обработка
 - Выносить тяжелые операции в очереди
-- Использовать streaming для больших файлов
+- Использовать потоковую передачу для больших файлов
 - Показывать прогресс длительных операций
  
-# UI Pattern Update - 2026-07-06
+# Обновление UI-паттерна - 2026-07-06
 
-## Premium Work-Focused Interface
+## Премиальный рабочий интерфейс
 
-The primary application surfaces now follow a premium editorial/product UI direction rather than the older decorative fantasy/demo direction.
+Основные поверхности приложения теперь следуют премиальному редакционно-продуктовому UI-направлению, а не старому декоративному fantasy/demo-направлению.
 
-### Rules
-- Use `Manrope` for core UI typography because it supports Cyrillic and remains readable in dense admin/catalog screens.
-- Keep the product shell consistent across `/library` and `/admin`: sidebar, sticky topbar, constrained content width, compact status surfaces.
-- Favor dense, scannable records over oversized cards for real catalog work.
-- Use the fantasy/enchanted treatment only as an optional experience, not as the default working interface.
-- Avoid purple glow, decorative gradient orbs, and large hero-first layouts on operational pages.
-- Use subtle OKLCH paper/ink/brass tokens from `src/app/globals.css`.
+### Правила
+- Использовать `Manrope` для основной UI-типографики: он поддерживает кириллицу и остается читаемым в плотных экранах админки и каталога.
+- Держать продуктовую оболочку консистентной на `/library` и `/admin`: боковая навигация, sticky-верхняя панель, ограниченная ширина контента, компактные статусные поверхности.
+- Для реальной работы с каталогом предпочитать плотные, легко сканируемые записи вместо чрезмерно крупных карточек.
+- Использовать fantasy/enchanted-оформление только как опциональный опыт, а не как рабочий интерфейс по умолчанию.
+- Избегать фиолетового свечения, декоративных градиентных сфер и крупных hero-first layout-ов на операционных страницах.
+- Использовать тонкие OKLCH-токены бумага/чернила/латунь из `src/app/globals.css`.
 
-### Current Surfaces
-- `src/components/layout/AppSidebar.tsx`: shared premium navigation shell.
-- `src/app/library/page.tsx`: search-first catalog layout with status metrics and view modes.
-- `src/components/books/advanced-search.tsx`: compact filter panel.
-- `src/components/books/book-card-large.tsx`: dense list-style book record.
-- `src/components/modern/ModernBookCard.tsx`: calm grid catalog card.
-- `src/app/admin/page.tsx`: operations dashboard shell around existing sync/indexing components.
+### Текущие поверхности
+- `src/components/layout/AppSidebar.tsx`: общая премиальная оболочка навигации.
+- `src/app/library/page.tsx`: каталог, где поиск стоит первым, со статусными метриками и режимами просмотра.
+- `src/components/books/advanced-search.tsx`: компактная панель фильтров.
+- `src/components/books/book-card-large.tsx`: плотная запись книги в стиле списка.
+- `src/components/modern/ModernBookCard.tsx`: спокойная карточка каталога для сетки.
+- `src/app/admin/page.tsx`: оболочка операционного дашборда вокруг существующих компонентов синхронизации и индексации.
 
-## Chromium Rendering Safety Rules - 2026-07-06
+## Правила безопасного рендера в Chromium - 2026-07-06
 
-The premium redesign must avoid known Chromium compositor/repaint jitter patterns.
+Премиальный редизайн должен избегать известных Chromium-паттернов jitter-а compositor/repaint.
 
-### Hard Rules
-- Do not use `backdrop-blur` / `backdrop-filter` on product surfaces, especially near `position: sticky` elements.
-- Do not use `mix-blend-mode` for UI surfaces that can move, hover, animate, or sit behind animated cards.
-- Do not toggle `will-change: transform` on hover. If compositor promotion is truly needed, keep it stable and verify that it does not introduce layout shift.
-- Prefer static CSS gradients for ambient backgrounds. Do not attach mousemove JS listeners for decorative gradient tracking unless there is a concrete product need and performance is verified.
-- Hover transforms on cards must be tested in Chromium for repaint jitter, layer desync, and layout shift before considering the UI done.
+### Жесткие правила
+- Не использовать `backdrop-blur` / `backdrop-filter` на продуктовых поверхностях, особенно рядом с элементами `position: sticky`.
+- Не использовать `mix-blend-mode` для UI-поверхностей, которые могут двигаться, иметь hover, анимироваться или находиться за анимированными карточками.
+- Не переключать `will-change: transform` на hover. Если compositor promotion действительно нужен, держать его стабильным и проверять, что он не вызывает layout shift.
+- Для фоновой атмосферы предпочитать статические CSS-градиенты. Не подключать JS-слушатели `mousemove` для декоративного отслеживания градиента без конкретной продуктовой необходимости и проверки производительности.
+- Hover-трансформации карточек нужно проверять в Chromium на repaint jitter, рассинхронизацию слоев и layout shift до того, как UI считается готовым.
 
-### Reason
-Chromium can render `backdrop-blur` + sticky elements on CPU, `mix-blend-mode` can desynchronize from hover transforms through separate compositing layers, and hover-toggled `will-change` can cause repeated promotion/demotion cycles. These are banned for this project unless the user explicitly approves an exception after visual verification.
+### Причина
+Chromium может рендерить `backdrop-blur` + sticky-элементы на CPU; `mix-blend-mode` может рассинхронизироваться с hover-трансформациями через отдельные compositing-слои; hover-переключаемый `will-change` может вызывать повторяющиеся циклы promotion/demotion. Эти приемы запрещены в проекте, если пользователь явно не одобрит исключение после визуальной проверки.
+
+## Паттерн двухвкладочного рабочего пространства админки - 2026-07-06
+
+Страница админки — рабочая поверхность, а не маркетинговая страница. Она использует один защищенный маршрут с двумя вкладками:
+
+- `dashboard`: операционные элементы управления синхронизацией/индексацией, отчеты статуса, повторный вход Telegram и инструменты эмбеддингов.
+- `file-linking`: плотный сценарий проверки связей файл-книга: очередь/поиск слева и сравнение кандидатов справа.
+
+### Правила
+- Держать общую оболочку админки в `src/app/admin/page.tsx`; UI проверки, специфичный для вкладки, должен жить в сфокусированных компонентах вроде `src/components/admin/file-linking-view.tsx`.
+- Для основных режимов админки использовать сегментированные контролы с иконками вместо декоративных tab bar-ов.
+- Высокосигнальные операционные метрики размещать в компактных плитках заголовка, а тело страницы оставлять под активный workflow.
+- Для привязки файлов сохранять двухколоночную модель: сначала очередь/список книг, затем доказательства/действия по кандидатам.
+- Карточки кандидатов должны показывать оценку, совпавшие слова, сигналы автор/название/message-id и действие в одном маршруте сканирования.
+- Не использовать hover-трансформации, `backdrop-blur`, `mix-blend-mode`, hover-переключаемый `will-change` или JS mouse-follow-фоны в рабочем пространстве админки.
