@@ -442,9 +442,7 @@ export class BookWormService {
 			let matchedCount = 0;
 
 			try {
-				// Получаем книги без файлов, которые были обработаны в этом запуске
-				const processedMessageIds = newMessages.map((m: any) => String(m.id));
-
+				// Получаем ВСЕ книги без файлов (не только из текущего запуска)
 				const { data: booksToLink, error: booksLinkError } =
 					await serverSupabase
 						.from("books")
@@ -454,7 +452,7 @@ export class BookWormService {
 						.is("file_url", null)
 						.not("title", "is", null)
 						.not("author", "is", null)
-						.in("telegram_post_id", processedMessageIds);
+						.limit(50);
 
 				if (booksLinkError) {
 					console.warn(
@@ -473,27 +471,46 @@ export class BookWormService {
 						`📊 Загружено ${filesToProcess.length} файлов для сопоставления`,
 					);
 
-					if (filesToProcess.length > 0) {
-						for (const book of booksToLink) {
-							try {
-								const matchingFile = await this.findMatchingFile(
-									book,
-									filesToProcess,
+				if (filesToProcess.length > 0) {
+					for (const book of booksToLink) {
+						try {
+							console.log(
+								`  🔍 Ищем файл для "${book.title}" (${book.author})...`,
+							);
+							const matchingFile = await this.findMatchingFile(
+								book,
+								filesToProcess,
+							);
+
+							if (matchingFile) {
+								console.log(
+									`    📨 Найден файл: ${matchingFile.filename} (msg: ${matchingFile.messageId})`,
 								);
 
-								if (matchingFile) {
-									console.log(
-										`    📨 Найден файл для "${book.title}": ${matchingFile.filename}`,
-									);
-
-									const _result =
+								try {
+									const result =
 										await this.enhancedFileService?.processSingleFileById(
 											parseInt(matchingFile.messageId as string, 10),
 										);
-									console.log(`    ✅ Файл привязан`);
-									matchedCount++;
+
+									if (result && (result as any).skipped) {
+										console.log(
+											`    ⚠️ Файл пропущен: ${(result as any).reason}`,
+										);
+									} else {
+										console.log(`    ✅ Файл привязан`);
+										matchedCount++;
+									}
+								} catch (processErr) {
+									console.warn(
+										`    ❌ Ошибка обработки файла:`,
+										processErr,
+									);
 								}
-							} catch (matchErr) {
+							} else {
+								console.log(`    ⚠️ Файл не найден`);
+							}
+						} catch (matchErr) {
 								console.warn(
 									`    ⚠️ Ошибка привязки файла для "${book.title}":`,
 									matchErr,
