@@ -70,9 +70,9 @@ export function BookCard({
 		>
 			<div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500/20 to-violet-600/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
-			<div className="relative h-full flex flex-col bg-card/50 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl overflow-hidden hover:shadow-xl transition-[box-shadow] duration-200">
+			<div className="relative h-full flex flex-col bg-card/50 border border-white/10 dark:border-white/5 rounded-xl overflow-hidden hover:shadow-xl transition-[box-shadow] duration-200">
 				{/* Cover Section */}
-				<div className="relative aspect-[2/3] w-full overflow-hidden bg-muted/30 will-change-transform">
+				<div className="relative aspect-[2/3] w-full overflow-hidden bg-muted/30">
 					{book.cover_url ? (
 						<Image
 							src={book.cover_url}

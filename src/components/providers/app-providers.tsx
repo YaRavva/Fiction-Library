@@ -14,7 +14,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 			disableTransitionOnChange
 		>
 			<MouseGradientBackground />
-			<div className="relative z-10 flex min-h-screen flex-col">{children}</div>
+			<div className="relative z-10 flex min-h-screen flex-col" style={{ isolation: "isolate" }}>{children}</div>
 			<ToasterProvider />
 		</ThemeProvider>
 	);

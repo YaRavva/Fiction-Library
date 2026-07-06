@@ -33,7 +33,7 @@ export function ModernBookCard({ book }: ModernBookCardProps) {
 
 	return (
 		<article className="group h-full overflow-hidden rounded-lg border bg-card shadow-sm transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md">
-			<div className="relative aspect-[2/3] overflow-hidden bg-muted will-change-transform">
+			<div className="relative aspect-[2/3] overflow-hidden bg-muted">
 				{cover ? (
 					<Image
 						src={cover}

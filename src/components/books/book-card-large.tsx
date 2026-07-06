@@ -87,7 +87,7 @@ export function BookCardLarge({
 			)}
 			onClick={handleOpen}
 		>
-			<div className="relative mx-auto aspect-[2/3] w-28 overflow-hidden rounded-md border bg-muted shadow-sm sm:mx-0 sm:w-full will-change-transform">
+			<div className="relative mx-auto aspect-[2/3] w-28 overflow-hidden rounded-md border bg-muted shadow-sm sm:mx-0 sm:w-full">
 				{book.cover_url ? (
 					<Image
 						src={book.cover_url}
