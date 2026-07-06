@@ -62,6 +62,7 @@ export default function AdminPage() {
 	const [tgLoading, setTgLoading] = useState(false);
 	const [tgError, setTgError] = useState<string | null>(null);
 	const [tgSession, setTgSession] = useState<string | null>(null);
+	const [tgPhoneCodeHash, setTgPhoneCodeHash] = useState<string | null>(null);
 
 	const handleLogout = async () => {
 		await supabase.auth.signOut();
@@ -307,6 +308,7 @@ export default function AdminPage() {
 				});
 				const data = await res.json();
 				if (!res.ok) throw new Error(data.error);
+				setTgPhoneCodeHash(data.phoneCodeHash);
 				setTgStep("code");
 				setTgLoading(false);
 				return;
@@ -316,6 +318,7 @@ export default function AdminPage() {
 			const body: any = {
 				action: "sign_in",
 				phone: tgPhone,
+				phoneCodeHash: tgPhoneCodeHash,
 				code: tgCode,
 			};
 			if (tgStep === "password") {
@@ -584,7 +587,11 @@ export default function AdminPage() {
 															variant="ghost"
 															size="sm"
 															className="h-7 text-xs"
-															onClick={() => setTgStep("phone")}
+															onClick={() => {
+																setTgStep("phone");
+																setTgPhoneCodeHash(null);
+																setTgCode("");
+															}}
 														>
 															Назад
 														</Button>
