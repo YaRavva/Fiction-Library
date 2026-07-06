@@ -192,23 +192,20 @@ export function SyncSettingsShadix({
 								</div>
 							</div>
 
-							<div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-								<div className="flex items-center gap-4">
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="auto-update"
-											checked={autoUpdateEnabled}
-											onCheckedChange={handleAutoUpdateChange}
-										/>
-										<label
-											htmlFor="auto-update"
-											className="text-sm font-medium leading-none cursor-pointer select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-										>
-											Автообновление
-										</label>
-									</div>
+							<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+								<div className="flex items-center space-x-2">
+									<Checkbox
+										id="auto-update"
+										checked={autoUpdateEnabled}
+										onCheckedChange={handleAutoUpdateChange}
+									/>
+									<label
+										htmlFor="auto-update"
+										className="text-sm font-medium leading-none cursor-pointer select-none"
+									>
+										Автообновление
+									</label>
 								</div>
-
 								<div className="flex items-center gap-2">
 									<Label
 										htmlFor="book-worm-interval"

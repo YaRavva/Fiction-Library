@@ -2,10 +2,7 @@
 
 import type { User } from "@supabase/supabase-js";
 import {
-	Activity,
 	AlertCircle,
-	Bot,
-	Clock3,
 	DatabaseZap,
 	Library,
 	Menu,
@@ -345,41 +342,29 @@ export default function AdminPage() {
 					<main className="flex-1 overflow-y-auto">
 						<div className="mx-auto w-full max-w-[1320px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
 							<section className="grid gap-3 md:grid-cols-3">
-								<div className="rounded-lg border bg-card p-4 shadow-sm">
-									<div className="mb-3 flex items-center justify-between">
-										<p className="font-medium text-sm">BookWorm</p>
-										<Bot className="size-4 text-muted-foreground" />
-									</div>
+								<div className="flex flex-col items-center rounded-lg border bg-card p-4 shadow-sm text-center">
 									<p className="font-semibold text-2xl">
 										{bookWormRunning ? "В работе" : "Готов"}
 									</p>
-									<p className="mt-1 text-muted-foreground text-xs">
+									<p className="mt-auto text-muted-foreground text-xs">
 										{bookWormMode
 											? `Режим: ${bookWormMode}`
 											: "Процесс синхронизации"}
 									</p>
 								</div>
-								<div className="rounded-lg border bg-card p-4 shadow-sm">
-									<div className="mb-3 flex items-center justify-between">
-										<p className="font-medium text-sm">Автообновление</p>
-										<Clock3 className="size-4 text-muted-foreground" />
-									</div>
+								<div className="flex flex-col items-center rounded-lg border bg-card p-4 shadow-sm text-center">
 									<p className="font-semibold text-2xl">
 										{bookWormAutoUpdate ? "Включено" : "Выключено"}
 									</p>
-									<p className="mt-1 text-muted-foreground text-xs">
+									<p className="mt-auto text-muted-foreground text-xs">
 										Интервал: {bookWormInterval} мин.
 									</p>
 								</div>
-								<div className="rounded-lg border bg-card p-4 shadow-sm">
-									<div className="mb-3 flex items-center justify-between">
-										<p className="font-medium text-sm">История</p>
-										<Activity className="size-4 text-muted-foreground" />
-									</div>
+								<div className="flex flex-col items-center rounded-lg border bg-card p-4 shadow-sm text-center">
 									<p className="font-semibold text-2xl">
 										{syncRefreshTrigger || 0}
 									</p>
-									<p className="mt-1 text-muted-foreground text-xs">
+									<p className="mt-auto text-muted-foreground text-xs">
 										Обновлений панели за сессию
 									</p>
 								</div>
