@@ -3,10 +3,15 @@
 import type { User } from "@supabase/supabase-js";
 import {
 	AlertCircle,
+	Copy,
 	DatabaseZap,
+	Key,
 	Library,
 	Menu,
+	Phone,
 	ShieldCheck,
+	Loader2,
+	CheckCircle2,
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,6 +23,8 @@ import { TelegramStatsSection } from "@/components/admin/telegram-stats";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PageTransition } from "@/components/ui/page-transition";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getValidSession } from "@/lib/auth-helpers";
@@ -47,6 +54,15 @@ export default function AdminPage() {
 	const [user, setUser] = useState<User | null>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [syncRefreshTrigger, setSyncRefreshTrigger] = useState(0);
+
+	// Telegram re-login state
+	const [tgPhone, setTgPhone] = useState("");
+	const [tgCode, setTgCode] = useState("");
+	const [tgPassword, setTgPassword] = useState("");
+	const [tgStep, setTgStep] = useState<"phone" | "code" | "password" | "done">("phone");
+	const [tgLoading, setTgLoading] = useState(false);
+	const [tgError, setTgError] = useState<string | null>(null);
+	const [tgSession, setTgSession] = useState<string | null>(null);
 
 	const handleLogout = async () => {
 		await supabase.auth.signOut();
@@ -271,6 +287,74 @@ export default function AdminPage() {
 		);
 	}
 
+	const handleTgRelogin = async () => {
+		setTgError(null);
+		setTgLoading(true);
+		try {
+			const { data: { session } } = await supabase.auth.getSession();
+			if (!session) return;
+
+			if (tgStep === "phone") {
+				const res = await fetch("/api/admin/telegram-relogin", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.access_token}`,
+					},
+					body: JSON.stringify({ step: "send_code", phone: tgPhone }),
+				});
+				const data = await res.json();
+				if (!res.ok) throw new Error(data.error);
+				if (data.step === "done") {
+					setTgSession(data.session);
+					setTgStep("done");
+				} else {
+					setTgStep("code");
+				}
+			} else if (tgStep === "code") {
+				const res = await fetch("/api/admin/telegram-relogin", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.access_token}`,
+					},
+					body: JSON.stringify({ step: "submit_code", phone: tgPhone, code: tgCode }),
+				});
+				const data = await res.json();
+				if (!res.ok) throw new Error(data.error);
+				if (data.step === "done") {
+					setTgSession(data.session);
+					setTgStep("done");
+				} else if (data.step === "password_needed") {
+					setTgStep("password");
+				}
+			} else if (tgStep === "password") {
+				const res = await fetch("/api/admin/telegram-relogin", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.access_token}`,
+					},
+					body: JSON.stringify({ step: "submit_password", phone: tgPhone, code: tgCode, password: tgPassword }),
+				});
+				const data = await res.json();
+				if (!res.ok) throw new Error(data.error);
+				setTgSession(data.session);
+				setTgStep("done");
+			}
+		} catch (err: any) {
+			setTgError(err.message || "Ошибка авторизации");
+		} finally {
+			setTgLoading(false);
+		}
+	};
+
+	const handleCopySession = () => {
+		if (tgSession) {
+			navigator.clipboard.writeText(tgSession);
+		}
+	};
+
 	return (
 		<PageTransition>
 			<div className="flex h-screen overflow-hidden bg-background">
@@ -399,6 +483,140 @@ export default function AdminPage() {
 										</pre>
 									</div>
 									<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+
+									<div className="rounded-lg border bg-card p-4 shadow-sm">
+										<div className="mb-3 flex items-center gap-2">
+											<Key className="size-4 text-muted-foreground" />
+											<h2 className="font-semibold text-sm">
+												Переподключение Telegram
+											</h2>
+										</div>
+
+										{tgStep === "done" && tgSession ? (
+											<div className="space-y-3">
+												<div className="flex items-center gap-2 text-emerald-600 text-sm">
+													<CheckCircle2 className="size-4" />
+													Сессия получена
+												</div>
+												<div className="relative">
+													<pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs break-all">
+														{tgSession}
+													</pre>
+													<Button
+														size="icon"
+														variant="ghost"
+														className="absolute top-1 right-1 h-7 w-7"
+														onClick={handleCopySession}
+													>
+														<Copy className="size-3" />
+													</Button>
+												</div>
+												<p className="text-muted-foreground text-xs">
+													Скопируйте и вставьте в <code>TELEGRAM_SESSION</code> в <code>.env</code>, затем перезапустите сервер.
+												</p>
+												<Button
+													variant="outline"
+													size="sm"
+													className="w-full"
+													onClick={() => {
+														setTgStep("phone");
+														setTgPhone("");
+														setTgCode("");
+														setTgPassword("");
+														setTgSession(null);
+														setTgError(null);
+													}}
+												>
+													Ещё раз
+												</Button>
+											</div>
+										) : (
+											<div className="space-y-3">
+												{tgError && (
+													<div className="text-destructive text-xs p-2 bg-destructive/10 rounded-md">
+														{tgError}
+													</div>
+												)}
+
+												{tgStep === "phone" && (
+													<>
+														<div className="space-y-1">
+															<Label className="text-xs">Телефон</Label>
+															<div className="flex gap-2">
+																<Input
+																	placeholder="+79001234567"
+																	value={tgPhone}
+																	onChange={(e) => setTgPhone(e.target.value)}
+																	className="h-8 text-sm"
+																/>
+																<Button
+																	size="sm"
+																	onClick={handleTgRelogin}
+																	disabled={tgLoading || !tgPhone}
+																>
+																	{tgLoading ? <Loader2 className="size-3 animate-spin" /> : <Phone className="size-3" />}
+																</Button>
+															</div>
+														</div>
+													</>
+												)}
+
+												{tgStep === "code" && (
+													<>
+														<p className="text-muted-foreground text-xs">
+															Код отправлен на {tgPhone}
+														</p>
+														<div className="space-y-1">
+															<Label className="text-xs">Код из Telegram</Label>
+															<div className="flex gap-2">
+																<Input
+																	placeholder="12345"
+																	value={tgCode}
+																	onChange={(e) => setTgCode(e.target.value)}
+																	className="h-8 text-sm font-mono"
+																/>
+																<Button
+																	size="sm"
+																	onClick={handleTgRelogin}
+																	disabled={tgLoading || !tgCode}
+																>
+																	{tgLoading ? <Loader2 className="size-3 animate-spin" /> : "OK"}
+																</Button>
+															</div>
+														</div>
+													</>
+												)}
+
+												{tgStep === "password" && (
+													<>
+														<p className="text-muted-foreground text-xs">
+															Введите пароль двухфакторной аутентификации
+														</p>
+														<div className="space-y-1">
+															<Label className="text-xs">Пароль 2FA</Label>
+															<div className="flex gap-2">
+																<Input
+																	type="password"
+																	placeholder="Пароль"
+																	value={tgPassword}
+																	onChange={(e) => setTgPassword(e.target.value)}
+																	className="h-8 text-sm"
+																	onKeyDown={(e) => e.key === "Enter" && handleTgRelogin()}
+																/>
+																<Button
+																	size="sm"
+																	onClick={handleTgRelogin}
+																	disabled={tgLoading || !tgPassword}
+																>
+																	{tgLoading ? <Loader2 className="size-3 animate-spin" /> : "OK"}
+																</Button>
+															</div>
+														</div>
+													</>
+												)}
+											</div>
+										)}
+									</div>
 								</aside>
 							</div>
 						</div>
