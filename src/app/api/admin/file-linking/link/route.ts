@@ -33,10 +33,34 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "Book not found" }, { status: 404 });
 		}
 
-		// Process the file with knownBookId
+		const telegramFileId = String(parseInt(String(messageId), 10));
+		const { data: alreadyLinkedBook, error: linkedBookError } =
+			await serverSupabase
+				.from("books")
+				.select("id, title, author")
+				.eq("telegram_file_id", telegramFileId)
+				.neq("id", bookId)
+				.maybeSingle();
+
+		if (linkedBookError) {
+			throw new Error(
+				`Failed to check existing file link: ${linkedBookError.message}`,
+			);
+		}
+
+		if (alreadyLinkedBook) {
+			return NextResponse.json(
+				{
+					error: "File is already linked to another book",
+					linkedBook: alreadyLinkedBook,
+				},
+				{ status: 409 },
+			);
+		}
+
 		const service = await EnhancedFileProcessingService.getInstance();
 		const result = await service.processSingleFileById(
-			parseInt(String(messageId), 10),
+			Number(telegramFileId),
 			bookId,
 		);
 

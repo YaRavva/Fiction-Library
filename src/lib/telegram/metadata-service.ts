@@ -510,7 +510,6 @@ export class TelegramMetadataService {
 					const duplicateCheck = await checkForBookDuplicates(
 						metadata.title,
 						metadata.author,
-						undefined, // publicationYear
 						normalizeBookText,
 					);
 
@@ -815,7 +814,6 @@ export class TelegramMetadataService {
 				const duplicateCheck = await checkForBookDuplicates(
 					book.title,
 					book.author,
-					undefined, // publicationYear
 					normalizeBookText,
 				);
 
