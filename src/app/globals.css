@@ -131,13 +131,13 @@
 
   .app-main-gradient {
     background:
-      linear-gradient(135deg, oklch(0.99 0.006 84) 0%, oklch(0.965 0.018 112) 38%, oklch(0.955 0.018 206) 72%, oklch(0.985 0.006 84) 100%),
+      linear-gradient(135deg, oklch(0.985 0.012 78) 0%, oklch(0.955 0.035 70) 42%, oklch(0.92 0.045 55) 72%, oklch(0.975 0.014 82) 100%),
       var(--background);
   }
 
   .dark .app-main-gradient {
     background:
-      linear-gradient(135deg, oklch(0.16 0.018 68) 0%, oklch(0.19 0.022 112) 42%, oklch(0.18 0.025 220) 74%, oklch(0.15 0.018 68) 100%),
+      linear-gradient(135deg, oklch(0.16 0.025 50) 0%, oklch(0.205 0.035 45) 40%, oklch(0.26 0.06 55) 70%, oklch(0.18 0.026 62) 100%),
       var(--background);
   }
 }
