@@ -69,7 +69,7 @@ const defaultFilters: AdvancedSearchFilters = {
 	yearTo: null,
 	hasFile: null,
 	tags: [],
-	sortBy: "created_at",
+	sortBy: "rating",
 	sortOrder: "desc",
 };
 
@@ -137,7 +137,8 @@ function LibraryContent() {
 						*,
 						series:series_id(id, title, author, series_composition, cover_urls)
 					`)
-					.order("created_at", { ascending: false });
+					.order("rating", { ascending: false, nullsFirst: false })
+					.order("title", { ascending: true, nullsFirst: false });
 
 				if (booksPerPage !== 0) {
 					const from = (page - 1) * booksPerPage;

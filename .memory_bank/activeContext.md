@@ -1,13 +1,18 @@
 # Активный Контекст: Fiction Library
 
-**Дата последнего обновления**: 2026-07-07 16:35
+**Дата последнего обновления**: 2026-07-07 16:50
 
 ## Текущий Фокус
 
-**Градиентный фон переведен в теплую палитру редизайна**: вместо сине-зеленого направления используется сочетание шоколада, меди и топленого молока.
+**Сортировка библиотеки по умолчанию исправлена на рейтинг по убыванию**: стрелка вниз теперь соответствует `rating desc`, а книги без рейтинга уходят вниз списка.
 
 ## Контекст Сессии
 
+- Проверена логика фильтров и сортировки: UI-стрелка вниз уже означает `sortOrder = "desc"`, но дефолт страницы был `created_at desc`, а `rating desc` мог отдавать `NULL` первыми.
+- В `src/app/library/page.tsx` дефолт `AdvancedSearchFilters` изменен на `sortBy: "rating"`, `sortOrder: "desc"`, первичная загрузка тоже сортирует по `rating desc`.
+- В `src/lib/services/advancedSearchService.ts` добавлено `nullsFirst: false` для сортировки, а для рейтинга добавлен вторичный порядок по `title`.
+- Read-only проверка Supabase с `rating desc, nullsFirst: false` показала первые книги с рейтингами `9.2`, `9.15`, `9.12`, без книг с `NULL` в начале.
+- Проверка: `bun x biome check --write src/app/library/page.tsx src/lib/services/advancedSearchService.ts`, `bun x tsc --noEmit --pretty false`, `bun run build`.
 - Цвета `app-main-gradient` в `src/app/globals.css` заменены на теплую библиотечную палитру: молочная светлая база, медный переход и шоколадная глубина в темной теме.
 - Изменение остается статическим CSS `linear-gradient`, без `backdrop-filter`, `mix-blend-mode`, hover `will-change` и JS-слушателей.
 - Проверка: `bun x tsc --noEmit --pretty false`, `bun run build`; Biome CSS не обрабатывает `globals.css` по текущей конфигурации.

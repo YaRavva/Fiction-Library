@@ -159,7 +159,16 @@ export class AdvancedSearchService {
 	 * Применяет сортировку к запросу
 	 */
 	private applySorting(query: any, sortBy: string, sortOrder: "asc" | "desc") {
-		return query.order(sortBy, { ascending: sortOrder === "asc" });
+		query = query.order(sortBy, {
+			ascending: sortOrder === "asc",
+			nullsFirst: false,
+		});
+
+		if (sortBy === "rating") {
+			query = query.order("title", { ascending: true, nullsFirst: false });
+		}
+
+		return query;
 	}
 
 	/**
