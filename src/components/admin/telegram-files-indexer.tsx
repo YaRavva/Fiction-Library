@@ -3,13 +3,7 @@
 import { Database, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
 
 interface IndexStats {
@@ -37,7 +31,6 @@ export function TelegramFilesIndexer() {
 	const [stats, setStats] = useState<IndexStats | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	// Загрузка статистики индекса
 	const loadStats = useCallback(async () => {
 		try {
 			const {
@@ -58,12 +51,10 @@ export function TelegramFilesIndexer() {
 		}
 	}, [supabase]);
 
-	// Загрузка статистики при монтировании
 	useEffect(() => {
 		loadStats();
 	}, [loadStats]);
 
-	// Запуск индексации
 	const handleIndex = async () => {
 		setIsIndexing(true);
 		setError(null);
@@ -103,63 +94,52 @@ export function TelegramFilesIndexer() {
 
 	return (
 		<Card>
-			<CardHeader>
-				<CardTitle className="flex items-center gap-2">
-					<Database className="h-5 w-5" />
-					Индексация файлов Telegram
+			<CardHeader className="pb-2">
+				<CardTitle className="flex items-center justify-between gap-3 text-sm">
+					<span className="flex items-center gap-2">
+						<Database className="size-4 text-muted-foreground" />
+						Индексация файлов Telegram
+					</span>
+					<Button
+						onClick={handleIndex}
+						disabled={isIndexing}
+						className="h-8 gap-1.5"
+						size="sm"
+					>
+						{isIndexing ? (
+							<Loader2 className="size-3.5 animate-spin" />
+						) : (
+							<RefreshCw className="size-3.5" />
+						)}
+						{isIndexing ? "Идет" : "Обновить"}
+					</Button>
 				</CardTitle>
-				<CardDescription>
-					Загрузка метаданных файлов из Telegram канала в базу данных для
-					быстрого поиска
-				</CardDescription>
 			</CardHeader>
-			<CardContent className="space-y-4">
-				{/* Статистика */}
+			<CardContent className="space-y-3 pt-0">
 				{stats && (
-					<div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-						<div>
-							<div className="text-sm text-muted-foreground">
-								Файлов в индексе
+					<div className="grid grid-cols-2 gap-2">
+						<div className="rounded-md border bg-muted/40 p-2">
+							<div className="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
+								Файлы
 							</div>
-							<div className="text-2xl font-bold">
+							<div className="mt-1 font-semibold text-sm">
 								{stats.total_files.toLocaleString()}
 							</div>
 						</div>
-						<div>
-							<div className="text-sm text-muted-foreground">
-								Последняя индексация
+						<div className="rounded-md border bg-muted/40 p-2">
+							<div className="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
+								Индекс
 							</div>
-							<div className="text-sm font-medium">
+							<div className="mt-1 truncate font-medium text-xs">
 								{formatDate(stats.last_indexed_at)}
 							</div>
 						</div>
 					</div>
 				)}
 
-				{/* Кнопка индексации */}
-				<Button
-					onClick={handleIndex}
-					disabled={isIndexing}
-					className="w-full"
-					size="lg"
-				>
-					{isIndexing ? (
-						<>
-							<Loader2 className="h-4 w-4 mr-2 animate-spin" />
-							Индексация...
-						</>
-					) : (
-						<>
-							<RefreshCw className="h-4 w-4 mr-2" />
-							Запустить индексацию
-						</>
-					)}
-				</Button>
-
-				{/* Ошибки */}
 				{error && (
-					<div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-						❌ {error}
+					<div className="rounded-md bg-destructive/10 p-2 text-destructive text-xs">
+						{error}
 					</div>
 				)}
 			</CardContent>

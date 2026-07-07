@@ -21,6 +21,13 @@ interface PreviousStats {
 	booksWithoutFiles: number;
 }
 
+declare global {
+	interface Window {
+		refreshSyncStats?: () => Promise<TelegramStats>;
+		setStatsUpdateReport?: (report: string) => void;
+	}
+}
+
 export function TelegramStatsSection() {
 	const [stats, setStats] = useState<TelegramStats>({
 		booksInDatabase: 0,
@@ -50,11 +57,10 @@ export function TelegramStatsSection() {
 		statsRef.current = stats;
 	}, [stats]);
 
-	// Функция для анимации цифр
 	const animateNumbers = useCallback(
 		(from: TelegramStats, to: TelegramStats) => {
-			const duration = 1000; // 1 секунда
-			const steps = 60; // 60 кадров в секунду
+			const duration = 1000;
+			const steps = 60;
 			const stepDuration = duration / steps;
 			const stepValue = {
 				booksInDatabase: (to.booksInDatabase - from.booksInDatabase) / steps,
@@ -99,7 +105,6 @@ export function TelegramStatsSection() {
 		try {
 			setError(null);
 
-			// Получаем сессию для авторизации
 			const supabase = getBrowserSupabase();
 			const {
 				data: { session },
@@ -128,7 +133,6 @@ export function TelegramStatsSection() {
 				booksWithoutFiles: data.booksWithoutFiles || 0,
 			};
 
-			// Анимируем изменение цифр только если это не первая загрузка
 			const currentStats = statsRef.current;
 			if (
 				currentStats.booksInDatabase !== 0 ||
@@ -142,10 +146,6 @@ export function TelegramStatsSection() {
 
 			setStats(newStats);
 
-			// Не отправляем сообщение об обновлении статистики в окно результатов при каждой загрузке
-			// Это будет сделано только один раз в конце операции обновления
-
-			// Возвращаем новые статистические данные
 			return newStats;
 		} catch (err: unknown) {
 			console.error("Error loading Telegram stats:", err);
@@ -153,17 +153,12 @@ export function TelegramStatsSection() {
 				`Ошибка загрузки статистики Telegram: ${(err as Error).message || "Неизвестная ошибка"}`,
 			);
 
-			// Отправляем сообщение об ошибке в окно результатов только при ошибке
 			const timestamp = new Date().toLocaleTimeString("ru-RU");
 			const errorReport = `[${timestamp}] ❌ Ошибка загрузки статистики Telegram: ${(err as Error).message || "Неизвестная ошибка"}\n`;
 
-			// Используем правильную функцию для передачи логов в админ-панель
-			if (
-				typeof window !== "undefined" &&
-				(window as any).setStatsUpdateReport
-			) {
+			if (typeof window !== "undefined" && window.setStatsUpdateReport) {
 				try {
-					(window as any).setStatsUpdateReport(errorReport);
+					window.setStatsUpdateReport(errorReport);
 				} catch (error) {
 					console.error(
 						"❌ Ошибка при отправке сообщения в окно результатов:",
@@ -172,32 +167,24 @@ export function TelegramStatsSection() {
 				}
 			}
 
-			// В случае ошибки возвращаем текущие данные
 			return statsRef.current;
 		}
 	}, [animateNumbers]);
 
-	// Загружаем начальные данные и делаем функцию доступной глобально
 	useEffect(() => {
-		// Добавим небольшую задержку чтобы убедиться что все готово
 		const timer = setTimeout(() => {
 			loadStats();
 		}, 100);
 
-		// @ts-expect-error
 		window.refreshSyncStats = loadStats;
 
-		// Очищаем при размонтировании
 		return () => {
 			clearTimeout(timer);
-			// Очищаем анимацию
 			if (animationRef.current) {
 				clearTimeout(animationRef.current);
 			}
 
-			// @ts-expect-error
 			if (typeof window.refreshSyncStats === "function") {
-				// @ts-expect-error
 				delete window.refreshSyncStats;
 			}
 		};
@@ -209,17 +196,12 @@ export function TelegramStatsSection() {
 			setError(null);
 			setSuccess(null);
 
-			// Показываем начальный прогресс в результатах в формате приложения
 			const timestamp = new Date().toLocaleTimeString("ru-RU");
 			const progressReport = `[${timestamp}] 📊 Обновление статистики Telegram...\n`;
 
-			// Используем правильную функцию для передачи логов в админ-панель
-			if (
-				typeof window !== "undefined" &&
-				(window as any).setStatsUpdateReport
-			) {
+			if (typeof window !== "undefined" && window.setStatsUpdateReport) {
 				try {
-					(window as any).setStatsUpdateReport(progressReport);
+					window.setStatsUpdateReport(progressReport);
 				} catch (error) {
 					console.error(
 						"❌ Ошибка при отправке сообщения в окно результатов:",
@@ -228,7 +210,6 @@ export function TelegramStatsSection() {
 				}
 			}
 
-			// Получаем сессию для авторизации
 			const supabase = getBrowserSupabase();
 			const {
 				data: { session },
@@ -252,28 +233,21 @@ export function TelegramStatsSection() {
 
 			const data = await response.json();
 
-			// Обрабатываем как новый формат (синхронное обновление с прогрессом), так и старый формат (фоновое обновление)
 			if (data.status === "error") {
 				throw new Error(
 					data.error || "Неизвестная ошибка при обновлении статистики",
 				);
 			}
 
-			// Отправляем все прогресс-сообщения в окно результатов
 			if (data.progress && Array.isArray(data.progress)) {
-				// Новый формат - синхронное обновление с прогрессом
 				data.progress.forEach(
 					(progressItem: { progress: number; message: string }) => {
 						const progressTimestamp = new Date().toLocaleTimeString("ru-RU");
 						const progressLog = `[${progressTimestamp}] 📈 ${progressItem.message}\n`;
 
-						// Используем правильную функцию для передачи логов в админ-панель
-						if (
-							typeof window !== "undefined" &&
-							(window as any).setStatsUpdateReport
-						) {
+						if (typeof window !== "undefined" && window.setStatsUpdateReport) {
 							try {
-								(window as any).setStatsUpdateReport(progressLog);
+								window.setStatsUpdateReport(progressLog);
 							} catch (error) {
 								console.error(
 									"❌ Error sending progress message to results window:",
@@ -284,17 +258,12 @@ export function TelegramStatsSection() {
 					},
 				);
 			} else if (data.status === "processing") {
-				// Старый формат - фоновое обновление
 				const progressTimestamp = new Date().toLocaleTimeString("ru-RU");
 				const progressLog = `[${progressTimestamp}] 📊 ${data.message}\n`;
 
-				// Используем правильную функцию для передачи логов в админ-панель
-				if (
-					typeof window !== "undefined" &&
-					(window as any).setStatsUpdateReport
-				) {
+				if (typeof window !== "undefined" && window.setStatsUpdateReport) {
 					try {
-						(window as any).setStatsUpdateReport(progressLog);
+						window.setStatsUpdateReport(progressLog);
 					} catch (error) {
 						console.error(
 							"❌ Error sending progress message to results window:",
@@ -304,13 +273,10 @@ export function TelegramStatsSection() {
 				}
 			}
 
-			// Загружаем обновленные статистические данные
-			// Загружаем обновленные статистические данные
 			await loadStats();
 
-			setUpdating(false); // Разблокируем кнопку после завершения
+			setUpdating(false);
 
-			// Показываем итоговое сообщение
 			const finalTimestamp = new Date().toLocaleTimeString("ru-RU");
 			let finalReport = `[${finalTimestamp}] ✅ Обновление статистики завершено!\n`;
 
@@ -322,13 +288,9 @@ export function TelegramStatsSection() {
 				finalReport += `📁 Книг без файлов: ${data.stats.booksWithoutFiles}\n`;
 			}
 
-			// Используем правильную функцию для передачи логов в админ-панель
-			if (
-				typeof window !== "undefined" &&
-				(window as any).setStatsUpdateReport
-			) {
+			if (typeof window !== "undefined" && window.setStatsUpdateReport) {
 				try {
-					(window as any).setStatsUpdateReport(finalReport);
+					window.setStatsUpdateReport(finalReport);
 				} catch (error) {
 					console.error(
 						"❌ Error sending final message to results window:",
@@ -338,27 +300,20 @@ export function TelegramStatsSection() {
 			}
 		} catch (err: unknown) {
 			console.error("Error updating stats:", err);
-			// ВАЖНО: Гарантируем разблокировку кнопки при любой ошибке
 			setUpdating(false);
 
-			// Обновляем данные в карточках даже при ошибке, чтобы показать актуальную информацию
 			await loadStats();
 
 			setError(
 				`Ошибка при обновлении статистики Telegram: ${(err as Error).message || "Неизвестная ошибка"}`,
 			);
 
-			// Показываем ошибку в результатах
 			const errorTimestamp = new Date().toLocaleTimeString("ru-RU");
 			const errorReport = `[${errorTimestamp}] ❌ Ошибка обновления статистики Telegram: ${(err as Error).message || "Неизвестная ошибка"}\n`;
 
-			// Используем правильную функцию для передачи логов в админ-панель
-			if (
-				typeof window !== "undefined" &&
-				(window as any).setStatsUpdateReport
-			) {
+			if (typeof window !== "undefined" && window.setStatsUpdateReport) {
 				try {
-					(window as any).setStatsUpdateReport(errorReport);
+					window.setStatsUpdateReport(errorReport);
 				} catch (error) {
 					console.error(
 						"❌ Ошибка при отправке сообщения в окно результатов:",
@@ -371,7 +326,7 @@ export function TelegramStatsSection() {
 
 	return (
 		<Card className="relative">
-			<CardHeader className="space-y-0 pb-1">
+			<CardHeader className="space-y-0 pb-2">
 				<CardTitle className="text-lg font-semibold">Статистика</CardTitle>
 			</CardHeader>
 			<div className="absolute top-2 right-3">
@@ -392,46 +347,44 @@ export function TelegramStatsSection() {
 					)}
 				</Button>
 			</div>
-			<CardContent className="pb-2">
-				{/* Локальные сообщения убраны - вся информация в результатах операции */}
-
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
-					<div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
-						<div className="flex items-center">
-							<BookOpen className="h-5 w-5 text-blue-500 mr-2" />
-							<h3 className="font-medium">Книг в Telegram</h3>
-						</div>
-						<p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
+			<CardContent className="pb-4">
+				<div className="mb-1 grid grid-cols-1 gap-3 md:grid-cols-4">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+						<BookOpen className="absolute left-4 top-4 h-5 w-5 text-blue-500" />
+						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
+							Книг в Telegram
+						</h3>
+						<p className="pb-1 text-center font-bold text-3xl tabular-nums transition-all duration-300">
 							{animatedStats.booksInTelegram.toLocaleString()}
 						</p>
 					</div>
 
-					<div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
-						<div className="flex items-center">
-							<Database className="h-5 w-5 text-green-500 mr-2" />
-							<h3 className="font-medium">Книг в базе данных</h3>
-						</div>
-						<p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+						<Database className="absolute left-4 top-4 h-5 w-5 text-green-500" />
+						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
+							Книг в базе данных
+						</h3>
+						<p className="pb-1 text-center font-bold text-3xl tabular-nums transition-all duration-300">
 							{animatedStats.booksInDatabase.toLocaleString()}
 						</p>
 					</div>
 
-					<div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
-						<div className="flex items-center">
-							<AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-							<h3 className="font-medium">Отсутствует</h3>
-						</div>
-						<p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+						<AlertCircle className="absolute left-4 top-4 h-5 w-5 text-yellow-500" />
+						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
+							Отсутствует
+						</h3>
+						<p className="pb-1 text-center font-bold text-3xl tabular-nums transition-all duration-300">
 							{animatedStats.missingBooks.toLocaleString()}
 						</p>
 					</div>
 
-					<div className="border rounded-lg p-4 transition-all duration-300 hover:shadow-md">
-						<div className="flex items-center">
-							<File className="h-5 w-5 text-red-500 mr-2" />
-							<h3 className="font-medium">Книг без файлов</h3>
-						</div>
-						<p className="text-2xl font-bold mt-2 tabular-nums transition-all duration-300">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+						<File className="absolute left-4 top-4 h-5 w-5 text-red-500" />
+						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
+							Книг без файлов
+						</h3>
+						<p className="pb-1 text-center font-bold text-3xl tabular-nums transition-all duration-300">
 							{animatedStats.booksWithoutFiles.toLocaleString()}
 						</p>
 					</div>

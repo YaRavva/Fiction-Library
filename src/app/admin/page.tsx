@@ -474,7 +474,7 @@ export default function AdminPage() {
 							<TabsContent value="dashboard" className="mt-0">
 								<div className="mx-auto w-full max-w-[1320px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
 									<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-										<div className="space-y-5">
+										<div className="space-y-5 xl:col-start-1 xl:row-start-1">
 											<TelegramStatsSection />
 											<SyncSettingsShadix
 												bookWormRunning={bookWormRunning}
@@ -488,22 +488,24 @@ export default function AdminPage() {
 											<TelegramFilesIndexer />
 										</div>
 
-										<aside className="space-y-5">
-											<div className="rounded-lg border bg-card p-4 shadow-sm">
+										<aside className="space-y-5 xl:contents">
+											<div className="rounded-lg border bg-card p-4 shadow-sm xl:col-span-2 xl:row-start-2">
 												<div className="mb-3 flex items-center gap-2">
 													<DatabaseZap className="size-4 text-muted-foreground" />
 													<h2 className="font-semibold text-sm">
 														Операционный журнал
 													</h2>
 												</div>
-												<pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
+												<pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
 													{lastBookWormReport ||
 														"Событий в текущей сессии пока нет."}
 												</pre>
 											</div>
-											<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+											<div className="xl:col-span-2 xl:row-start-3">
+												<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+											</div>
 
-											<div className="rounded-lg border bg-card p-4 shadow-sm">
+											<div className="rounded-lg border bg-card p-4 shadow-sm xl:col-start-2 xl:row-start-1">
 												<div className="mb-3 flex items-center gap-2">
 													<Key className="size-4 text-muted-foreground" />
 													<h2 className="font-semibold text-sm">

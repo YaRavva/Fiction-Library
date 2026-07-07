@@ -1,5 +1,18 @@
 # Прогресс Проекта: Fiction Library
 
+# Обновление прогресса - 2026-07-07: реорганизация дашборда админки
+
+## Изменения UI
+- [x] `src/components/admin/telegram-stats.tsx` получил стабильные карточки статистики: фиксированная позиция иконок, заголовки выровнены сверху по центру, значения выровнены снизу по центру.
+- [x] `src/app/admin/page.tsx` перестроен: «Операционный журнал» и «История операций» стали полноширинными блоками под основными контролами.
+- [x] `src/components/admin/telegram-files-indexer.tsx` сделан компактнее: кнопка перенесена в заголовок, статистика сведена к двум плотным ячейкам, поясняющий текст и комментарии убраны.
+- [x] В затронутых файлах не используются `backdrop-blur`, `backdrop-filter`, `mix-blend-mode`, hover-переключение `will-change` или JS-градиенты от движения мыши.
+
+## Проверка
+- [x] `bun x biome check --write src/app/admin/page.tsx src/components/admin/telegram-files-indexer.tsx src/components/admin/telegram-stats.tsx`
+- [x] `bun run build`
+- [x] `git diff --check` без ошибок, только стандартные CRLF-предупреждения Windows.
+
 # Обновление прогресса - 2026-07-06: редизайн двухвкладочной админки
 
 ## Изменения UI
