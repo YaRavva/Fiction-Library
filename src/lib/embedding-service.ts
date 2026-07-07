@@ -38,9 +38,6 @@ export interface ModelInfo {
 	owned_by: string;
 }
 
-/**
- * Get list of available embedding models from omniroute
- */
 export async function listEmbeddingModels(): Promise<ModelInfo[]> {
 	if (!OMNIROUTE_API_KEY) {
 		throw new Error("OMNIROUTE_API_KEY not configured");
@@ -59,16 +56,31 @@ export async function listEmbeddingModels(): Promise<ModelInfo[]> {
 
 	const data = await response.json();
 
-	// Filter for embedding models only
 	const models = data.data || [];
-	return models.filter(
+	const embeddingModels = models.filter(
 		(m: ModelInfo) =>
 			m.id.includes("embed") ||
 			m.id.includes("embedding") ||
 			m.id.includes("e5") ||
 			m.id.includes("bge") ||
-			m.id.includes("ada"),
+			m.id.includes("ada") ||
+			m.id.includes("voyage"),
 	);
+
+	if (
+		!embeddingModels.some(
+			(model: ModelInfo) => model.id === DEFAULT_EMBEDDING_MODEL,
+		)
+	) {
+		embeddingModels.unshift({
+			id: DEFAULT_EMBEDDING_MODEL,
+			object: "model",
+			created: 0,
+			owned_by: "voyage-ai",
+		});
+	}
+
+	return embeddingModels;
 }
 
 /**

@@ -334,3 +334,12 @@
 - [x] `git diff --check` проходит.
 - [x] `bun run build` проходит.
 - [ ] Полный `bunx tsc --noEmit --pretty false --skipLibCheck` все еще заблокирован существующим типовым долгом вне текущих изменений.
+
+# Обновление прогресса - 2026-07-07 Embedding Model List
+
+## Сервис эмбеддингов
+- [x] Исправлен список моделей для админки: `voyage-ai/voyage-4` больше не зависит от наличия в `/v1/models`.
+- [x] Если `/v1/models` не возвращает дефолтную модель, `listEmbeddingModels()` добавляет ее вручную, потому что `/v1/embeddings` ее принимает.
+
+## Проверка
+- [x] `bunx biome check --write src\lib\embedding-service.ts` проходит.
