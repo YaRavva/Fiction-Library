@@ -261,7 +261,7 @@ export default function AdminPage() {
 
 	if (loading) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="space-y-4 text-center">
 					<ShieldCheck className="mx-auto size-10 animate-pulse text-primary" />
 					<p className="text-muted-foreground">Загрузка админ-панели...</p>
@@ -272,7 +272,7 @@ export default function AdminPage() {
 
 	if (error) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background p-4">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center p-4">
 				<Card className="max-w-md">
 					<CardContent className="space-y-4 p-6">
 						<div className="flex items-center gap-2 font-semibold text-destructive">
@@ -354,7 +354,7 @@ export default function AdminPage() {
 
 	return (
 		<PageTransition>
-			<div className="flex h-screen overflow-hidden bg-background">
+			<div className="app-main-gradient flex h-screen overflow-hidden">
 				<div className="hidden lg:block">
 					<AppSidebar
 						user={user}

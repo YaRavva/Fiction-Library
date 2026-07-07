@@ -13,7 +13,7 @@ import {
 
 export default function AccessDeniedPage() {
 	return (
-		<div className="min-h-screen bg-background flex items-center justify-center p-4">
+		<div className="app-main-gradient flex min-h-screen items-center justify-center p-4">
 			<Card className="max-w-md w-full border-destructive/20 shadow-lg">
 				<CardHeader className="text-center">
 					<div className="mx-auto mb-4 p-3 bg-destructive/10 rounded-full w-fit">

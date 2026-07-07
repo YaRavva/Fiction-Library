@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
 	};
 
 	return (
-		<div className="container relative grid min-h-screen flex-col items-center justify-center lg:max-w-none lg:grid-cols-1 lg:px-0">
+		<div className="app-main-gradient container relative grid min-h-screen flex-col items-center justify-center lg:max-w-none lg:grid-cols-1 lg:px-0">
 			<Link
 				href="/auth/login"
 				className="absolute left-4 top-4 md:left-8 md:top-8 inline-flex items-center"

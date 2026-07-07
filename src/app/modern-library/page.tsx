@@ -122,7 +122,7 @@ export default function ModernLibraryPage() {
 	];
 
 	return (
-		<div className="flex min-h-screen bg-background font-sans selection:bg-primary/20">
+		<div className="app-main-gradient flex min-h-screen font-sans selection:bg-primary/20">
 			<ModernSidebar />
 
 			<main className="flex-1 overflow-x-hidden">

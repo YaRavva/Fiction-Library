@@ -187,7 +187,7 @@ function BookTableContent() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="text-center space-y-4">
 					<p className="text-muted-foreground">Загрузка книги...</p>
 				</div>
@@ -197,7 +197,7 @@ function BookTableContent() {
 
 	if (!book) {
 		return (
-			<div className="min-h-screen flex items-center justify-center">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="text-center space-y-4">
 					<p className="text-muted-foreground">Книга не найдена</p>
 				</div>
@@ -206,7 +206,7 @@ function BookTableContent() {
 	}
 
 	return (
-		<div className="min-h-screen">
+		<div className="app-main-gradient min-h-screen">
 			<Head>
 				<title>
 					{book.author} - {book.title} | Fiction Library
@@ -236,7 +236,7 @@ export default function BookTablePage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="min-h-screen flex items-center justify-center">
+				<div className="app-main-gradient flex min-h-screen items-center justify-center">
 					<div className="text-center space-y-4">
 						<BookOpen className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
 						<p className="text-muted-foreground">Загрузка книги...</p>

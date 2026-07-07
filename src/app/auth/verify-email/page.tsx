@@ -47,7 +47,7 @@ function VerifyEmailContent() {
 	}, [searchParams, router, supabase]);
 
 	return (
-		<div className="container flex h-screen w-screen flex-col items-center justify-center">
+		<div className="app-main-gradient container flex h-screen w-screen flex-col items-center justify-center">
 			<div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
 				<div className="flex flex-col items-center space-y-4">
 					{error ? (
@@ -83,7 +83,7 @@ export default function VerifyEmailPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="container flex h-screen w-screen flex-col items-center justify-center">
+				<div className="app-main-gradient container flex h-screen w-screen flex-col items-center justify-center">
 					<div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
 						<div className="flex flex-col items-center space-y-4">
 							<Icons.spinner className="h-8 w-8 animate-spin" />

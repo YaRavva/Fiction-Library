@@ -65,14 +65,14 @@ function RegisterContent() {
 
 	if (loading) {
 		return (
-			<div className="container flex h-screen w-screen items-center justify-center">
+			<div className="app-main-gradient container flex h-screen w-screen items-center justify-center">
 				<Icons.spinner className="h-6 w-6 animate-spin" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="container relative grid min-h-screen flex-col items-center justify-center lg:max-w-none lg:grid-cols-1 lg:px-0">
+		<div className="app-main-gradient container relative grid min-h-screen flex-col items-center justify-center lg:max-w-none lg:grid-cols-1 lg:px-0">
 			<Link
 				href="/"
 				className="absolute left-4 top-4 md:left-8 md:top-8 inline-flex items-center"
@@ -112,7 +112,7 @@ export default function RegisterPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="container flex h-screen w-screen items-center justify-center">
+				<div className="app-main-gradient container flex h-screen w-screen items-center justify-center">
 					<Icons.spinner className="h-6 w-6 animate-spin" />
 				</div>
 			}

@@ -196,7 +196,7 @@ function BookDetailPageContent() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-background">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="text-center space-y-4">
 					<Library className="h-12 w-12 mx-auto animate-pulse text-primary" />
 					<p className="text-muted-foreground">Загрузка книги...</p>
@@ -207,7 +207,7 @@ function BookDetailPageContent() {
 
 	if (!book) {
 		return (
-			<div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+			<div className="app-main-gradient flex min-h-screen flex-col items-center justify-center p-4">
 				<h1 className="text-2xl font-bold mb-4">Книга не найдена</h1>
 				<Button onClick={() => router.back()}>Назад</Button>
 			</div>
@@ -216,7 +216,7 @@ function BookDetailPageContent() {
 
 	return (
 		<PageTransition>
-			<div className="flex h-screen bg-background overflow-hidden">
+			<div className="app-main-gradient flex h-screen overflow-hidden">
 				{/* Desktop Sidebar - hidden on mobile */}
 				<div className="hidden lg:block">
 					<AppSidebar
@@ -276,7 +276,7 @@ export default function BookDetailPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="min-h-screen flex items-center justify-center bg-background">
+				<div className="app-main-gradient flex min-h-screen items-center justify-center">
 					<Library className="h-12 w-12 mx-auto animate-pulse text-primary" />
 				</div>
 			}

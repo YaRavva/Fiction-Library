@@ -90,7 +90,7 @@ export default function SharedBookLayout({
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="text-center space-y-4">
 					<Library className="h-12 w-12 mx-auto animate-pulse text-muted-foreground" />
 					<p className="text-muted-foreground">Загрузка...</p>
@@ -100,7 +100,7 @@ export default function SharedBookLayout({
 	}
 
 	return (
-		<div className="min-h-screen">
+		<div className="app-main-gradient min-h-screen">
 			{/* Header */}
 			<header className="sticky top-0 z-50 w-full border-b bg-background">
 				<div className="container flex h-14 items-center">

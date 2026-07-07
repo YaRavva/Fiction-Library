@@ -181,7 +181,7 @@ export default function MyBooksPage() {
 
 	if (loading) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="space-y-4 text-center">
 					<Library className="mx-auto size-10 animate-pulse text-primary" />
 					<p className="text-muted-foreground">Загрузка...</p>
@@ -192,7 +192,7 @@ export default function MyBooksPage() {
 
 	return (
 		<PageTransition>
-			<div className="flex h-screen overflow-hidden bg-background">
+			<div className="app-main-gradient flex h-screen overflow-hidden">
 				<div className="hidden lg:block">
 					<AppSidebar
 						user={user}
@@ -214,27 +214,7 @@ export default function MyBooksPage() {
 
 					<main className="flex-1 overflow-y-auto">
 						<div className="mx-auto w-full max-w-[1480px] space-y-8 px-4 py-5 sm:px-6 lg:px-8">
-							<section className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-								<div className="grid flex-1 gap-3 sm:grid-cols-2">
-									<div className="rounded-lg border bg-card p-4">
-										<div className="flex items-center gap-2 text-muted-foreground text-sm">
-											<Clock className="size-4" />
-											Читаю сейчас
-										</div>
-										<div className="mt-2 font-semibold text-3xl tabular-nums">
-											{history.length}
-										</div>
-									</div>
-									<div className="rounded-lg border bg-card p-4">
-										<div className="flex items-center gap-2 text-muted-foreground text-sm">
-											<Heart className="size-4" />
-											Избранное
-										</div>
-										<div className="mt-2 font-semibold text-3xl tabular-nums">
-											{favorites.length}
-										</div>
-									</div>
-								</div>
+							<section className="flex justify-end">
 								<ViewModeToggle
 									viewMode={viewMode}
 									onViewModeChange={setViewMode}
@@ -245,6 +225,9 @@ export default function MyBooksPage() {
 								<h2 className="mb-4 flex items-center gap-2 font-semibold text-xl">
 									<Clock className="size-5 text-primary" />
 									Читаю сейчас
+									<span className="rounded-md border bg-card px-2 py-0.5 font-medium text-muted-foreground text-xs tabular-nums">
+										{history.length}
+									</span>
 								</h2>
 
 								{history.length > 0 ? (
@@ -267,6 +250,9 @@ export default function MyBooksPage() {
 								<h2 className="mb-4 flex items-center gap-2 font-semibold text-xl">
 									<Heart className="size-5 text-red-500" />
 									Избранное
+									<span className="rounded-md border bg-card px-2 py-0.5 font-medium text-muted-foreground text-xs tabular-nums">
+										{favorites.length}
+									</span>
 								</h2>
 								{favorites.length > 0 ? (
 									renderBooks(favorites)

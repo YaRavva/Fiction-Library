@@ -340,7 +340,7 @@ function LibraryContent() {
 
 	if (loading && books.length === 0) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="space-y-4 text-center">
 					<Library className="mx-auto size-10 animate-pulse text-primary" />
 					<p className="text-muted-foreground">Загрузка библиотеки...</p>
@@ -354,7 +354,7 @@ function LibraryContent() {
 
 	return (
 		<PageTransition>
-			<div className="flex h-screen overflow-hidden bg-background">
+			<div className="app-main-gradient flex h-screen overflow-hidden">
 				<div className="hidden lg:block">
 					<AppSidebar
 						user={user}
@@ -612,7 +612,7 @@ export default function LibraryPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="flex min-h-screen items-center justify-center bg-background">
+				<div className="app-main-gradient flex min-h-screen items-center justify-center">
 					<Library className="mx-auto size-10 animate-pulse text-primary" />
 				</div>
 			}

@@ -559,7 +559,7 @@ function ReaderContent() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-background">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="text-center space-y-4">
 					<BookOpen className="h-12 w-12 mx-auto animate-pulse text-primary" />
 					<p className="text-muted-foreground">Загрузка читалки...</p>
@@ -570,7 +570,7 @@ function ReaderContent() {
 
 	if (!book) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-background">
+			<div className="app-main-gradient flex min-h-screen items-center justify-center">
 				<div className="text-center space-y-4">
 					<p className="text-muted-foreground">Книга не найдена</p>
 					<Button onClick={() => router.push("/library")}>
@@ -583,7 +583,7 @@ function ReaderContent() {
 
 	return (
 		<PageTransition>
-			<div className="flex h-screen bg-background overflow-hidden">
+			<div className="app-main-gradient flex h-screen overflow-hidden">
 				{/* Desktop Sidebar */}
 				<AppSidebar
 					user={user}
@@ -885,7 +885,7 @@ export default function ReaderPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="min-h-screen flex items-center justify-center bg-background">
+				<div className="app-main-gradient flex min-h-screen items-center justify-center">
 					<div className="text-center space-y-4">
 						<BookOpen className="h-12 w-12 mx-auto animate-pulse text-primary" />
 						<p className="text-muted-foreground">Загрузка...</p>
