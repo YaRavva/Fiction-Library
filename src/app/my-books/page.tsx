@@ -5,12 +5,17 @@ import { BookOpen, Clock, Heart, Library } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BookCardLarge } from "@/components/books/book-card-large";
+import { BooksTable } from "@/components/books/books-table";
+import { ViewModeToggle } from "@/components/books/view-mode-toggle";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { ModernBookCard } from "@/components/modern/ModernBookCard";
 import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/ui/page-transition";
 import { getValidSession } from "@/lib/auth-helpers";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
 import type { Book } from "@/lib/supabase";
+
+type ViewMode = "large-cards" | "small-cards" | "table";
 
 interface FavoriteItem {
 	id: string;
@@ -39,6 +44,7 @@ export default function MyBooksPage() {
 	const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
 	const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [viewMode, setViewMode] = useState<ViewMode>("large-cards");
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -128,6 +134,51 @@ export default function MyBooksPage() {
 		}
 	};
 
+	const renderBooks = (items: Array<{ id: string; book: Book }>) => {
+		const books = items.map((item) => item.book);
+
+		if (viewMode === "table") {
+			return (
+				<BooksTable
+					books={books}
+					onBookClick={handleBookClick}
+					onDownload={handleDownload}
+					onReadClick={handleRead}
+				/>
+			);
+		}
+
+		if (viewMode === "small-cards") {
+			return (
+				<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+					{items.map((item, index) => (
+						<div
+							key={item.id}
+							className="h-full cursor-pointer"
+							onClick={() => handleBookClick(item.book)}
+						>
+							<ModernBookCard book={item.book} index={index} />
+						</div>
+					))}
+				</div>
+			);
+		}
+
+		return (
+			<div className="space-y-3">
+				{items.map((item) => (
+					<BookCardLarge
+						key={item.id}
+						book={item.book}
+						onRead={handleRead}
+						onDownload={handleDownload}
+						onBookClick={handleBookClick}
+					/>
+				))}
+			</div>
+		);
+	};
+
 	if (loading) {
 		return (
 			<div className="flex min-h-screen items-center justify-center bg-background">
@@ -163,25 +214,31 @@ export default function MyBooksPage() {
 
 					<main className="flex-1 overflow-y-auto">
 						<div className="mx-auto w-full max-w-[1480px] space-y-8 px-4 py-5 sm:px-6 lg:px-8">
-							<section className="grid gap-3 sm:grid-cols-2">
-								<div className="rounded-lg border bg-card p-4">
-									<div className="flex items-center gap-2 text-muted-foreground text-sm">
-										<Clock className="size-4" />
-										Читаю сейчас
+							<section className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+								<div className="grid flex-1 gap-3 sm:grid-cols-2">
+									<div className="rounded-lg border bg-card p-4">
+										<div className="flex items-center gap-2 text-muted-foreground text-sm">
+											<Clock className="size-4" />
+											Читаю сейчас
+										</div>
+										<div className="mt-2 font-semibold text-3xl tabular-nums">
+											{history.length}
+										</div>
 									</div>
-									<div className="mt-2 font-semibold text-3xl tabular-nums">
-										{history.length}
+									<div className="rounded-lg border bg-card p-4">
+										<div className="flex items-center gap-2 text-muted-foreground text-sm">
+											<Heart className="size-4" />
+											Избранное
+										</div>
+										<div className="mt-2 font-semibold text-3xl tabular-nums">
+											{favorites.length}
+										</div>
 									</div>
 								</div>
-								<div className="rounded-lg border bg-card p-4">
-									<div className="flex items-center gap-2 text-muted-foreground text-sm">
-										<Heart className="size-4" />
-										Избранное
-									</div>
-									<div className="mt-2 font-semibold text-3xl tabular-nums">
-										{favorites.length}
-									</div>
-								</div>
+								<ViewModeToggle
+									viewMode={viewMode}
+									onViewModeChange={setViewMode}
+								/>
 							</section>
 
 							<section>
@@ -191,17 +248,7 @@ export default function MyBooksPage() {
 								</h2>
 
 								{history.length > 0 ? (
-									<div className="space-y-3">
-										{history.map((item, i) => (
-											<BookCardLarge
-												key={item.id}
-												book={item.book}
-												onRead={handleRead}
-												onDownload={handleDownload}
-												onBookClick={handleBookClick}
-											/>
-										))}
-									</div>
+									renderBooks(history)
 								) : (
 									<div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card py-16 text-center">
 										<BookOpen className="mb-4 size-10 text-muted-foreground/50" />
@@ -222,17 +269,7 @@ export default function MyBooksPage() {
 									Избранное
 								</h2>
 								{favorites.length > 0 ? (
-									<div className="space-y-3">
-										{favorites.map((item, i) => (
-											<BookCardLarge
-												key={item.id}
-												book={item.book}
-												onRead={handleRead}
-												onDownload={handleDownload}
-												onBookClick={handleBookClick}
-											/>
-										))}
-									</div>
+									renderBooks(favorites)
 								) : (
 									<div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card py-16 text-center">
 										<Heart className="mb-4 size-10 text-muted-foreground/50" />
