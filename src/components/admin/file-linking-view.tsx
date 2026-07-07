@@ -52,6 +52,7 @@ export function FileLinkingView() {
 	const [linking, setLinking] = useState<string | null>(null);
 	const [linkResult, setLinkResult] = useState<{
 		bookId: string;
+		messageId: number;
 		success: boolean;
 		error?: string;
 	} | null>(null);
@@ -126,11 +127,12 @@ export function FileLinkingView() {
 			});
 			const data = await res.json();
 			if (!data.error) {
-				setLinkResult({ bookId: selectedBook.id, success: true });
+				setLinkResult({ bookId: selectedBook.id, messageId, success: true });
 				setBooks((prev) => prev.filter((book) => book.id !== selectedBook.id));
 			} else {
 				setLinkResult({
 					bookId: selectedBook.id,
+					messageId,
 					success: false,
 					error: data.error,
 				});
@@ -138,6 +140,7 @@ export function FileLinkingView() {
 		} catch {
 			setLinkResult({
 				bookId: selectedBook.id,
+				messageId,
 				success: false,
 				error: "Не удалось привязать файл",
 			});
@@ -375,7 +378,8 @@ export function FileLinkingView() {
 															) : null}
 
 															{linkResult &&
-															linkResult.bookId === selectedBook.id ? (
+															linkResult.bookId === selectedBook.id &&
+															linkResult.messageId === match.message_id ? (
 																<div
 																	className={`flex items-center gap-1.5 rounded-md border p-2 text-xs ${
 																		linkResult.success

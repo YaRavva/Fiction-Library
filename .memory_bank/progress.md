@@ -401,3 +401,13 @@
 ## Проверка
 - [x] `bun x biome check src/lib/telegram/file-processing-service-enhanced.ts` проходит.
 - [x] `bun run build` проходит.
+
+# Обновление прогресса - 2026-07-07 File Linking Result Scope
+
+## Привязка файлов
+- [x] Исправлено отображение `Готово` напротив всех кандидатов после ручной привязки.
+- [x] Результат привязки теперь scoped by `bookId + messageId`.
+
+## Проверка
+- [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
+- [x] `bun run build` проходит.

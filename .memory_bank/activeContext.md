@@ -585,3 +585,16 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 ## Проверка
 - [x] `bun x biome check src/lib/telegram/file-processing-service-enhanced.ts` проходит.
 - [x] `bun run build` проходит.
+
+# Обновление активного контекста - 2026-07-07 03:00
+
+## Текущий фокус
+Исправление отображения результата ручной привязки в списке кандидатов.
+
+## Принятое решение
+- [x] `linkResult` теперь хранит `messageId`.
+- [x] Сообщение `Готово` показывается только на карточке кандидата с тем же `bookId` и `messageId`.
+
+## Проверка
+- [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
+- [x] `bun run build` проходит.
