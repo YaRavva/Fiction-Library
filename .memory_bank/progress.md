@@ -343,3 +343,13 @@
 
 ## Проверка
 - [x] `bunx biome check --write src\lib\embedding-service.ts` проходит.
+
+# Обновление прогресса - 2026-07-07 Pgvector Schema Guard
+
+## Embeddings
+- [x] Исправлена деградация при отсутствии `telegram_files.embedding` в production: stats и batch-index больше не падают 500.
+- [x] API возвращает `migrationRequired`, если pgvector-схема еще не применена к базе.
+- [x] UI блокирует файловую embedding-индексацию до появления колонки `telegram_files.embedding`.
+
+## Проверка
+- [x] `bun x biome check --write` по измененным embedding/admin файлам проходит.

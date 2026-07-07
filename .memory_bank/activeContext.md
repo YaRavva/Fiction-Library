@@ -510,3 +510,13 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 ## Принятое решение
 - [x] `listEmbeddingModels()` теперь включает модели с `voyage` в id.
 - [x] `DEFAULT_EMBEDDING_MODEL` явно добавляется в начало списка, если провайдер не вернул ее из `/v1/models`.
+
+# Обновление активного контекста - 2026-07-07 01:15
+
+## Текущий фокус
+Продовая база еще не содержит `telegram_files.embedding`, поэтому embedding stats/indexing падали с 500 при обращении к файловым embeddings.
+
+## Принятое решение
+- [x] `GET /api/admin/embedding/stats` теперь распознает отсутствие embedding-колонок и возвращает `stats.schema.migrationRequired` вместо 500.
+- [x] `PUT /api/admin/embedding` теперь пропускает targets с отсутствующей embedding-колонкой и возвращает понятное сообщение без 500.
+- [x] Панель embeddings показывает компактный статус `Миграция pgvector не применена` и блокирует кнопку файловой индексации до готовности схемы.

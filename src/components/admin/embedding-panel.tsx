@@ -39,6 +39,11 @@ interface EmbeddingStats {
 		embedded: number;
 		pending: number;
 	};
+	schema?: {
+		booksEmbeddingReady: boolean;
+		filesEmbeddingReady: boolean;
+		migrationRequired: boolean;
+	};
 }
 
 type EmbedTarget = "books" | "files" | "all";
@@ -121,7 +126,11 @@ export function EmbeddingPanel() {
 				return;
 			}
 
-			setSuccess(data.message);
+			if (data.migrationRequired) {
+				setError(data.message);
+			} else {
+				setSuccess(data.message);
+			}
 			await fetchStats();
 		} catch (err: any) {
 			setError(err.message || "Failed to embed");
@@ -136,6 +145,7 @@ export function EmbeddingPanel() {
 				["Файлы", stats.files.embedded, stats.files.total],
 			]
 		: [];
+	const filesEmbeddingReady = stats?.schema?.filesEmbeddingReady !== false;
 
 	return (
 		<Card>
@@ -190,6 +200,12 @@ export function EmbeddingPanel() {
 					</div>
 				) : null}
 
+				{stats?.schema?.migrationRequired ? (
+					<p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-destructive text-xs">
+						Миграция pgvector не применена
+					</p>
+				) : null}
+
 				<div className="grid grid-cols-3 gap-2">
 					{(["books", "files", "all"] as EmbedTarget[]).map((target) => (
 						<Button
@@ -197,7 +213,10 @@ export function EmbeddingPanel() {
 							size="sm"
 							variant={target === "all" ? "default" : "outline"}
 							onClick={() => handleEmbed(target)}
-							disabled={loadingTarget !== null}
+							disabled={
+								loadingTarget !== null ||
+								(target === "files" && !filesEmbeddingReady)
+							}
 						>
 							{loadingTarget === target ? (
 								<Loader2 className="size-3.5 animate-spin" />

@@ -11,6 +11,17 @@ type EmbedTarget = "books" | "files" | "all";
 type BookEmbeddingRow = { id: string; title: string; author: string };
 type FileEmbeddingRow = { message_id: number | string; file_name: string };
 
+function isMissingColumnError(
+	error: { message?: string; code?: string } | null,
+) {
+	return (
+		error?.code === "42703" ||
+		(error?.message?.toLowerCase().includes("column") &&
+			error.message.toLowerCase().includes("embedding") &&
+			error.message.toLowerCase().includes("does not exist"))
+	);
+}
+
 function normalizeFileNameForEmbedding(fileName: string): string {
 	return fileName
 		.normalize("NFC")
@@ -90,6 +101,8 @@ export async function PUT(request: NextRequest) {
 		let filesEmbedded = 0;
 		let booksTotal = 0;
 		let filesTotal = 0;
+		const skippedTargets: EmbedTarget[] = [];
+		let migrationRequired = false;
 
 		if (target === "books" || target === "all") {
 			const { data, error } = await admin
@@ -100,7 +113,14 @@ export async function PUT(request: NextRequest) {
 				.not("author", "is", null)
 				.limit(batchSize);
 
-			if (error) throw new Error(`Failed to fetch books: ${error.message}`);
+			if (error) {
+				if (isMissingColumnError(error)) {
+					migrationRequired = true;
+					skippedTargets.push("books");
+				} else {
+					throw new Error(`Failed to fetch books: ${error.message}`);
+				}
+			}
 
 			const books = (data || []) as BookEmbeddingRow[];
 			booksTotal = books?.length || 0;
@@ -133,7 +153,14 @@ export async function PUT(request: NextRequest) {
 				.not("file_name", "is", null)
 				.limit(batchSize);
 
-			if (error) throw new Error(`Failed to fetch files: ${error.message}`);
+			if (error) {
+				if (isMissingColumnError(error)) {
+					migrationRequired = true;
+					skippedTargets.push("files");
+				} else {
+					throw new Error(`Failed to fetch files: ${error.message}`);
+				}
+			}
 
 			const files = (data || []) as FileEmbeddingRow[];
 			filesTotal = files?.length || 0;
@@ -158,10 +185,14 @@ export async function PUT(request: NextRequest) {
 		}
 
 		return NextResponse.json({
-			message: `Books ${booksEmbedded}/${booksTotal}, files ${filesEmbedded}/${filesTotal}`,
+			message: migrationRequired
+				? `Books ${booksEmbedded}/${booksTotal}, files ${filesEmbedded}/${filesTotal}. Нужна pgvector миграция: ${skippedTargets.join(", ")}`
+				: `Books ${booksEmbedded}/${booksTotal}, files ${filesEmbedded}/${filesTotal}`,
 			model,
 			books: { embedded: booksEmbedded, total: booksTotal },
 			files: { embedded: filesEmbedded, total: filesTotal },
+			migrationRequired,
+			skippedTargets,
 		});
 	} catch (error: any) {
 		console.error("Error batch embedding:", error);

@@ -1,10 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
 
+function isMissingColumnError(
+	error: { message?: string; code?: string } | null,
+) {
+	return (
+		error?.code === "42703" ||
+		(error?.message?.toLowerCase().includes("column") &&
+			error.message.toLowerCase().includes("embedding") &&
+			error.message.toLowerCase().includes("does not exist"))
+	);
+}
+
 export async function GET(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		let booksEmbeddingReady = true;
+		let filesEmbeddingReady = true;
 
 		const { count: totalBooks, error: totalBooksError } = await auth.admin
 			.from("books")
@@ -22,9 +35,13 @@ export async function GET(request: NextRequest) {
 			.not("embedding", "is", null);
 
 		if (embeddedBooksError) {
-			throw new Error(
-				`Failed to count embedded books: ${embeddedBooksError.message}`,
-			);
+			if (isMissingColumnError(embeddedBooksError)) {
+				booksEmbeddingReady = false;
+			} else {
+				throw new Error(
+					`Failed to count embedded books: ${embeddedBooksError.message}`,
+				);
+			}
 		}
 
 		const { count: totalFiles, error: totalFilesError } = await auth.admin
@@ -42,22 +59,35 @@ export async function GET(request: NextRequest) {
 			.not("embedding", "is", null);
 
 		if (embeddedFilesError) {
-			throw new Error(
-				`Failed to count embedded files: ${embeddedFilesError.message}`,
-			);
+			if (isMissingColumnError(embeddedFilesError)) {
+				filesEmbeddingReady = false;
+			} else {
+				throw new Error(
+					`Failed to count embedded files: ${embeddedFilesError.message}`,
+				);
+			}
 		}
 
 		return NextResponse.json({
 			stats: {
 				books: {
 					total: totalBooks || 0,
-					embedded: embeddedBooks || 0,
-					pending: (totalBooks || 0) - (embeddedBooks || 0),
+					embedded: booksEmbeddingReady ? embeddedBooks || 0 : 0,
+					pending: booksEmbeddingReady
+						? (totalBooks || 0) - (embeddedBooks || 0)
+						: totalBooks || 0,
 				},
 				files: {
 					total: totalFiles || 0,
-					embedded: embeddedFiles || 0,
-					pending: (totalFiles || 0) - (embeddedFiles || 0),
+					embedded: filesEmbeddingReady ? embeddedFiles || 0 : 0,
+					pending: filesEmbeddingReady
+						? (totalFiles || 0) - (embeddedFiles || 0)
+						: totalFiles || 0,
+				},
+				schema: {
+					booksEmbeddingReady,
+					filesEmbeddingReady,
+					migrationRequired: !booksEmbeddingReady || !filesEmbeddingReady,
 				},
 			},
 		});
