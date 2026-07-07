@@ -1,78 +1,178 @@
-import { NextRequest, NextResponse } from "next/server";
-import { scoreFileToBook, type FileOption, type BookOption } from "@/lib/book-file-scorer";
-import { serverSupabase } from "@/lib/serverSupabase";
+import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
+import {
+	type BookOption,
+	type FileOption,
+	scoreFileToBook,
+} from "@/lib/book-file-scorer";
+import {
+	DEFAULT_EMBEDDING_MODEL,
+	generateEmbedding,
+	prepareBookText,
+} from "@/lib/embedding-service";
 
-/**
- * POST /api/admin/file-linking/search
- * Search for file matches for a book
- */
+interface TelegramFileCandidate {
+	message_id: number | string;
+	file_name: string;
+	mime_type?: string | null;
+	file_size?: number | null;
+	similarity?: number | null;
+}
+
+function toMessageId(value: number | string): number {
+	return typeof value === "number" ? value : Number.parseInt(value, 10);
+}
+
+function normalizeFileNameForEmbedding(fileName: string): string {
+	return fileName
+		.normalize("NFC")
+		.replace(/\.[^/.]+$/, "")
+		.replace(/[_-]/g, " ")
+		.toLowerCase()
+		.trim();
+}
+
+function mergeCandidates(
+	vectorCandidates: TelegramFileCandidate[],
+	lexicalCandidates: TelegramFileCandidate[],
+): TelegramFileCandidate[] {
+	const byId = new Map<number, TelegramFileCandidate>();
+
+	for (const candidate of lexicalCandidates) {
+		byId.set(toMessageId(candidate.message_id), candidate);
+	}
+
+	for (const candidate of vectorCandidates) {
+		const messageId = toMessageId(candidate.message_id);
+		const existing = byId.get(messageId);
+		byId.set(messageId, { ...existing, ...candidate });
+	}
+
+	return Array.from(byId.values());
+}
+
+function combineScores(lexicalScore: number, vectorSimilarity?: number | null) {
+	if (typeof vectorSimilarity !== "number") {
+		return { score: lexicalScore, vectorScore: null };
+	}
+
+	const vectorScore = Math.round(vectorSimilarity * 100);
+	return {
+		score: Math.round(lexicalScore * 0.75 + vectorScore * 0.25),
+		vectorScore,
+	};
+}
+
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { title, author, limit = 5 } = body;
+	try {
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 
-        if (!title || !author) {
-            return NextResponse.json(
-                { error: "title and author are required" },
-                { status: 400 }
-            );
-        }
+		const body = await request.json();
+		const { title, author, limit = 10, model = DEFAULT_EMBEDDING_MODEL } = body;
 
-        // Get all files from telegram_files
-        const { data: files, error: filesError } = await serverSupabase
-            .from("telegram_files")
-            .select("message_id, file_name, mime_type, file_size")
-            .order("message_id", { ascending: false })
-            .limit(2000);
+		if (!title || !author) {
+			return NextResponse.json(
+				{ error: "title and author are required" },
+				{ status: 400 },
+			);
+		}
 
-        if (filesError) {
-            throw new Error(`Failed to fetch files: ${filesError.message}`);
-        }
+		const bookOption: BookOption = {
+			id: "selected",
+			title,
+			author,
+		};
 
-        if (!files || files.length === 0) {
-            return NextResponse.json({ matches: [] });
-        }
+		let vectorCandidates: TelegramFileCandidate[] = [];
+		let vectorReady = false;
 
-        // Create BookOption
-        const bookOption: BookOption = {
-            id: "temp",
-            title,
-            author,
-        };
+		try {
+			const queryText = prepareBookText(title, author);
+			const queryEmbedding = await generateEmbedding(queryText, { model });
 
-        // Score each file
-        const scoredFiles = files
-            .map((file) => {
-                const fileOption: FileOption = {
-                    message_id: file.message_id,
-                    file_name: file.file_name,
-                    mime_type: file.mime_type,
-                    file_size: file.file_size,
-                };
+			const { data, error } = await (auth.admin as any).rpc(
+				"match_telegram_files",
+				{
+					query_embedding: `[${queryEmbedding.embedding.join(",")}]`,
+					match_threshold: 0.35,
+					match_count: 250,
+				},
+			);
 
-                const result = scoreFileToBook(fileOption, bookOption);
+			if (!error && data) {
+				vectorCandidates = data as TelegramFileCandidate[];
+				vectorReady = vectorCandidates.length > 0;
+			}
+		} catch (error) {
+			console.warn("Vector file search unavailable:", error);
+		}
 
-                return {
-                    message_id: file.message_id,
-                    filename: file.file_name,
-                    score: result.score,
-                    matchedWords: result.matchedWords,
-                    titleMatchCount: result.titleMatchCount,
-                    authorMatch: result.authorMatch,
-                    fileAuthorParsed: result.fileAuthorParsed,
-                    fileTitleParsed: result.fileTitleParsed,
-                };
-            })
-            .filter((f) => f.score >= 40) // Lower threshold for manual review
-            .sort((a, b) => b.score - a.score)
-            .slice(0, limit);
+		const { data: lexicalCandidates, error: filesError } = await auth.admin
+			.from("telegram_files")
+			.select("message_id, file_name, mime_type, file_size")
+			.not("file_name", "is", null)
+			.order("message_id", { ascending: false })
+			.limit(2000);
 
-        return NextResponse.json({ matches: scoredFiles });
-    } catch (error: any) {
-        console.error("Error searching file matches:", error);
-        return NextResponse.json(
-            { error: error.message || "Failed to search matches" },
-            { status: 500 }
-        );
-    }
+		if (filesError) {
+			throw new Error(`Failed to fetch files: ${filesError.message}`);
+		}
+
+		const candidates = mergeCandidates(
+			vectorCandidates,
+			(lexicalCandidates || []) as TelegramFileCandidate[],
+		);
+
+		const matches = candidates
+			.map((file) => {
+				const fileOption: FileOption = {
+					message_id: toMessageId(file.message_id),
+					file_name: file.file_name,
+					mime_type: file.mime_type || undefined,
+					file_size: file.file_size || undefined,
+				};
+				const lexical = scoreFileToBook(fileOption, bookOption);
+				const combined = combineScores(lexical.score, file.similarity);
+
+				let score = combined.score;
+				if (lexical.score < 40) score = Math.min(score, 39);
+				if (!lexical.authorMatch && lexical.titleMatchCount < 2) {
+					score = Math.min(score, 45);
+				}
+
+				return {
+					message_id: fileOption.message_id,
+					filename: file.file_name,
+					score,
+					lexicalScore: lexical.score,
+					vectorScore: combined.vectorScore,
+					matchedWords: lexical.matchedWords,
+					titleMatchCount: lexical.titleMatchCount,
+					authorMatch: lexical.authorMatch,
+					fileAuthorParsed: lexical.fileAuthorParsed,
+					fileTitleParsed: lexical.fileTitleParsed,
+					method: combined.vectorScore === null ? "lexical" : "hybrid",
+					embeddingText: normalizeFileNameForEmbedding(file.file_name),
+				};
+			})
+			.filter((file) => file.score >= 40)
+			.sort((a, b) => {
+				if (b.score !== a.score) return b.score - a.score;
+				return (b.vectorScore || 0) - (a.vectorScore || 0);
+			})
+			.slice(0, limit);
+
+		return NextResponse.json({
+			matches,
+			vectorReady,
+			model,
+		});
+	} catch (error: any) {
+		console.error("Error searching file matches:", error);
+		return NextResponse.json(
+			{ error: error.message || "Failed to search matches" },
+			{ status: 500 },
+		);
+	}
 }

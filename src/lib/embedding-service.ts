@@ -6,7 +6,7 @@
 const OMNIROUTE_BASE_URL =
 	process.env.OMNIROUTE_BASE_URL || "http://omniroute.ravva.su:20128";
 const OMNIROUTE_API_KEY = process.env.OMNIROUTE_API_KEY || "";
-const DEFAULT_EMBEDDING_MODEL = "voyage-ai/voyage-4";
+export const DEFAULT_EMBEDDING_MODEL = "voyage-ai/voyage-4";
 
 function getOmnirouteApiBaseUrl(): string {
 	const baseUrl = OMNIROUTE_BASE_URL.trim().replace(/\/+$/, "");

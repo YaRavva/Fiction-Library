@@ -316,3 +316,21 @@
 ## Проверка
 - [x] `bunx biome check src\lib\embedding-service.ts src\app\api\admin\embedding\route.ts src\app\api\admin\embedding\search\route.ts` проходит.
 - [x] `bunx tsc --noEmit --pretty false --skipLibCheck src\lib\embedding-service.ts` проходит.
+
+# Обновление прогресса - 2026-07-07 Hybrid File Linking
+
+## Привязка файлов
+- [x] Алгоритм привязки файлов переделан в гибридный ручной workflow: pgvector выбирает кандидатов, `scoreFileToBook()` выполняет финальный guardrail-рейтинг.
+- [x] Автоматическая привязка кандидатов не добавлялась: UI только показывает варианты, а связь создается вручную кнопкой `Привязать`.
+- [x] `telegram_files.embedding` добавлен в pgvector-миграцию как `vector(1024)`.
+- [x] `books.embedding` переведен на `vector(1024)` под `voyage-ai/voyage-4`.
+- [x] Добавлена SQL-функция `match_telegram_files(query_embedding vector(1024), ...)`.
+- [x] `EmbeddingPanel` перенесен во вкладку `Привязка файлов` и использует `voyage-ai/voyage-4` по умолчанию.
+- [x] Админка переведена на стандартные shadcn Tabs.
+- [x] Затронутые admin API закрыты проверкой bearer token + роли `admin`.
+
+## Проверка
+- [x] Targeted `bunx biome check` по измененным файлам проходит.
+- [x] `git diff --check` проходит.
+- [x] `bun run build` проходит.
+- [ ] Полный `bunx tsc --noEmit --pretty false --skipLibCheck` все еще заблокирован существующим типовым долгом вне текущих изменений.

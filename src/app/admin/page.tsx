@@ -2,12 +2,10 @@
 
 import type { User } from "@supabase/supabase-js";
 import {
-	Activity,
 	AlertCircle,
 	CheckCircle2,
 	Copy,
 	DatabaseZap,
-	FileSearch,
 	Key,
 	Library,
 	Loader2,
@@ -17,7 +15,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { EmbeddingPanel } from "@/components/admin/embedding-panel";
 import { FileLinkingView } from "@/components/admin/file-linking-view";
 import { SyncResultsPanel } from "@/components/admin/sync-results-panel";
 import { SyncSettingsShadix } from "@/components/admin/sync-settings-shadix";
@@ -29,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageTransition } from "@/components/ui/page-transition";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getValidSession } from "@/lib/auth-helpers";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
@@ -57,11 +55,7 @@ export default function AdminPage() {
 	const [user, setUser] = useState<User | null>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [syncRefreshTrigger, setSyncRefreshTrigger] = useState(0);
-	const [currentTab, setCurrentTab] = useState<"dashboard" | "file-linking">(
-		"dashboard",
-	);
 
-	// Telegram re-login state
 	const [tgPhone, setTgPhone] = useState("");
 	const [tgCode, setTgCode] = useState("");
 	const [tgPassword, setTgPassword] = useState("");
@@ -309,7 +303,6 @@ export default function AdminPage() {
 				Authorization: `Bearer ${session.access_token}`,
 			};
 
-			// Step 1: Send verification code
 			if (tgStep === "phone") {
 				const res = await fetch("/api/admin/telegram-relogin", {
 					method: "POST",
@@ -323,7 +316,6 @@ export default function AdminPage() {
 				return;
 			}
 
-			// Step 2: Sign in with code
 			const body: any = {
 				action: "sign_in",
 				phone: tgPhone,
@@ -429,270 +421,152 @@ export default function AdminPage() {
 					) : null}
 
 					<main className="flex-1 overflow-y-auto">
-						<div className="border-b bg-background">
-							<div className="mx-auto flex w-full max-w-[1320px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-								<div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
-									<div className="min-w-0 space-y-1">
-										<p className="font-medium text-muted-foreground text-xs uppercase tracking-[0.16em]">
-											Администрирование
-										</p>
-										<h2 className="font-semibold text-2xl tracking-tight">
-											Операционный центр библиотеки
-										</h2>
-										<p className="max-w-3xl text-muted-foreground text-sm">
-											Синхронизация Telegram, индексация файлов, эмбеддинги и
-											ручная привязка книжных файлов в одном рабочем контуре.
-										</p>
+						<Tabs defaultValue="dashboard" className="min-h-full">
+							<div className="border-b bg-background">
+								<div className="mx-auto flex w-full max-w-[1320px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+									<div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+										<div className="min-w-0 space-y-1">
+											<p className="font-medium text-muted-foreground text-xs uppercase tracking-[0.16em]">
+												Администрирование
+											</p>
+											<h2 className="font-semibold text-2xl tracking-tight">
+												Операционный центр библиотеки
+											</h2>
+										</div>
+
+										<div className="grid gap-2 sm:grid-cols-3 xl:w-[520px]">
+											<div className="rounded-md border bg-card px-3 py-2">
+												<p className="text-muted-foreground text-[11px] uppercase tracking-[0.14em]">
+													BookWorm
+												</p>
+												<p className="mt-1 truncate font-semibold text-sm">
+													{bookWormRunning ? "В работе" : "Готов"}
+												</p>
+											</div>
+											<div className="rounded-md border bg-card px-3 py-2">
+												<p className="text-muted-foreground text-[11px] uppercase tracking-[0.14em]">
+													Автообновление
+												</p>
+												<p className="mt-1 truncate font-semibold text-sm">
+													{bookWormAutoUpdate ? "Включено" : "Выключено"}
+												</p>
+											</div>
+											<div className="rounded-md border bg-card px-3 py-2">
+												<p className="text-muted-foreground text-[11px] uppercase tracking-[0.14em]">
+													Обновления
+												</p>
+												<p className="mt-1 font-semibold text-sm">
+													{syncRefreshTrigger || 0}
+												</p>
+											</div>
+										</div>
 									</div>
 
-									<div className="grid gap-2 sm:grid-cols-3 xl:w-[520px]">
-										<div className="rounded-md border bg-card px-3 py-2">
-											<p className="text-muted-foreground text-[11px] uppercase tracking-[0.14em]">
-												BookWorm
-											</p>
-											<p className="mt-1 truncate font-semibold text-sm">
-												{bookWormRunning ? "В работе" : "Готов"}
-											</p>
-										</div>
-										<div className="rounded-md border bg-card px-3 py-2">
-											<p className="text-muted-foreground text-[11px] uppercase tracking-[0.14em]">
-												Автообновление
-											</p>
-											<p className="mt-1 truncate font-semibold text-sm">
-												{bookWormAutoUpdate ? "Включено" : "Выключено"}
-											</p>
-										</div>
-										<div className="rounded-md border bg-card px-3 py-2">
-											<p className="text-muted-foreground text-[11px] uppercase tracking-[0.14em]">
-												Обновления
-											</p>
-											<p className="mt-1 font-semibold text-sm">
-												{syncRefreshTrigger || 0}
-											</p>
-										</div>
-									</div>
+									<TabsList className="grid w-full grid-cols-2">
+										<TabsTrigger value="dashboard">Дашборд</TabsTrigger>
+										<TabsTrigger value="file-linking">
+											Привязка файлов
+										</TabsTrigger>
+									</TabsList>
 								</div>
-
-								<nav
-									aria-label="Разделы админ-панели"
-									className="grid gap-2 rounded-lg border bg-muted/40 p-1 sm:grid-cols-2"
-								>
-									<button
-										type="button"
-										onClick={() => setCurrentTab("dashboard")}
-										className={`flex min-h-14 items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
-											currentTab === "dashboard"
-												? "border border-border bg-background shadow-sm"
-												: "text-muted-foreground hover:bg-background/70 hover:text-foreground"
-										}`}
-									>
-										<Activity className="size-4 shrink-0" />
-										<span className="min-w-0">
-											<span className="block font-semibold text-sm">
-												Дашборд операций
-											</span>
-											<span className="block truncate text-xs">
-												Синхронизация, индексация, эмбеддинги, журнал
-											</span>
-										</span>
-									</button>
-									<button
-										type="button"
-										onClick={() => setCurrentTab("file-linking")}
-										className={`flex min-h-14 items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
-											currentTab === "file-linking"
-												? "border border-border bg-background shadow-sm"
-												: "text-muted-foreground hover:bg-background/70 hover:text-foreground"
-										}`}
-									>
-										<FileSearch className="size-4 shrink-0" />
-										<span className="min-w-0">
-											<span className="block font-semibold text-sm">
-												Привязка файлов
-											</span>
-											<span className="block truncate text-xs">
-												Книги без файлов и кандидаты из Telegram
-											</span>
-										</span>
-									</button>
-								</nav>
 							</div>
-						</div>
 
-						{currentTab === "dashboard" ? (
-							<div className="mx-auto w-full max-w-[1320px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
-								<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-									<div className="space-y-5">
-										<TelegramStatsSection />
-										<SyncSettingsShadix
-											bookWormRunning={bookWormRunning}
-											bookWormMode={bookWormMode}
-											bookWormInterval={bookWormInterval}
-											bookWormAutoUpdate={bookWormAutoUpdate}
-											handleRunBookWorm={handleRunBookWorm}
-											handleToggleAutoUpdate={setBookWormAutoUpdate}
-											setBookWormInterval={setBookWormInterval}
-										/>
-										<TelegramFilesIndexer />
-									</div>
-
-									<aside className="space-y-5">
-										<div className="rounded-lg border bg-card p-4 shadow-sm">
-											<div className="mb-3 flex items-center gap-2">
-												<DatabaseZap className="size-4 text-muted-foreground" />
-												<h2 className="font-semibold text-sm">
-													Операционный журнал
-												</h2>
-											</div>
-											<pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
-												{lastBookWormReport ||
-													"Событий в текущей сессии пока нет."}
-											</pre>
+							<TabsContent value="dashboard" className="mt-0">
+								<div className="mx-auto w-full max-w-[1320px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+									<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+										<div className="space-y-5">
+											<TelegramStatsSection />
+											<SyncSettingsShadix
+												bookWormRunning={bookWormRunning}
+												bookWormMode={bookWormMode}
+												bookWormInterval={bookWormInterval}
+												bookWormAutoUpdate={bookWormAutoUpdate}
+												handleRunBookWorm={handleRunBookWorm}
+												handleToggleAutoUpdate={setBookWormAutoUpdate}
+												setBookWormInterval={setBookWormInterval}
+											/>
+											<TelegramFilesIndexer />
 										</div>
-										<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
-										<EmbeddingPanel />
 
-										<div className="rounded-lg border bg-card p-4 shadow-sm">
-											<div className="mb-3 flex items-center gap-2">
-												<Key className="size-4 text-muted-foreground" />
-												<h2 className="font-semibold text-sm">
-													Переподключение Telegram
-												</h2>
+										<aside className="space-y-5">
+											<div className="rounded-lg border bg-card p-4 shadow-sm">
+												<div className="mb-3 flex items-center gap-2">
+													<DatabaseZap className="size-4 text-muted-foreground" />
+													<h2 className="font-semibold text-sm">
+														Операционный журнал
+													</h2>
+												</div>
+												<pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
+													{lastBookWormReport ||
+														"Событий в текущей сессии пока нет."}
+												</pre>
 											</div>
+											<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
 
-											{tgStep === "done" && tgSession ? (
-												<div className="space-y-3">
-													<div className="flex items-center gap-2 text-emerald-600 text-sm">
-														<CheckCircle2 className="size-4" />
-														Сессия получена
-													</div>
-													<div className="relative">
-														<pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs break-all">
-															{tgSession}
-														</pre>
+											<div className="rounded-lg border bg-card p-4 shadow-sm">
+												<div className="mb-3 flex items-center gap-2">
+													<Key className="size-4 text-muted-foreground" />
+													<h2 className="font-semibold text-sm">
+														Переподключение Telegram
+													</h2>
+												</div>
+
+												{tgStep === "done" && tgSession ? (
+													<div className="space-y-3">
+														<div className="flex items-center gap-2 text-emerald-600 text-sm">
+															<CheckCircle2 className="size-4" />
+															Сессия получена
+														</div>
+														<div className="relative">
+															<pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs break-all">
+																{tgSession}
+															</pre>
+															<Button
+																size="icon"
+																variant="ghost"
+																className="absolute top-1 right-1 h-7 w-7"
+																onClick={handleCopySession}
+															>
+																<Copy className="size-3" />
+															</Button>
+														</div>
+														<p className="text-muted-foreground text-xs">
+															Скопируйте и вставьте в{" "}
+															<code>TELEGRAM_SESSION</code> в <code>.env</code>,
+															затем перезапустите сервер.
+														</p>
 														<Button
-															size="icon"
-															variant="ghost"
-															className="absolute top-1 right-1 h-7 w-7"
-															onClick={handleCopySession}
+															variant="outline"
+															size="sm"
+															className="w-full"
+															onClick={() => {
+																setTgStep("phone");
+																setTgPhone("");
+																setTgCode("");
+																setTgPassword("");
+																setTgSession(null);
+																setTgError(null);
+															}}
 														>
-															<Copy className="size-3" />
+															Ещё раз
 														</Button>
 													</div>
-													<p className="text-muted-foreground text-xs">
-														Скопируйте и вставьте в{" "}
-														<code>TELEGRAM_SESSION</code> в <code>.env</code>,
-														затем перезапустите сервер.
-													</p>
-													<Button
-														variant="outline"
-														size="sm"
-														className="w-full"
-														onClick={() => {
-															setTgStep("phone");
-															setTgPhone("");
-															setTgCode("");
-															setTgPassword("");
-															setTgSession(null);
-															setTgError(null);
-														}}
-													>
-														Ещё раз
-													</Button>
-												</div>
-											) : (
-												<div className="space-y-3">
-													{tgError && (
-														<div className="text-destructive text-xs p-2 bg-destructive/10 rounded-md">
-															{tgError}
-														</div>
-													)}
-
-													{tgStep === "phone" && (
-														<div className="space-y-1">
-															<Label className="text-xs">Телефон</Label>
-															<div className="flex gap-2">
-																<Input
-																	placeholder="+79001234567"
-																	value={tgPhone}
-																	onChange={(e) => setTgPhone(e.target.value)}
-																	className="h-8 text-sm"
-																	onKeyDown={(e) =>
-																		e.key === "Enter" && handleTgRelogin()
-																	}
-																/>
-																<Button
-																	size="sm"
-																	onClick={handleTgRelogin}
-																	disabled={tgLoading || !tgPhone}
-																>
-																	Далее
-																</Button>
+												) : (
+													<div className="space-y-3">
+														{tgError && (
+															<div className="text-destructive text-xs p-2 bg-destructive/10 rounded-md">
+																{tgError}
 															</div>
-														</div>
-													)}
+														)}
 
-													{tgStep === "code" && (
-														<>
-															<p className="text-muted-foreground text-xs">
-																Введите код, полученный в Telegram на {tgPhone}
-															</p>
+														{tgStep === "phone" && (
 															<div className="space-y-1">
-																<Label className="text-xs">
-																	Код из Telegram
-																</Label>
+																<Label className="text-xs">Телефон</Label>
 																<div className="flex gap-2">
 																	<Input
-																		placeholder="12345"
-																		value={tgCode}
-																		onChange={(e) => setTgCode(e.target.value)}
-																		className="h-8 text-sm font-mono"
-																		onKeyDown={(e) =>
-																			e.key === "Enter" && handleTgRelogin()
-																		}
-																	/>
-																	<Button
-																		size="sm"
-																		onClick={handleTgRelogin}
-																		disabled={tgLoading || !tgCode}
-																	>
-																		{tgLoading ? (
-																			<Loader2 className="size-3 animate-spin" />
-																		) : (
-																			"OK"
-																		)}
-																	</Button>
-																</div>
-															</div>
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-7 text-xs"
-																onClick={() => {
-																	setTgStep("phone");
-																	setTgCode("");
-																}}
-															>
-																Назад
-															</Button>
-														</>
-													)}
-
-													{tgStep === "password" && (
-														<>
-															<p className="text-muted-foreground text-xs">
-																Введите пароль двухфакторной аутентификации
-															</p>
-															<div className="space-y-1">
-																<Label className="text-xs">Пароль 2FA</Label>
-																<div className="flex gap-2">
-																	<Input
-																		type="password"
-																		placeholder="Пароль"
-																		value={tgPassword}
-																		onChange={(e) =>
-																			setTgPassword(e.target.value)
-																		}
+																		placeholder="+79001234567"
+																		value={tgPhone}
+																		onChange={(e) => setTgPhone(e.target.value)}
 																		className="h-8 text-sm"
 																		onKeyDown={(e) =>
 																			e.key === "Enter" && handleTgRelogin()
@@ -701,35 +575,117 @@ export default function AdminPage() {
 																	<Button
 																		size="sm"
 																		onClick={handleTgRelogin}
-																		disabled={tgLoading || !tgPassword}
+																		disabled={tgLoading || !tgPhone}
 																	>
-																		{tgLoading ? (
-																			<Loader2 className="size-3 animate-spin" />
-																		) : (
-																			"OK"
-																		)}
+																		Далее
 																	</Button>
 																</div>
 															</div>
-															<Button
-																variant="ghost"
-																size="sm"
-																className="h-7 text-xs"
-																onClick={() => setTgStep("code")}
-															>
-																Назад
-															</Button>
-														</>
-													)}
-												</div>
-											)}
-										</div>
-									</aside>
+														)}
+
+														{tgStep === "code" && (
+															<>
+																<p className="text-muted-foreground text-xs">
+																	Введите код, полученный в Telegram на{" "}
+																	{tgPhone}
+																</p>
+																<div className="space-y-1">
+																	<Label className="text-xs">
+																		Код из Telegram
+																	</Label>
+																	<div className="flex gap-2">
+																		<Input
+																			placeholder="12345"
+																			value={tgCode}
+																			onChange={(e) =>
+																				setTgCode(e.target.value)
+																			}
+																			className="h-8 text-sm font-mono"
+																			onKeyDown={(e) =>
+																				e.key === "Enter" && handleTgRelogin()
+																			}
+																		/>
+																		<Button
+																			size="sm"
+																			onClick={handleTgRelogin}
+																			disabled={tgLoading || !tgCode}
+																		>
+																			{tgLoading ? (
+																				<Loader2 className="size-3 animate-spin" />
+																			) : (
+																				"OK"
+																			)}
+																		</Button>
+																	</div>
+																</div>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="h-7 text-xs"
+																	onClick={() => {
+																		setTgStep("phone");
+																		setTgCode("");
+																	}}
+																>
+																	Назад
+																</Button>
+															</>
+														)}
+
+														{tgStep === "password" && (
+															<>
+																<p className="text-muted-foreground text-xs">
+																	Введите пароль двухфакторной аутентификации
+																</p>
+																<div className="space-y-1">
+																	<Label className="text-xs">Пароль 2FA</Label>
+																	<div className="flex gap-2">
+																		<Input
+																			type="password"
+																			placeholder="Пароль"
+																			value={tgPassword}
+																			onChange={(e) =>
+																				setTgPassword(e.target.value)
+																			}
+																			className="h-8 text-sm"
+																			onKeyDown={(e) =>
+																				e.key === "Enter" && handleTgRelogin()
+																			}
+																		/>
+																		<Button
+																			size="sm"
+																			onClick={handleTgRelogin}
+																			disabled={tgLoading || !tgPassword}
+																		>
+																			{tgLoading ? (
+																				<Loader2 className="size-3 animate-spin" />
+																			) : (
+																				"OK"
+																			)}
+																		</Button>
+																	</div>
+																</div>
+																<Button
+																	variant="ghost"
+																	size="sm"
+																	className="h-7 text-xs"
+																	onClick={() => setTgStep("code")}
+																>
+																	Назад
+																</Button>
+															</>
+														)}
+													</div>
+												)}
+											</div>
+										</aside>
+									</div>
 								</div>
-							</div>
-						) : (
-							<FileLinkingView />
-						)}
+							</TabsContent>
+							<TabsContent value="file-linking" className="mt-0">
+								<FileLinkingView />
+							</TabsContent>
+						</Tabs>
 					</main>
 				</div>
 			</div>

@@ -73,6 +73,7 @@ export {
 	SelectValue,
 } from "./select";
 export { Separator } from "./separator";
+export { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 export {
 	Tooltip,
 	TooltipContent,

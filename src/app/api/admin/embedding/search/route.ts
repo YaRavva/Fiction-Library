@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import {
 	cosineSimilarity,
 	generateEmbedding,
@@ -12,6 +13,9 @@ import { serverSupabase } from "@/lib/serverSupabase";
  */
 export async function POST(request: NextRequest) {
 	try {
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
+
 		const body = await request.json();
 		const {
 			filename,
@@ -41,12 +45,13 @@ export async function POST(request: NextRequest) {
 
 		// Try using the PostgreSQL function first
 		try {
-			const { data: vectorResults, error: vectorError } =
-				await serverSupabase.rpc("match_books", {
-					query_embedding: `[${queryEmbedding.join(",")}]`,
-					match_threshold: threshold,
-					match_count: limit,
-				});
+			const { data: vectorResults, error: vectorError } = await (
+				auth.admin as any
+			).rpc("match_books", {
+				query_embedding: `[${queryEmbedding.join(",")}]`,
+				match_threshold: threshold,
+				match_count: limit,
+			});
 
 			if (!vectorError && vectorResults && vectorResults.length > 0) {
 				return NextResponse.json({
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Fallback: fetch all books with embeddings and compute similarity
-		const { data: books, error: fetchError } = await serverSupabase
+		const { data: booksData, error: fetchError } = await serverSupabase
 			.from("books")
 			.select("id, title, author, embedding")
 			.not("embedding", "is", null)
@@ -80,7 +85,14 @@ export async function POST(request: NextRequest) {
 			throw new Error(`Failed to fetch books: ${fetchError.message}`);
 		}
 
-		if (!books || books.length === 0) {
+		const books = (booksData || []) as Array<{
+			id: string;
+			title: string;
+			author: string;
+			embedding: string;
+		}>;
+
+		if (books.length === 0) {
 			return NextResponse.json({
 				matches: [],
 				query: searchText,

@@ -1,19 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import {
-	generateEmbedding,
+	DEFAULT_EMBEDDING_MODEL,
+	generateEmbeddings,
 	listEmbeddingModels,
 	prepareBookText,
 } from "@/lib/embedding-service";
-import { serverSupabase } from "@/lib/serverSupabase";
 
-/**
- * GET /api/admin/embedding/models
- * List available embedding models from omniroute
- */
+type EmbedTarget = "books" | "files" | "all";
+type BookEmbeddingRow = { id: string; title: string; author: string };
+type FileEmbeddingRow = { message_id: number | string; file_name: string };
+
+function normalizeFileNameForEmbedding(fileName: string): string {
+	return fileName
+		.normalize("NFC")
+		.replace(/\.[^/.]+$/, "")
+		.replace(/[_-]/g, " ")
+		.toLowerCase()
+		.trim();
+}
+
 export async function GET(request: NextRequest) {
 	try {
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
+
 		const models = await listEmbeddingModels();
-		return NextResponse.json({ models });
+		return NextResponse.json({
+			models,
+			defaultModel: DEFAULT_EMBEDDING_MODEL,
+		});
 	} catch (error: any) {
 		console.error("Error listing embedding models:", error);
 		return NextResponse.json(
@@ -23,14 +39,13 @@ export async function GET(request: NextRequest) {
 	}
 }
 
-/**
- * POST /api/admin/embedding/generate
- * Generate embedding for a book
- */
 export async function POST(request: NextRequest) {
 	try {
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
+
 		const body = await request.json();
-		const { title, author, model } = body;
+		const { title, author, model = DEFAULT_EMBEDDING_MODEL } = body;
 
 		if (!title || !author) {
 			return NextResponse.json(
@@ -40,7 +55,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		const text = prepareBookText(title, author);
-		const result = await generateEmbedding(text, { model });
+		const [result] = await generateEmbeddings([text], { model });
 
 		return NextResponse.json({
 			text,
@@ -58,71 +73,95 @@ export async function POST(request: NextRequest) {
 	}
 }
 
-/**
- * POST /api/admin/embedding/embed-all
- * Embed all books that don't have embeddings yet
- */
 export async function PUT(request: NextRequest) {
 	try {
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
+
 		const body = await request.json();
-		const { model, batchSize = 50 } = body;
+		const {
+			model = DEFAULT_EMBEDDING_MODEL,
+			batchSize = 100,
+			target = "all",
+		}: { model?: string; batchSize?: number; target?: EmbedTarget } = body;
+		const admin = auth.admin as any;
 
-		// Get books without embeddings
-		const { data: books, error: fetchError } = await serverSupabase
-			.from("books")
-			.select("id, title, author")
-			.is("embedding", null)
-			.not("title", "is", null)
-			.not("author", "is", null)
-			.limit(batchSize);
+		let booksEmbedded = 0;
+		let filesEmbedded = 0;
+		let booksTotal = 0;
+		let filesTotal = 0;
 
-		if (fetchError) {
-			throw new Error(`Failed to fetch books: ${fetchError.message}`);
-		}
-
-		if (!books || books.length === 0) {
-			return NextResponse.json({
-				message: "All books already have embeddings",
-				embedded: 0,
-			});
-		}
-
-		console.log(`Embedding ${books.length} books...`);
-
-		// Generate embeddings
-		const { generateEmbeddings, prepareBookText } = await import(
-			"@/lib/embedding-service"
-		);
-
-		const texts = books.map((b) => prepareBookText(b.title, b.author));
-		const results = await generateEmbeddings(texts, { model });
-
-		// Update database
-		let embedded = 0;
-		for (let i = 0; i < books.length; i++) {
-			const book = books[i];
-			const result = results[i];
-
-			const { error: updateError } = await serverSupabase
+		if (target === "books" || target === "all") {
+			const { data, error } = await admin
 				.from("books")
-				.update({
-					embedding: `[${result.embedding.join(",")}]`,
-					updated_at: new Date().toISOString(),
-				})
-				.eq("id", book.id);
+				.select("id, title, author")
+				.is("embedding", null)
+				.not("title", "is", null)
+				.not("author", "is", null)
+				.limit(batchSize);
 
-			if (updateError) {
-				console.warn(`Failed to embed "${book.title}":`, updateError.message);
-			} else {
-				embedded++;
+			if (error) throw new Error(`Failed to fetch books: ${error.message}`);
+
+			const books = (data || []) as BookEmbeddingRow[];
+			booksTotal = books?.length || 0;
+			if (books && books.length > 0) {
+				const texts = books.map((book) =>
+					prepareBookText(book.title, book.author),
+				);
+				const results = await generateEmbeddings(texts, { model });
+
+				for (let i = 0; i < books.length; i++) {
+					const result = results[i];
+					const { error: updateError } = await admin
+						.from("books")
+						.update({
+							embedding: `[${result.embedding.join(",")}]`,
+							updated_at: new Date().toISOString(),
+						})
+						.eq("id", books[i].id);
+
+					if (!updateError) booksEmbedded++;
+				}
+			}
+		}
+
+		if (target === "files" || target === "all") {
+			const { data, error } = await admin
+				.from("telegram_files")
+				.select("message_id, file_name")
+				.is("embedding", null)
+				.not("file_name", "is", null)
+				.limit(batchSize);
+
+			if (error) throw new Error(`Failed to fetch files: ${error.message}`);
+
+			const files = (data || []) as FileEmbeddingRow[];
+			filesTotal = files?.length || 0;
+			if (files && files.length > 0) {
+				const texts = files.map((file) =>
+					normalizeFileNameForEmbedding(file.file_name),
+				);
+				const results = await generateEmbeddings(texts, { model });
+
+				for (let i = 0; i < files.length; i++) {
+					const result = results[i];
+					const { error: updateError } = await admin
+						.from("telegram_files")
+						.update({
+							embedding: `[${result.embedding.join(",")}]`,
+						})
+						.eq("message_id", files[i].message_id);
+
+					if (!updateError) filesEmbedded++;
+				}
 			}
 		}
 
 		return NextResponse.json({
-			message: `Embedded ${embedded} of ${books.length} books`,
-			embedded,
-			total: books.length,
-			model: results[0]?.model,
+			message: `Books ${booksEmbedded}/${booksTotal}, files ${filesEmbedded}/${filesTotal}`,
+			model,
+			books: { embedded: booksEmbedded, total: booksTotal },
+			files: { embedded: filesEmbedded, total: filesTotal },
 		});
 	} catch (error: any) {
 		console.error("Error batch embedding:", error);
