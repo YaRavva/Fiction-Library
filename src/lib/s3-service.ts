@@ -26,8 +26,14 @@ export const putObject = async (
 	key: string,
 	body: Buffer,
 	bucketName?: string,
+	contentType?: string,
 ) => {
-	return newPutObject(key, body, bucketName || getBooksBucketName());
+	return newPutObject(
+		key,
+		body,
+		bucketName || getBooksBucketName(),
+		contentType,
+	);
 };
 
 export const headObject = async (key: string, bucketName?: string) => {

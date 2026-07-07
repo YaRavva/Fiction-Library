@@ -80,7 +80,7 @@ export async function uploadFileToCloudRu(
 		const response = await fetch(url, {
 			method: "PUT",
 			headers: authHeaders,
-			body: fileBuffer,
+			body: fileBuffer as unknown as BodyInit,
 		});
 
 		return {

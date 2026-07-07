@@ -15,7 +15,7 @@ interface DuplicateBook {
 
 interface DuplicateCheckResult {
 	exists: boolean;
-	book?: DuplicateBook;
+	book?: DuplicateBook | null;
 	books?: DuplicateBook[];
 }
 

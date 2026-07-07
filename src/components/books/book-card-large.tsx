@@ -4,6 +4,7 @@ import {
 	Download,
 	FileCheck2,
 	FileX2,
+	Heart,
 	Star,
 	Trash2,
 	UserRound,
@@ -41,6 +42,8 @@ interface BookCardLargeProps {
 	} | null;
 	onFileClear?: (bookId: string) => void;
 	onAuthorClick?: (author: string) => void;
+	isLiked?: boolean;
+	onLikeToggle?: () => void | Promise<void>;
 }
 
 function formatFileSize(size?: number | null) {
@@ -58,6 +61,8 @@ export function BookCardLarge({
 	userProfile,
 	onFileClear,
 	onAuthorClick,
+	isLiked,
+	onLikeToggle,
 }: BookCardLargeProps) {
 	const hasFile = Boolean(book.file_url);
 	const fileSize = formatFileSize(book.file_size);
@@ -156,6 +161,33 @@ export function BookCardLarge({
 					</div>
 
 					<div className="flex shrink-0 items-center gap-2">
+						{onLikeToggle ? (
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											size="icon"
+											variant="outline"
+											onClick={(event) => {
+												event.stopPropagation();
+												onLikeToggle();
+											}}
+										>
+											<Heart
+												className={cn(
+													"size-4",
+													isLiked && "fill-red-500 text-red-500",
+												)}
+											/>
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>
+										{isLiked ? "Убрать из избранного" : "В избранное"}
+									</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
+						) : null}
+
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>

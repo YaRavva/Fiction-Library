@@ -398,7 +398,7 @@ function ReaderContent() {
 						.select("*")
 						.eq("id", authUser.id)
 						.maybeSingle()
-						.then(({ data: profile }) => {
+						.then(({ data: profile }: { data: unknown }) => {
 							if (profile) setUserProfile(profile as UserProfile);
 						})
 						.catch(() => {});
@@ -439,9 +439,17 @@ function ReaderContent() {
 						.select("id, title, series_order")
 						.eq("series_id", bookData.series_id)
 						.order("series_order", { ascending: true })
-						.then(({ data }) => {
-							if (data) setSeriesBooks(data);
-						});
+						.then(
+							({
+								data,
+							}: {
+								data:
+									| { id: string; title: string; series_order?: number }[]
+									| null;
+							}) => {
+								if (data) setSeriesBooks(data);
+							},
+						);
 				}
 
 				// 4. Content

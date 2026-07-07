@@ -136,7 +136,6 @@ export async function getDownloadUrl(
 		Bucket: bucketName,
 		Key: key,
 	});
-	// @ts-expect-error Несовместимость версий @smithy/types между @aws-sdk/client-s3 и @aws-sdk/s3-request-presigner
 	return getSignedUrl(client, command, { expiresIn });
 }
 

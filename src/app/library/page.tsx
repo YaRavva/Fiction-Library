@@ -326,9 +326,9 @@ function LibraryContent() {
 								...book,
 								file_url: undefined,
 								file_size: undefined,
-								file_format: undefined,
+								file_format: "",
 								telegram_file_id: undefined,
-							} as Book)
+							} as unknown as Book)
 						: book,
 				),
 			);

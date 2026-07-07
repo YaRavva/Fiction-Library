@@ -558,7 +558,7 @@ export class FileProcessingService {
 
 			// Создаем объект файла для сопоставления
 			const fileForMatching = {
-				message_id: anyMsg.id,
+				message_id: Number(anyMsg.id),
 				file_name: originalFilename,
 				mime_type: (anyMsg.mime_type as string) || "unknown",
 				file_size: (anyMsg.file_size as number)

@@ -2,8 +2,12 @@ import {
 	checkForBookDuplicates,
 	normalizeBookText,
 } from "../book-deduplication-service";
-import { findBestFileForBook, batchMatchFilesToBooks, type FileOption, type BookOption, type MatchResult } from "../book-file-scorer";
-import { FileBookMatcherService } from "../file-book-matcher-service";
+import {
+	type BookOption,
+	batchMatchFilesToBooks,
+	type FileOption,
+	findBestFileForBook,
+} from "../book-file-scorer";
 import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
@@ -11,6 +15,8 @@ import { EnhancedFileProcessingService } from "./file-processing-service-enhance
 import { TelegramFileService } from "./file-service";
 import { TelegramMetadataService } from "./metadata-service";
 import { type BookMetadata, MetadataParser } from "./parser";
+
+const db = serverSupabase as any;
 
 interface Book {
 	id: string;
@@ -62,7 +68,7 @@ export class BookWormService {
 
 			// Получаем все книги, которые уже есть в базе данных
 			console.log("📚 Загрузка книг из базы данных...");
-			const { data: books, error: booksError } = await serverSupabase
+			const { data: books, error: booksError } = await db
 				.from("books")
 				.select(
 					"id, title, author, telegram_post_id, file_url, telegram_file_id",
@@ -184,7 +190,9 @@ export class BookWormService {
 				console.log(
 					`    ✅ Найдено совпадение с рейтингом ${bestMatch.score}: ${sourceFile.filename}`,
 				);
-				console.log(`    📊 Детали: title=${bestMatch.titleMatchCount}, author=${bestMatch.authorMatch}, matched=${bestMatch.matchedWords.length}`);
+				console.log(
+					`    📊 Детали: title=${bestMatch.titleMatchCount}, author=${bestMatch.authorMatch}, matched=${bestMatch.matchedWords.length}`,
+				);
 				return sourceFile;
 			}
 		}
@@ -215,8 +223,13 @@ export class BookWormService {
 
 			// Получаем канал с метаданными
 			const channel = await this.telegramService.getMetadataChannel();
+			const channelInfo = channel as {
+				id?: unknown;
+				title?: string;
+				username?: string;
+			};
 			console.log(
-				`✅ Подключено к каналу: ${channel.title || channel.username}`,
+				`✅ Подключено к каналу: ${channelInfo.title || channelInfo.username || channelInfo.id}`,
 			);
 
 			// Инициализируем загрузку метаданных
@@ -252,13 +265,12 @@ export class BookWormService {
 			console.log(`✅ Получено ${files.length} файлов`);
 
 			// Получаем книги без файлов
-			const { data: booksWithoutFiles, error: booksError } =
-				await serverSupabase
-					.from("books")
-					.select("id, title, author")
-					.is("file_url", null)
-					.not("title", "is", null)
-					.not("author", "is", null);
+			const { data: booksWithoutFiles, error: booksError } = await db
+				.from("books")
+				.select("id, title, author")
+				.is("file_url", null)
+				.not("title", "is", null)
+				.not("author", "is", null);
 
 			if (booksError) {
 				throw new Error(
@@ -313,7 +325,7 @@ export class BookWormService {
 
 			// 1. Получаем ID последнего обработанного сообщения
 			console.log("🔍 Получаем ID последнего обработанного сообщения...");
-			const { data: lastProcessed } = await serverSupabase
+			const { data: lastProcessed } = await db
 				.from("telegram_processed_messages")
 				.select("message_id")
 				.not("message_id", "is", null)
@@ -426,16 +438,15 @@ export class BookWormService {
 
 			try {
 				// Получаем ВСЕ книги без файлов (не только из текущего запуска)
-				const { data: booksToLink, error: booksLinkError } =
-					await serverSupabase
-						.from("books")
-						.select(
-							"id, title, author, telegram_post_id, file_url, telegram_file_id",
-						)
-						.is("file_url", null)
-						.not("title", "is", null)
-						.not("author", "is", null)
-						.limit(50);
+				const { data: booksToLink, error: booksLinkError } = await db
+					.from("books")
+					.select(
+						"id, title, author, telegram_post_id, file_url, telegram_file_id",
+					)
+					.is("file_url", null)
+					.not("title", "is", null)
+					.not("author", "is", null)
+					.limit(50);
 
 				if (booksLinkError) {
 					console.warn(
@@ -454,46 +465,43 @@ export class BookWormService {
 						`📊 Загружено ${filesToProcess.length} файлов для сопоставления`,
 					);
 
-				if (filesToProcess.length > 0) {
-					for (const book of booksToLink) {
-						try {
-							console.log(
-								`  🔍 Ищем файл для "${book.title}" (${book.author})...`,
-							);
-							const matchingFile = await this.findMatchingFile(
-								book,
-								filesToProcess,
-							);
-
-							if (matchingFile) {
+					if (filesToProcess.length > 0) {
+						for (const book of booksToLink) {
+							try {
 								console.log(
-									`    📨 Найден файл: ${matchingFile.filename} (msg: ${matchingFile.messageId})`,
+									`  🔍 Ищем файл для "${book.title}" (${book.author})...`,
+								);
+								const matchingFile = await this.findMatchingFile(
+									book,
+									filesToProcess,
 								);
 
-								try {
-									const result =
-										await this.enhancedFileService?.processSingleFileById(
-											parseInt(matchingFile.messageId as string, 10),
-										);
-
-									if (result && (result as any).skipped) {
-										console.log(
-											`    ⚠️ Файл пропущен: ${(result as any).reason}`,
-										);
-									} else {
-										console.log(`    ✅ Файл привязан`);
-										matchedCount++;
-									}
-								} catch (processErr) {
-									console.warn(
-										`    ❌ Ошибка обработки файла:`,
-										processErr,
+								if (matchingFile) {
+									console.log(
+										`    📨 Найден файл: ${matchingFile.filename} (msg: ${matchingFile.messageId})`,
 									);
+
+									try {
+										const result =
+											await this.enhancedFileService?.processSingleFileById(
+												parseInt(matchingFile.messageId as string, 10),
+											);
+
+										if (result && (result as any).skipped) {
+											console.log(
+												`    ⚠️ Файл пропущен: ${(result as any).reason}`,
+											);
+										} else {
+											console.log(`    ✅ Файл привязан`);
+											matchedCount++;
+										}
+									} catch (processErr) {
+										console.warn(`    ❌ Ошибка обработки файла:`, processErr);
+									}
+								} else {
+									console.log(`    ⚠️ Файл не найден`);
 								}
-							} else {
-								console.log(`    ⚠️ Файл не найден`);
-							}
-						} catch (matchErr) {
+							} catch (matchErr) {
 								console.warn(
 									`    ⚠️ Ошибка привязки файла для "${book.title}":`,
 									matchErr,
@@ -513,13 +521,12 @@ export class BookWormService {
 			let coversDownloaded = 0;
 
 			try {
-				const { data: booksNoCover, error: coverFetchError } =
-					await serverSupabase
-						.from("books")
-						.select("id, title, author, telegram_post_id, cover_url")
-						.is("cover_url", null)
-						.not("telegram_post_id", "is", null)
-						.limit(20);
+				const { data: booksNoCover, error: coverFetchError } = await db
+					.from("books")
+					.select("id, title, author, telegram_post_id, cover_url")
+					.is("cover_url", null)
+					.not("telegram_post_id", "is", null)
+					.limit(20);
 
 				if (coverFetchError) {
 					console.warn("⚠️ Ошибка загрузки книг без обложек:", coverFetchError);
@@ -546,7 +553,7 @@ export class BookWormService {
 							if (messages && messages.length > 0) {
 								const coverUrl = await this.downloadCover(messages[0]);
 								if (coverUrl) {
-									await serverSupabase
+									await db
 										.from("books")
 										.update({ cover_url: coverUrl })
 										.eq("id", book.id);
@@ -716,7 +723,7 @@ export class BookWormService {
 			book_id: bookId || null,
 		};
 
-		const { error } = await serverSupabase
+		const { error } = await db
 			.from("telegram_processed_messages")
 			.upsert(processedData, { onConflict: "message_id" });
 
@@ -777,7 +784,12 @@ export class BookWormService {
 			}
 
 			const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-			await putObject(photoKey, Buffer.from(result), coversBucket, "image/jpeg");
+			await putObject(
+				photoKey,
+				Buffer.from(result),
+				coversBucket,
+				"image/jpeg",
+			);
 			const url = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
 			console.log(`✅ Cover downloaded for msg ${anyMsg.id}: ${url}`);
 			return url;
@@ -896,15 +908,14 @@ export class BookWormService {
 			let matchedCount = 0;
 
 			try {
-				const { data: booksWithoutFiles, error: booksLinkError } =
-					await serverSupabase
-						.from("books")
-						.select(
-							"id, title, author, telegram_post_id, file_url, telegram_file_id",
-						)
-						.is("file_url", null)
-						.not("title", "is", null)
-						.not("author", "is", null);
+				const { data: booksWithoutFiles, error: booksLinkError } = await db
+					.from("books")
+					.select(
+						"id, title, author, telegram_post_id, file_url, telegram_file_id",
+					)
+					.is("file_url", null)
+					.not("title", "is", null)
+					.not("author", "is", null);
 
 				if (booksLinkError) {
 					console.warn(
@@ -932,15 +943,23 @@ export class BookWormService {
 							file_size: f.file_size || f.size || undefined,
 						}));
 
-						const bookOptions: BookOption[] = booksWithoutFiles.map((b: any) => ({
-							id: b.id,
-							title: b.title,
-							author: b.author,
-						}));
+						const bookOptions: BookOption[] = booksWithoutFiles.map(
+							(b: any) => ({
+								id: b.id,
+								title: b.title,
+								author: b.author,
+							}),
+						);
 
 						// Выполняем batch matching за один проход
-						console.log(`⚡ Выполняем batch matching (${bookOptions.length} книг x ${fileOptions.length} файлов)...`);
-						const batchMatches = batchMatchFilesToBooks(fileOptions, bookOptions, 50);
+						console.log(
+							`⚡ Выполняем batch matching (${bookOptions.length} книг x ${fileOptions.length} файлов)...`,
+						);
+						const batchMatches = batchMatchFilesToBooks(
+							fileOptions,
+							bookOptions,
+							50,
+						);
 						console.log(`📊 Найдено ${batchMatches.size} совпадений`);
 
 						// Обрабатываем результаты
@@ -951,9 +970,11 @@ export class BookWormService {
 							try {
 								// Находим оригинальный файл из списка
 								const matchingFile = filesToProcess.find(
-									(f: any) => 
-										(f.messageId && f.messageId === matchResult.file.message_id) ||
-										(f.message_id && f.message_id === matchResult.file.message_id),
+									(f: any) =>
+										(f.messageId &&
+											f.messageId === matchResult.file.message_id) ||
+										(f.message_id &&
+											f.message_id === matchResult.file.message_id),
 								);
 
 								if (matchingFile) {
@@ -990,12 +1011,11 @@ export class BookWormService {
 			let coversDownloaded = 0;
 
 			try {
-				const { data: booksNoCover, error: coverFetchError } =
-					await serverSupabase
-						.from("books")
-						.select("id, title, author, telegram_post_id, cover_url")
-						.is("cover_url", null)
-						.not("telegram_post_id", "is", null);
+				const { data: booksNoCover, error: coverFetchError } = await db
+					.from("books")
+					.select("id, title, author, telegram_post_id, cover_url")
+					.is("cover_url", null)
+					.not("telegram_post_id", "is", null);
 
 				if (coverFetchError) {
 					console.warn("⚠️ Ошибка загрузки книг без обложек:", coverFetchError);
@@ -1016,7 +1036,7 @@ export class BookWormService {
 							if (messages && messages.length > 0) {
 								const coverUrl = await this.downloadCover(messages[0]);
 								if (coverUrl) {
-									await serverSupabase
+									await db
 										.from("books")
 										.update({ cover_url: coverUrl })
 										.eq("id", book.id);

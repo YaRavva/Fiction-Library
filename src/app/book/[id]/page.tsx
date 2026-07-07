@@ -176,10 +176,10 @@ function BookDetailPageContent() {
 				if (book) {
 					setBook({
 						...book,
-						file_url: undefined, // Type compatibility hack, relying on UI to handle undefined
-						file_size: undefined as any,
-						file_format: undefined,
-						telegram_file_id: undefined as any,
+						file_url: undefined,
+						file_size: undefined,
+						file_format: "",
+						telegram_file_id: undefined,
 					});
 				}
 				alert("Файл успешно очищен!");

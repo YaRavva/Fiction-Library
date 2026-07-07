@@ -53,7 +53,6 @@ export class TelegramSyncService {
 
 			// Получаем ID последнего обработанного сообщения
 			console.log("🔍 Получаем ID последнего обработанного сообщения...");
-			// @ts-expect-error
 			const { data: lastProcessed, error: lastProcessedError } =
 				await serverSupabase
 					.from("telegram_processed_messages")
@@ -115,7 +114,6 @@ export class TelegramSyncService {
 				// Проверяем наличие книги в БД по названию и автору ПЕРЕД обработкой медиа
 				let bookExists = false;
 				try {
-					// @ts-expect-error
 					const { data: foundBooks, error: findError } = await serverSupabase
 						.from("books")
 						.select("*")

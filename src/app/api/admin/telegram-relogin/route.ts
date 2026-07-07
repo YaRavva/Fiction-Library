@@ -1,8 +1,7 @@
-import { TelegramClient } from "telegram";
-import { StringSession } from "telegram/sessions";
 import { NextResponse } from "next/server";
-import { Api } from "telegram";
+import { Api, TelegramClient } from "telegram";
 import { computeCheck } from "telegram/Password";
+import { StringSession } from "telegram/sessions";
 
 function getApiCredentials() {
 	const apiId = process.env.TELEGRAM_API_ID;
@@ -64,12 +63,12 @@ export async function POST(request: Request) {
 						phoneNumber: phone,
 						apiId,
 						apiHash,
-						settings: new Api.CodeSettings(),
+						settings: new Api.CodeSettings({}),
 					}),
 				);
 
 				pendingLogins.set(phone, {
-					phoneCodeHash: result.phoneCodeHash,
+					phoneCodeHash: (result as { phoneCodeHash: string }).phoneCodeHash,
 					client,
 					ts: Date.now(),
 				});

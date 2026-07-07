@@ -12,6 +12,10 @@ export interface BookMetadata {
 	}[];
 	coverUrls?: string[]; // URL обложек из сообщения
 	messageId?: number; // ID сообщения в Telegram (для отслеживания обработанных сообщений)
+	file_url?: string;
+	file_size?: number;
+	file_format?: string;
+	telegram_file_id?: string;
 }
 
 export class MetadataParser {

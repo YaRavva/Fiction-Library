@@ -4,9 +4,10 @@ import type { Session } from "@supabase/supabase-js";
 import { BookOpen, Clock, Heart, Library } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BookCard } from "@/components/books/book-card-small";
+import { BookCardLarge } from "@/components/books/book-card-large";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Button } from "@/components/ui/button";
+import { PageTransition } from "@/components/ui/page-transition";
 import { getValidSession } from "@/lib/auth-helpers";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
 import type { Book } from "@/lib/supabase";
@@ -129,9 +130,9 @@ export default function MyBooksPage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen flex items-center justify-center bg-background">
-				<div className="text-center space-y-4">
-					<Library className="h-12 w-12 mx-auto animate-pulse text-primary" />
+			<div className="flex min-h-screen items-center justify-center bg-background">
+				<div className="space-y-4 text-center">
+					<Library className="mx-auto size-10 animate-pulse text-primary" />
 					<p className="text-muted-foreground">Загрузка...</p>
 				</div>
 			</div>
@@ -139,95 +140,120 @@ export default function MyBooksPage() {
 	}
 
 	return (
-		<div className="flex h-screen bg-background overflow-hidden">
-			<AppSidebar
-				user={user}
-				userProfile={userProfile}
-				onLogout={handleLogout}
-			/>
-			<div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-				{/* Header */}
-				<header className="flex items-center justify-between p-4 border-b bg-card sticky top-0 z-30">
-					<div className="flex items-center gap-2">
-						<Library className="h-6 w-6 text-primary" />
-						<span className="font-bold text-lg">Мои книги</span>
-					</div>
-				</header>
+		<PageTransition>
+			<div className="flex h-screen overflow-hidden bg-background">
+				<div className="hidden lg:block">
+					<AppSidebar
+						user={user}
+						userProfile={userProfile}
+						onLogout={handleLogout}
+					/>
+				</div>
+				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+					<header className="sticky top-0 z-30 border-b bg-background">
+						<div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+							<div className="min-w-0">
+								<p className="text-muted-foreground text-xs">Личная полка</p>
+								<h1 className="font-semibold text-lg tracking-tight">
+									Мои книги
+								</h1>
+							</div>
+						</div>
+					</header>
 
-				<main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-12">
-					{/* Reading Now */}
-					<section>
-						<h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-							<Clock className="w-6 h-6 text-primary" />
-							Читаю сейчас
-						</h2>
+					<main className="flex-1 overflow-y-auto">
+						<div className="mx-auto w-full max-w-[1480px] space-y-8 px-4 py-5 sm:px-6 lg:px-8">
+							<section className="grid gap-3 sm:grid-cols-2">
+								<div className="rounded-lg border bg-card p-4">
+									<div className="flex items-center gap-2 text-muted-foreground text-sm">
+										<Clock className="size-4" />
+										Читаю сейчас
+									</div>
+									<div className="mt-2 font-semibold text-3xl tabular-nums">
+										{history.length}
+									</div>
+								</div>
+								<div className="rounded-lg border bg-card p-4">
+									<div className="flex items-center gap-2 text-muted-foreground text-sm">
+										<Heart className="size-4" />
+										Избранное
+									</div>
+									<div className="mt-2 font-semibold text-3xl tabular-nums">
+										{favorites.length}
+									</div>
+								</div>
+							</section>
 
-						{history.length > 0 ? (
-							<div className="grid gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-								{history.map((item, i) => (
-									<BookCard
-										key={item.id}
-										book={item.book}
-										index={i}
-										onRead={handleRead}
-										onDownload={handleDownload}
-										onBookClick={handleBookClick}
-										// onTagClick can be added if needed
-									/>
-								))}
-							</div>
-						) : (
-							<div className="p-12 border rounded-2xl bg-muted/20 text-center flex flex-col items-center justify-center dashed border-dashed">
-								<BookOpen className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
-								<h3 className="text-lg font-medium">Нет активных книг</h3>
-								<p className="text-muted-foreground mb-6">
-									Вы пока не начали читать ни одной книги
-								</p>
-								<Button onClick={() => router.push("/library")}>
-									Найти книгу
-								</Button>
-							</div>
-						)}
-					</section>
+							<section>
+								<h2 className="mb-4 flex items-center gap-2 font-semibold text-xl">
+									<Clock className="size-5 text-primary" />
+									Читаю сейчас
+								</h2>
 
-					{/* Favorites */}
-					<section>
-						<h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-							<Heart className="w-6 h-6 text-red-500" />
-							Избранное
-						</h2>
-						{favorites.length > 0 ? (
-							<div className="grid gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-								{favorites.map((item, i) => (
-									<BookCard
-										key={item.id}
-										book={item.book}
-										index={i}
-										onRead={handleRead}
-										onDownload={handleDownload}
-										onBookClick={handleBookClick}
-									/>
-								))}
-							</div>
-						) : (
-							<div className="p-12 border rounded-2xl bg-muted/20 text-center flex flex-col items-center justify-center dashed border-dashed">
-								<Heart className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
-								<h3 className="text-lg font-medium">Список пуст</h3>
-								<p className="text-muted-foreground">
-									У вас пока нет избранных книг
-								</p>
-								<Button
-									className="mt-6"
-									variant="outline"
-									onClick={() => router.push("/library")}
-								>
-									Перейти в библиотеку
-								</Button>
-							</div>
-						)}
-					</section>
-				</main>
+								{history.length > 0 ? (
+									<div className="space-y-3">
+										{history.map((item, i) => (
+											<BookCardLarge
+												key={item.id}
+												book={item.book}
+												onRead={handleRead}
+												onDownload={handleDownload}
+												onBookClick={handleBookClick}
+											/>
+										))}
+									</div>
+								) : (
+									<div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card py-16 text-center">
+										<BookOpen className="mb-4 size-10 text-muted-foreground/50" />
+										<h3 className="font-medium text-lg">Нет активных книг</h3>
+										<p className="mb-6 text-muted-foreground">
+											Вы пока не начали читать ни одной книги
+										</p>
+										<Button onClick={() => router.push("/library")}>
+											Найти книгу
+										</Button>
+									</div>
+								)}
+							</section>
+
+							<section>
+								<h2 className="mb-4 flex items-center gap-2 font-semibold text-xl">
+									<Heart className="size-5 text-red-500" />
+									Избранное
+								</h2>
+								{favorites.length > 0 ? (
+									<div className="space-y-3">
+										{favorites.map((item, i) => (
+											<BookCardLarge
+												key={item.id}
+												book={item.book}
+												onRead={handleRead}
+												onDownload={handleDownload}
+												onBookClick={handleBookClick}
+											/>
+										))}
+									</div>
+								) : (
+									<div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-card py-16 text-center">
+										<Heart className="mb-4 size-10 text-muted-foreground/50" />
+										<h3 className="font-medium text-lg">Список пуст</h3>
+										<p className="text-muted-foreground">
+											У вас пока нет избранных книг
+										</p>
+										<Button
+											className="mt-6"
+											variant="outline"
+											onClick={() => router.push("/library")}
+										>
+											Перейти в библиотеку
+										</Button>
+									</div>
+								)}
+							</section>
+						</div>
+					</main>
+				</div>
 			</div>
-		</div>
+		</PageTransition>
 	);
 }

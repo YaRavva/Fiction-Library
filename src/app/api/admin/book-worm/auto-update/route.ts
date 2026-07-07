@@ -11,6 +11,29 @@ interface AutoUpdateSettings {
 	nextRun: string | null;
 }
 
+interface AutoUpdateSettingsRow {
+	id?: number;
+	enabled: boolean;
+	interval: number;
+	last_run: string | null;
+	next_run: string | null;
+}
+
+function toAutoUpdateSettings(
+	row?: AutoUpdateSettingsRow | null,
+): AutoUpdateSettings {
+	return {
+		enabled: row?.enabled ?? false,
+		interval: row?.interval ?? 30,
+		lastRun: row?.last_run ?? null,
+		nextRun: row?.next_run ?? null,
+	};
+}
+
+function autoUpdateTable(supabaseAdmin: any) {
+	return (supabaseAdmin as any).from("auto_update_settings");
+}
+
 // Функция для проверки авторизации
 async function checkAuthorization(request: NextRequest, supabaseAdmin: any) {
 	let userIsAdmin = false;
@@ -126,8 +149,9 @@ export async function GET(request: NextRequest) {
 		}
 
 		// Получаем настройки автообновления из базы данных
-		const { data: settings, error: settingsError } = await supabaseAdmin
-			.from("auto_update_settings")
+		const { data: settings, error: settingsError } = await autoUpdateTable(
+			supabaseAdmin,
+		)
 			.select("*")
 			.single();
 
@@ -142,12 +166,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const autoUpdateSettings: AutoUpdateSettings = settings || {
-			enabled: false,
-			interval: 30,
-			lastRun: null,
-			nextRun: null,
-		};
+		const autoUpdateSettings = toAutoUpdateSettings(settings);
 
 		return NextResponse.json({
 			success: true,
@@ -189,8 +208,9 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Получаем настройки автообновления из базы данных
-		const { data: settings, error: settingsError } = await supabaseAdmin
-			.from("auto_update_settings")
+		const { data: settings, error: settingsError } = await autoUpdateTable(
+			supabaseAdmin,
+		)
 			.select("*")
 			.single();
 
@@ -205,12 +225,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const autoUpdateSettings: AutoUpdateSettings = settings || {
-			enabled: false,
-			interval: 30,
-			lastRun: null,
-			nextRun: null,
-		};
+		const autoUpdateSettings = toAutoUpdateSettings(settings);
 
 		// Проверяем, включено ли автообновление
 		if (!autoUpdateSettings.enabled) {
@@ -248,9 +263,9 @@ export async function POST(request: NextRequest) {
 				settingsForDb,
 			); // Отладочный лог
 
-			const { data, error: updateError } = await supabaseAdmin
-				.from("auto_update_settings")
-				.upsert(settingsForDb, { onConflict: "id" });
+			const { data, error: updateError } = await autoUpdateTable(
+				supabaseAdmin,
+			).upsert(settingsForDb, { onConflict: "id" });
 
 			if (updateError) {
 				console.error("Error updating auto update settings:", updateError);
@@ -320,9 +335,9 @@ export async function POST(request: NextRequest) {
 					settingsForDb,
 				); // Отладочный лог
 
-				const { data, error: updateError } = await supabaseAdmin
-					.from("auto_update_settings")
-					.upsert(settingsForDb, { onConflict: "id" });
+				const { data, error: updateError } = await autoUpdateTable(
+					supabaseAdmin,
+				).upsert(settingsForDb, { onConflict: "id" });
 
 				if (updateError) {
 					console.error(
@@ -439,26 +454,35 @@ export async function PUT(request: NextRequest) {
 		}
 
 		// Получаем текущие настройки
-		const { data: currentSettings, error: settingsError } = await supabaseAdmin
-			.from("auto_update_settings")
-			.select("*")
-			.single();
+		const { data: currentSettings, error: settingsError } =
+			await autoUpdateTable(supabaseAdmin).select("*").single();
+
+		if (settingsError && settingsError.code !== "PGRST116") {
+			console.error("Error fetching auto update settings:", settingsError);
+			return NextResponse.json(
+				{
+					error: `Error fetching auto update settings: ${settingsError.message}`,
+				},
+				{ status: 500 },
+			);
+		}
+
+		const currentAutoSettings = toAutoUpdateSettings(currentSettings);
 
 		// Формируем новые настройки
 		const newSettings = {
 			id: 1, // Используем один общий ID для настроек
-			enabled:
-				enabled !== undefined ? enabled : (currentSettings?.enabled ?? false),
+			enabled: enabled !== undefined ? enabled : currentAutoSettings.enabled,
 			interval:
 				interval !== undefined
 					? Number(interval)
-					: (currentSettings?.interval ?? 30),
-			lastRun: currentSettings?.lastRun || null,
-			nextRun: currentSettings?.nextRun || null,
+					: currentAutoSettings.interval,
+			lastRun: currentAutoSettings.lastRun,
+			nextRun: currentAutoSettings.nextRun,
 		};
 
 		// Если включаем автообновление и оно было отключено, устанавливаем следующий запуск
-		if (enabled && !currentSettings?.enabled) {
+		if (enabled && !currentAutoSettings.enabled) {
 			const now = new Date();
 			newSettings.nextRun = new Date(
 				now.getTime() + newSettings.interval * 60000,
@@ -481,9 +505,9 @@ export async function PUT(request: NextRequest) {
 		console.log("Attempting to save auto update settings:", settingsForDb); // Отладочный лог
 
 		// Сохраняем настройки в базе данных
-		const { data, error: updateError } = await supabaseAdmin
-			.from("auto_update_settings")
-			.upsert(settingsForDb, { onConflict: "id" });
+		const { data, error: updateError } = await autoUpdateTable(
+			supabaseAdmin,
+		).upsert(settingsForDb, { onConflict: "id" });
 
 		if (updateError) {
 			console.error("Error saving auto update settings:", updateError);

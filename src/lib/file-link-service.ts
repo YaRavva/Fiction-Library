@@ -16,6 +16,7 @@ export interface FileLinkResult {
 	success: boolean;
 	bookId: string;
 	fileUrl?: string;
+	storagePath?: string;
 	error?: string;
 }
 
@@ -248,6 +249,7 @@ export class FileLinkService {
 				success: true,
 				bookId,
 				fileUrl,
+				storagePath,
 			};
 		} catch (error) {
 			console.error("Ошибка при привязке файла к книге:", error);
@@ -304,6 +306,7 @@ export class FileLinkService {
 				success: true,
 				bookId,
 				fileUrl,
+				storagePath,
 			};
 		} catch (error) {
 			console.error("Ошибка при привязке существующего файла к книге:", error);

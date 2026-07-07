@@ -4,6 +4,8 @@ import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
 import { type BookMetadata, MetadataParser } from "./parser";
 
+const db = serverSupabase as any;
+
 export class TelegramMetadataService {
 	private static instance: TelegramMetadataService;
 	private telegramClient: TelegramService | null = null;
@@ -140,8 +142,7 @@ export class TelegramMetadataService {
 	public async getLatestMessageId(): Promise<string | null> {
 		try {
 			// Now message_id is stored as BIGINT, so we can sort it directly
-			// @ts-expect-error
-			const { data, error } = await serverSupabase
+			const { data, error } = await db
 				.from("telegram_messages_index")
 				.select("message_id")
 				.order("message_id", { ascending: false })
@@ -169,8 +170,7 @@ export class TelegramMetadataService {
 	 */
 	public async getLastProcessedMessageId(): Promise<string | null> {
 		try {
-			// @ts-expect-error
-			const { data, error } = await serverSupabase
+			const { data, error } = await db
 				.from("telegram_processed_messages")
 				.select("message_id")
 				.order("processed_at", { ascending: false })
@@ -212,8 +212,7 @@ export class TelegramMetadataService {
 			console.log(`🔍 Поиск новых сообщений после ID: ${lastProcessedId}`);
 
 			// Находим сообщения с ID больше последнего обработанного
-			// @ts-expect-error
-			const { data, error } = await serverSupabase
+			const { data, error } = await db
 				.from("telegram_messages_index")
 				.select("message_id, author, title")
 				.gt("message_id", lastProcessedId)
@@ -266,8 +265,7 @@ export class TelegramMetadataService {
 				);
 			});
 
-			// @ts-expect-error
-			const { data, error } = await serverSupabase
+			const { data, error } = await db
 				.from("telegram_messages_index")
 				.select("message_id, author, title")
 				.or(orConditions.join(","))
@@ -279,7 +277,12 @@ export class TelegramMetadataService {
 			}
 
 			// Вычисляем коэффициент релевантности для каждого сообщения
-			const resultsWithSimilarity = (data || []).map((item) => {
+			const resultsWithSimilarity: Array<{
+				message_id: number;
+				author: string | null;
+				title: string | null;
+				similarity: number;
+			}> = (data || []).map((item: unknown) => {
 				const itemData = item as {
 					message_id: number;
 					author: string | null;
@@ -332,23 +335,20 @@ export class TelegramMetadataService {
 		messagesWithTitle: number;
 	}> {
 		try {
-			// @ts-expect-error
-			const { data: totalData, error: totalError } = await serverSupabase
+			const { data: totalData, error: totalError } = await db
 				.from("telegram_messages_index")
 				.select("*", { count: "exact", head: true });
 
 			if (totalError) throw totalError;
 
-			// @ts-expect-error
-			const { data: authorData, error: authorError } = await serverSupabase
+			const { data: authorData, error: authorError } = await db
 				.from("telegram_messages_index")
 				.select("*", { count: "exact", head: true })
 				.not("author", "is", null);
 
 			if (authorError) throw authorError;
 
-			// @ts-expect-error
-			const { data: titleData, error: titleError } = await serverSupabase
+			const { data: titleData, error: titleError } = await db
 				.from("telegram_messages_index")
 				.select("*", { count: "exact", head: true })
 				.not("title", "is", null);
@@ -425,7 +425,6 @@ export class TelegramMetadataService {
 
 			for (const msgInfo of newMessages) {
 				try {
-					// @ts-expect-error
 					const fullMessage = await this.telegramClient.getMessageById(
 						channelId,
 						msgInfo.message_id,
@@ -928,13 +927,11 @@ export class TelegramMetadataService {
 							seriesData.series_composition = seriesComposition;
 						}
 
-						// @ts-expect-error
-						const { data: insertedSeries, error: seriesError } =
-							await serverSupabase
-								.from("series")
-								.insert(seriesData)
-								.select()
-								.single();
+						const { data: insertedSeries, error: seriesError } = await db
+							.from("series")
+							.insert(seriesData)
+							.select()
+							.single();
 						if (seriesError) {
 							console.warn(`  ⚠️  Ошибка при создании серии:`, seriesError);
 						} else {
@@ -951,8 +948,7 @@ export class TelegramMetadataService {
 						console.log(
 							`  🔄 Обновляем книгу "${existingBook.title}" автора ${existingBook.author}`,
 						);
-						// @ts-expect-error
-						const { error: updateError } = await serverSupabase
+						const { error: updateError } = await db
 							.from("books")
 							.update(updateData)
 							.eq("id", existingBook.id);
@@ -1031,8 +1027,7 @@ export class TelegramMetadataService {
 					}
 
 					// Запись в telegram_processed_messages
-					// @ts-expect-error
-					const { error: upsertError1 } = await serverSupabase
+					const { error: upsertError1 } = await db
 						.from("telegram_processed_messages")
 						.upsert({
 							message_id: String(msgId),
@@ -1099,13 +1094,11 @@ export class TelegramMetadataService {
 							seriesData.series_composition = seriesComposition;
 						}
 
-						// @ts-expect-error
-						const { data: insertedSeries, error: seriesError } =
-							await serverSupabase
-								.from("series")
-								.insert(seriesData)
-								.select()
-								.single();
+						const { data: insertedSeries, error: seriesError } = await db
+							.from("series")
+							.insert(seriesData)
+							.select()
+							.single();
 						if (seriesError) {
 							console.warn(`  ⚠️  Ошибка при создании серии:`, seriesError);
 						} else {
@@ -1117,7 +1110,7 @@ export class TelegramMetadataService {
 					console.log(
 						`  ➕ Добавляем новую книгу: "${book.title}" автора ${book.author}`,
 					);
-					const newBook = {
+					const newBook: Record<string, unknown> = {
 						title: book.title,
 						author: book.author,
 						description: book.description || "",
@@ -1131,18 +1124,15 @@ export class TelegramMetadataService {
 
 					// Добавляем обложку, если она есть
 					if (book.coverUrls && book.coverUrls.length > 0) {
-						// @ts-expect-error
 						newBook.cover_url = book.coverUrls[0]; // Берем первую обложку
 					}
 
 					// Привязываем книгу к серии, если она была создана
 					if (seriesId) {
-						// @ts-expect-error
 						newBook.series_id = seriesId;
 					}
 
-					// @ts-expect-error
-					const { data: inserted, error: insertError } = await serverSupabase
+					const { data: inserted, error: insertError } = await db
 						.from("books")
 						.insert(newBook)
 						.select()
@@ -1158,7 +1148,6 @@ export class TelegramMetadataService {
 					}
 
 					added++;
-					// @ts-expect-error
 					details.push({
 						msgId,
 						status: "added",
@@ -1168,13 +1157,11 @@ export class TelegramMetadataService {
 					});
 
 					// Запись в telegram_processed_messages
-					// @ts-expect-error
-					const { error: upsertError2 } = await serverSupabase
+					const { error: upsertError2 } = await db
 						.from("telegram_processed_messages")
 						.upsert({
 							message_id: String(msgId),
 							channel: process.env.TELEGRAM_METADATA_CHANNEL_ID || "",
-							// @ts-expect-error
 							book_id: (inserted as any).id,
 							processed_at: new Date().toISOString(),
 						});

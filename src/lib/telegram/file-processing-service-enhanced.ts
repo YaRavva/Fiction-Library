@@ -11,6 +11,8 @@ import { getSupabaseAdmin } from "../supabase";
 import { TelegramService } from "./client";
 import { MetadataExtractionService } from "./metadata-extraction-service";
 
+const db = serverSupabase as any;
+
 export class EnhancedFileProcessingService {
 	private static instance: EnhancedFileProcessingService;
 	private telegramClient: TelegramService | null = null;
@@ -183,7 +185,7 @@ export class EnhancedFileProcessingService {
 
 			if (knownBookId) {
 				console.log(`  🎯 Используем известный bookId: ${knownBookId}`);
-				const { data: knownBook, error: knownBookError } = await serverSupabase
+				const { data: knownBook, error: knownBookError } = await db
 					.from("books")
 					.select("id, title, author")
 					.eq("id", knownBookId)
@@ -219,7 +221,7 @@ export class EnhancedFileProcessingService {
 					// Поиск по каждому термину в названии
 					for (const term of searchTerms) {
 						searchPromises.push(
-							serverSupabase
+							db
 								.from("books")
 								.select("id, title, author")
 								.ilike("title", `%${term}%`)
@@ -230,7 +232,7 @@ export class EnhancedFileProcessingService {
 					// Поиск по каждому термину в авторе
 					for (const term of searchTerms) {
 						searchPromises.push(
-							serverSupabase
+							db
 								.from("books")
 								.select("id, title, author")
 								.ilike("author", `%${term}%`)
@@ -259,7 +261,7 @@ export class EnhancedFileProcessingService {
 
 					// Поиск по названию
 					searchPromises.push(
-						serverSupabase
+						db
 							.from("books")
 							.select("id, title, author")
 							.ilike("title", `%${title}%`)
@@ -268,7 +270,7 @@ export class EnhancedFileProcessingService {
 
 					// Поиск по автору
 					searchPromises.push(
-						serverSupabase
+						db
 							.from("books")
 							.select("id, title, author")
 							.ilike("author", `%${author}%`)
@@ -368,7 +370,7 @@ export class EnhancedFileProcessingService {
 			}
 
 			// Проверяем, существует ли запись в telegram_processed_messages для данной книги
-			const { data: existingRecords, error: selectError } = await serverSupabase
+			const { data: existingRecords, error: selectError } = await db
 				.from("telegram_processed_messages")
 				.select("*")
 				.eq("book_id", book.id);
@@ -397,11 +399,10 @@ export class EnhancedFileProcessingService {
 			// Проверяем, существует ли запись в telegram_processed_messages с telegram_file_id для этой книги
 			try {
 				// Проверяем, существует ли запись в telegram_processed_messages с telegram_file_id равным ID текущего файла
-				const { data: existingFileRecords, error: selectFileError } =
-					await serverSupabase
-						.from("telegram_processed_messages")
-						.select("*")
-						.eq("telegram_file_id", String(anyMsg.id));
+				const { data: existingFileRecords, error: selectFileError } = await db
+					.from("telegram_processed_messages")
+					.select("*")
+					.eq("telegram_file_id", String(anyMsg.id));
 
 				if (selectFileError) {
 					console.warn(
@@ -444,11 +445,10 @@ export class EnhancedFileProcessingService {
 					};
 				}
 
-				const { data: existingBookRecords, error: selectBookError } =
-					await serverSupabase
-						.from("telegram_processed_messages")
-						.select("*")
-						.eq("book_id", bookId);
+				const { data: existingBookRecords, error: selectBookError } = await db
+					.from("telegram_processed_messages")
+					.select("*")
+					.eq("book_id", bookId);
 
 				// Фильтруем записи с не пустым telegram_file_id
 				const filteredRecords = existingBookRecords
@@ -491,8 +491,10 @@ export class EnhancedFileProcessingService {
 				const _bookId = book.id;
 
 				// Проверяем, есть ли в таблице books запись с этим book_id и заполненным telegram_file_id
-				const { data: bookFileRecords, error: bookFileError } =
-					await serverSupabase.from("books").select("*").eq("id", book.id);
+				const { data: bookFileRecords, error: bookFileError } = await db
+					.from("books")
+					.select("*")
+					.eq("id", book.id);
 
 				if (bookFileError) {
 					console.warn(
@@ -611,19 +613,18 @@ export class EnhancedFileProcessingService {
 					};
 
 					// Приведение типа для обхода ошибки типов Supabase
-					const booksTable: any = serverSupabase.from("books");
+					const booksTable: any = db.from("books");
 					const { error: updateBookError } = await booksTable
 						.update(updateData)
 						.eq("id", book.id)
 						.select();
 
 					// Получаем обновленную книгу отдельно
-					const { data: updatedBook, error: selectBookError } =
-						await serverSupabase
-							.from("books")
-							.select("*")
-							.eq("id", book.id)
-							.single();
+					const { data: updatedBook, error: selectBookError } = await db
+						.from("books")
+						.select("*")
+						.eq("id", book.id)
+						.single();
 
 					if (updateBookError) {
 						throw updateBookError;
@@ -650,9 +651,7 @@ export class EnhancedFileProcessingService {
 						};
 
 						// Приведение типа для обхода ошибки типов Supabase
-						const messagesTable: any = serverSupabase.from(
-							"telegram_processed_messages",
-						);
+						const messagesTable: any = db.from("telegram_processed_messages");
 						const { error: updateError } = await messagesTable
 							.update(updateMessageData)
 							.eq("id", (existingRecords[0] as { id: string }).id)
@@ -735,19 +734,18 @@ export class EnhancedFileProcessingService {
 					};
 
 					// Приведение типа для обхода ошибки типов Supabase
-					const booksTable: any = serverSupabase.from("books");
+					const booksTable: any = db.from("books");
 					const { error: updateBookError } = await booksTable
 						.update(updateData)
 						.eq("id", book.id)
 						.select();
 
 					// Получаем обновленную книгу отдельно
-					const { data: updatedBook, error: selectBookError } =
-						await serverSupabase
-							.from("books")
-							.select("*")
-							.eq("id", book.id)
-							.single();
+					const { data: updatedBook, error: selectBookError } = await db
+						.from("books")
+						.select("*")
+						.eq("id", book.id)
+						.single();
 
 					if (updateBookError) {
 						throw updateBookError;
@@ -788,9 +786,7 @@ export class EnhancedFileProcessingService {
 						};
 
 						// Приведение типа для обхода ошибки типов Supabase
-						const messagesTable: any = serverSupabase.from(
-							"telegram_processed_messages",
-						);
+						const messagesTable: any = db.from("telegram_processed_messages");
 						const { error: updateError } = await messagesTable
 							.update(updateMessageData)
 							.eq("id", (existingRecords[0] as { id: string }).id)
