@@ -520,3 +520,18 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 - [x] `GET /api/admin/embedding/stats` теперь распознает отсутствие embedding-колонок и возвращает `stats.schema.migrationRequired` вместо 500.
 - [x] `PUT /api/admin/embedding` теперь пропускает targets с отсутствующей embedding-колонкой и возвращает понятное сообщение без 500.
 - [x] Панель embeddings показывает компактный статус `Миграция pgvector не применена` и блокирует кнопку файловой индексации до готовности схемы.
+
+# Обновление активного контекста - 2026-07-07 01:35
+
+## Текущий фокус
+Применение pgvector-миграции к production Supabase через Management API.
+
+## Результат
+- [x] Применена миграция `030_enable_pgvector` через официальный endpoint Apply a migration.
+- [x] Проверено через Management API query: расширение `vector` установлено.
+- [x] Проверено: `books.embedding` имеет тип `vector(1024)`.
+- [x] Проверено: `telegram_files.embedding` имеет тип `vector(1024)`.
+- [x] Проверено: функция `match_telegram_files` существует.
+
+## Следующие шаги
+- После деплоя можно запускать embedding-индексацию книг и файлов из вкладки `Привязка файлов`.

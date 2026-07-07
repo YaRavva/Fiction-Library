@@ -353,3 +353,12 @@
 
 ## Проверка
 - [x] `bun x biome check --write` по измененным embedding/admin файлам проходит.
+
+# Обновление прогресса - 2026-07-07 Production Pgvector Migration
+
+## Supabase
+- [x] Production-миграция `030_enable_pgvector` применена через Supabase Management API.
+- [x] Verification query подтвердил `vector_extension=true`.
+- [x] Verification query подтвердил `books.embedding = vector(1024)`.
+- [x] Verification query подтвердил `telegram_files.embedding = vector(1024)`.
+- [x] Verification query подтвердил наличие `match_telegram_files`.
