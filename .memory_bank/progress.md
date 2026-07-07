@@ -362,3 +362,20 @@
 - [x] Verification query подтвердил `books.embedding = vector(1024)`.
 - [x] Verification query подтвердил `telegram_files.embedding = vector(1024)`.
 - [x] Verification query подтвердил наличие `match_telegram_files`.
+
+# Обновление прогресса - 2026-07-07 Telegram File Dedupe
+
+## Supabase
+- [x] Production-миграция `031_dedupe_telegram_files` применена через Supabase Management API.
+- [x] В `telegram_files` размечено `876` дублей в `857` группах.
+- [x] Canonical-файлов после разметки: `3359`.
+- [x] Embeddings у дублей очищены; `embedded_duplicates = 0`.
+
+## Код
+- [x] `PUT /api/admin/embedding` вызывает `refresh_telegram_file_duplicates()` перед файловой индексацией.
+- [x] Файловая embedding-индексация выбирает только `duplicate_of_message_id IS NULL`.
+- [x] `GET /api/admin/embedding/stats` считает только canonical-файлы.
+- [x] `/api/admin/file-linking/search` ищет только по canonical-файлам и поднимает lexical fallback до `5000`.
+
+## Проверка
+- [x] `bun x tsx` подтвердил score `80` для `Ричард Матесон - Я - легенда.fb2` против книги `Я - Легенда (1954)`.

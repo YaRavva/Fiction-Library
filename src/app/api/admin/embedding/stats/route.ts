@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
 		const { count: totalFiles, error: totalFilesError } = await auth.admin
 			.from("telegram_files")
 			.select("*", { count: "exact", head: true })
+			.is("duplicate_of_message_id", null)
 			.not("file_name", "is", null);
 
 		if (totalFilesError) {
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
 		const { count: embeddedFiles, error: embeddedFilesError } = await auth.admin
 			.from("telegram_files")
 			.select("*", { count: "exact", head: true })
+			.is("duplicate_of_message_id", null)
 			.not("embedding", "is", null);
 
 		if (embeddedFilesError) {

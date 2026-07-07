@@ -103,6 +103,7 @@ export async function PUT(request: NextRequest) {
 		let filesTotal = 0;
 		const skippedTargets: EmbedTarget[] = [];
 		let migrationRequired = false;
+		let dedupeResult: unknown = null;
 
 		if (target === "books" || target === "all") {
 			const { data, error } = await admin
@@ -146,10 +147,23 @@ export async function PUT(request: NextRequest) {
 		}
 
 		if (target === "files" || target === "all") {
+			const { data: refreshData, error: refreshError } = await admin.rpc(
+				"refresh_telegram_file_duplicates",
+			);
+			if (refreshError) {
+				console.warn(
+					"Failed to refresh Telegram file duplicates:",
+					refreshError,
+				);
+			} else {
+				dedupeResult = refreshData;
+			}
+
 			const { data, error } = await admin
 				.from("telegram_files")
 				.select("message_id, file_name")
 				.is("embedding", null)
+				.is("duplicate_of_message_id", null)
 				.not("file_name", "is", null)
 				.limit(batchSize);
 
@@ -193,6 +207,7 @@ export async function PUT(request: NextRequest) {
 			files: { embedded: filesEmbedded, total: filesTotal },
 			migrationRequired,
 			skippedTargets,
+			dedupeResult,
 		});
 	} catch (error: any) {
 		console.error("Error batch embedding:", error);

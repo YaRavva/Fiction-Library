@@ -111,9 +111,10 @@ export async function POST(request: NextRequest) {
 		const { data: lexicalCandidates, error: filesError } = await auth.admin
 			.from("telegram_files")
 			.select("message_id, file_name, mime_type, file_size")
+			.is("duplicate_of_message_id", null)
 			.not("file_name", "is", null)
 			.order("message_id", { ascending: false })
-			.limit(2000);
+			.limit(5000);
 
 		if (filesError) {
 			throw new Error(`Failed to fetch files: ${filesError.message}`);
