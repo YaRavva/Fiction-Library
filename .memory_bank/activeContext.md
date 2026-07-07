@@ -571,3 +571,17 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 - [x] `bun x biome check src/components/admin/embedding-panel.tsx` проходит.
 - [x] `bun run build` проходит.
 - [ ] Полный `tsc --noEmit` по-прежнему заблокирован старым типовым долгом вне измененного файла.
+
+# Обновление активного контекста - 2026-07-07 02:45
+
+## Текущий фокус
+Исправление 500 при ручной привязке файла: `knownBookId is not defined`.
+
+## Принятое решение
+- [x] `processSingleFileById(messageId, knownBookId)` теперь передает `knownBookId` в `downloadAndProcessSingleFile()`.
+- [x] `downloadAndProcessSingleFile()` принимает `knownBookId` параметром в своей области видимости.
+- [x] Убран неиспользуемый импорт `extractWords` из enhanced file processing service.
+
+## Проверка
+- [x] `bun x biome check src/lib/telegram/file-processing-service-enhanced.ts` проходит.
+- [x] `bun run build` проходит.

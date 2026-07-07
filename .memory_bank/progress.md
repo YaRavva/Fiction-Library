@@ -391,3 +391,13 @@
 ## Проверка
 - [x] `bun x biome check src/components/admin/embedding-panel.tsx` проходит.
 - [x] `bun run build` проходит.
+
+# Обновление прогресса - 2026-07-07 File Linking Known Book Fix
+
+## Привязка файлов
+- [x] Исправлен runtime crash `knownBookId is not defined` при ручной привязке файла.
+- [x] `knownBookId` теперь проходит из `/api/admin/file-linking/link` до `downloadAndProcessSingleFile()`.
+
+## Проверка
+- [x] `bun x biome check src/lib/telegram/file-processing-service-enhanced.ts` проходит.
+- [x] `bun run build` проходит.

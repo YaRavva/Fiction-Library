@@ -1,11 +1,15 @@
 import * as path from "node:path";
 import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+	type BookOption,
+	type FileOption,
+	findBestBookForFile,
+} from "../book-file-scorer";
 import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
 import { getSupabaseAdmin } from "../supabase";
 import { TelegramService } from "./client";
 import { MetadataExtractionService } from "./metadata-extraction-service";
-import { findBestBookForFile, extractWords, type FileOption, type BookOption } from "../book-file-scorer";
 
 export class EnhancedFileProcessingService {
 	private static instance: EnhancedFileProcessingService;
@@ -91,7 +95,10 @@ export class EnhancedFileProcessingService {
 
 			// Обрабатываем файл
 			console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
-			const result = await this.downloadAndProcessSingleFile(anyMsg);
+			const result = await this.downloadAndProcessSingleFile(
+				anyMsg,
+				knownBookId,
+			);
 
 			return result;
 		} catch (error) {
@@ -104,9 +111,12 @@ export class EnhancedFileProcessingService {
 	 * Скачивает и обрабатывает один файл напрямую с корректной обработкой обложек
 	 * @param message Сообщение Telegram с файлом
 	 */
-	private async downloadAndProcessSingleFile(message: {
-		[key: string]: unknown;
-	}): Promise<{ [key: string]: unknown }> {
+	private async downloadAndProcessSingleFile(
+		message: {
+			[key: string]: unknown;
+		},
+		knownBookId?: string,
+	): Promise<{ [key: string]: unknown }> {
 		const anyMsg = message as unknown as { [key: string]: unknown };
 		console.log(`📥 Обработка файла из сообщения ${anyMsg.id}...`);
 
@@ -170,7 +180,7 @@ export class EnhancedFileProcessingService {
 
 			// Если известен bookId, пропускаем ILIKE поиск
 			let book: { id: string; title: string; author: string } | null = null;
-			
+
 			if (knownBookId) {
 				console.log(`  🎯 Используем известный bookId: ${knownBookId}`);
 				const { data: knownBook, error: knownBookError } = await serverSupabase
@@ -178,7 +188,7 @@ export class EnhancedFileProcessingService {
 					.select("id, title, author")
 					.eq("id", knownBookId)
 					.single();
-				
+
 				if (knownBookError || !knownBook) {
 					console.warn(`  ⚠️  Книга с ID ${knownBookId} не найдена`);
 					return {
@@ -189,7 +199,7 @@ export class EnhancedFileProcessingService {
 						bookId: knownBookId,
 					};
 				}
-				
+
 				book = knownBook;
 			}
 
@@ -281,7 +291,8 @@ export class EnhancedFileProcessingService {
 					(bookItem, index, self) =>
 						index ===
 						self.findIndex(
-							(b) => (b as { id: string }).id === (bookItem as { id: string }).id,
+							(b) =>
+								(b as { id: string }).id === (bookItem as { id: string }).id,
 						),
 				);
 
@@ -302,13 +313,16 @@ export class EnhancedFileProcessingService {
 					};
 				}
 
-				console.log(`  📚 Найдено ${uniqueMatches.length} уникальных совпадений`);
+				console.log(
+					`  📚 Найдено ${uniqueMatches.length} уникальных совпадений`,
+				);
 
 				// Создаем FileOption для unified scorer
 				const fileOption: FileOption = {
 					message_id: anyMsg.id as number,
 					file_name: originalFilename,
-					mime_type: (anyMsg.document as { [key: string]: unknown })?.mimeType as string,
+					mime_type: (anyMsg.document as { [key: string]: unknown })
+						?.mimeType as string,
 				};
 
 				// Конвертируем matches в BookOption[]
@@ -319,7 +333,11 @@ export class EnhancedFileProcessingService {
 				}));
 
 				// Используем unified scorer для выбора лучшей книги
-				const bestMatchResult = findBestBookForFile(fileOption, bookOptions, 50);
+				const bestMatchResult = findBestBookForFile(
+					fileOption,
+					bookOptions,
+					50,
+				);
 
 				// Проверяем, что нашли подходящую книгу
 				if (!bestMatchResult) {
@@ -344,7 +362,9 @@ export class EnhancedFileProcessingService {
 
 				book = bestMatchResult.book;
 			} else {
-				console.log(`  ✅ Используем известную книгу: "${book.title}" автора ${book.author}`);
+				console.log(
+					`  ✅ Используем известную книгу: "${book.title}" автора ${book.author}`,
+				);
 			}
 
 			// Проверяем, существует ли запись в telegram_processed_messages для данной книги
