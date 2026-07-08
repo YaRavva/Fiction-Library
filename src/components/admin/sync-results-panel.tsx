@@ -157,9 +157,9 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 
 	return (
 		<Card className="rounded-lg shadow-sm xl:col-span-3">
-			<CardHeader className="p-6 pb-3">
+			<CardHeader className="pb-3">
 				<div className="flex items-center justify-between">
-					<CardTitle className="text-base font-semibold flex items-center gap-2">
+					<CardTitle className="flex items-center gap-2">
 						<Clock className="h-4 w-4" />
 						История операций
 					</CardTitle>
@@ -173,7 +173,7 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 					</Button>
 				</div>
 			</CardHeader>
-			<CardContent className="p-6 pt-0">
+			<CardContent className="pt-0">
 				<ScrollArea className="h-[400px] pr-4">
 					{loading && results.length === 0 ? (
 						<div className="flex items-center justify-center py-8 text-muted-foreground">

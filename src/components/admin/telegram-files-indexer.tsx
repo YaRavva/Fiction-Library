@@ -93,9 +93,9 @@ export function TelegramFilesIndexer() {
 	};
 
 	return (
-		<Card className="h-full min-h-[328px] rounded-lg shadow-sm xl:col-start-3 xl:row-start-2">
-			<CardHeader className="p-6 pb-4">
-				<CardTitle className="flex items-center justify-between gap-3 text-sm">
+		<Card className="h-full rounded-lg shadow-sm xl:col-start-3 xl:row-start-2">
+			<CardHeader className="pb-4">
+				<CardTitle className="flex items-center justify-between gap-3">
 					<span className="flex items-center gap-2">
 						<Database className="size-4 text-muted-foreground" />
 						Индексация файлов Telegram
@@ -115,7 +115,7 @@ export function TelegramFilesIndexer() {
 					</Button>
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="space-y-3 p-6 pt-0">
+			<CardContent className="space-y-3 pt-0">
 				{stats && (
 					<div className="grid grid-cols-2 gap-2">
 						<div className="rounded-md border bg-muted/40 p-3">

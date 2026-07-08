@@ -326,8 +326,8 @@ export function TelegramStatsSection() {
 
 	return (
 		<Card className="relative rounded-lg shadow-sm xl:col-span-2">
-			<CardHeader className="space-y-0 p-6 pb-2">
-				<CardTitle className="text-lg font-semibold">Статистика</CardTitle>
+			<CardHeader className="space-y-0 pb-2">
+				<CardTitle>Статистика</CardTitle>
 			</CardHeader>
 			<div className="absolute top-3 right-3 sm:top-4 sm:right-4">
 				<Button
@@ -347,7 +347,7 @@ export function TelegramStatsSection() {
 					)}
 				</Button>
 			</div>
-			<CardContent className="p-6 pt-8">
+			<CardContent className="pt-8">
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-4">
 					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-md border bg-card p-4 text-center transition-colors hover:bg-muted/40">
 						<BookOpen className="absolute left-4 top-4 h-5 w-5 text-blue-500" />

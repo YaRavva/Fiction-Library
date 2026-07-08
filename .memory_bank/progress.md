@@ -589,3 +589,21 @@
 
 ## Контроль изменений
 - `ace4fb7` — fix: restore Card styling, move Operational Journal to left column, match heights
+
+# Обновление прогресса - 2026-07-08 Исправление padding карточек admin dashboard
+
+## Изменения UI
+- [x] Убран `py-6` из базового `Card` — устранен двойной padding (Card + CardHeader/CardContent).
+- [x] Добавлен `py-6` в `CardHeader`, `CardContent`, `CardFooter` базовые стили.
+- [x] Добавлен `text-base` в базовый `CardTitle` — единый размер заголовков.
+- [x] Переподключение Telegram и Операционный журнал переведены на `Card`/`CardHeader`/`CardContent`.
+- [x] Убран `min-h-[328px]` с `TelegramFilesIndexer`.
+- [x] Убран `items-start` из внутренней grid в `SyncSettingsShadix`.
+- [x] Убраны дублирующие `p-6` из всех admin-компонентов.
+
+## Проверка
+- [x] `bunx biome check --write src/components/ui/card.tsx src/components/admin/telegram-stats.tsx src/components/admin/sync-settings-shadix.tsx src/components/admin/telegram-files-indexer.tsx src/components/admin/sync-results-panel.tsx src/app/admin/page.tsx`
+- [x] `bun run build` — успешно
+
+## Контроль изменений
+- `7473be6` — refactor: Card padding fix, consistent heading sizes, height alignment

@@ -147,10 +147,10 @@ export function SyncSettingsShadix({
 
 	return (
 		<div className="space-y-4 xl:col-span-2">
-			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				{/* Основная синхронизация */}
 				<Card className="h-full rounded-lg shadow-sm">
-					<CardHeader className="p-6 pb-4">
+					<CardHeader className="pb-4">
 						<CardTitle className="flex items-center gap-2">
 							<RotateCcw className="h-5 w-5" />
 							Синхронизация контента
@@ -159,7 +159,7 @@ export function SyncSettingsShadix({
 							Управление загрузкой книг и файлов из Telegram
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-6 p-6 pt-0">
+					<CardContent className="space-y-6 pt-0">
 						<div className="flex flex-col gap-4">
 							<div className="flex flex-wrap gap-3">
 								<div className="flex flex-wrap gap-3">
@@ -232,26 +232,26 @@ export function SyncSettingsShadix({
 				<div className="grid grid-cols-1 gap-6">
 					{/* Поиск файлов */}
 					<Card className="rounded-lg shadow-sm">
-						<CardHeader className="p-6 pb-3">
-							<CardTitle className="text-base font-semibold flex items-center gap-2">
+						<CardHeader className="pb-3">
+							<CardTitle className="flex items-center gap-2">
 								<Search className="h-4 w-4" />
 								Ручной поиск файлов
 							</CardTitle>
 						</CardHeader>
-						<CardContent className="p-6 pt-0">
+						<CardContent className="pt-0">
 							<FileSearchManager />
 						</CardContent>
 					</Card>
 
 					{/* Дубликаты */}
 					<Card className="rounded-lg shadow-sm">
-						<CardHeader className="p-6 pb-3">
-							<CardTitle className="text-base font-semibold flex items-center gap-2">
+						<CardHeader className="pb-3">
+							<CardTitle className="flex items-center gap-2">
 								<Trash2 className="h-4 w-4" />
 								Управление дубликатами
 							</CardTitle>
 						</CardHeader>
-						<CardContent className="p-6 pt-0">
+						<CardContent className="pt-0">
 							<div className="space-y-4">
 								<div className="flex flex-wrap gap-3">
 									<Button

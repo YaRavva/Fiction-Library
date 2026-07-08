@@ -652,3 +652,31 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 
 ## Коммит
 - `ace4fb7` — fix: restore Card styling, move Operational Journal to left column, match heights
+
+# Обновление активного контекста - 2026-07-08 18:00
+
+## Текущий фокус
+Исправление padding карточек в admin dashboard: устранение двойного padding, единый размер шрифта заголовков, выравнивание высоты парных блоков.
+
+## Изменения UI
+- [x] Убран `py-6` из базового компонента `Card` — каждый дочерний элемент (`CardHeader`, `CardContent`, `CardFooter`) теперь сам управляет вертикальным padding через `py-6`.
+- [x] Добавлен `text-base` в базовый `CardTitle` — единый размер заголовков по умолчанию.
+- [x] Переподключение Telegram и Операционный журнал переведены с plain-`div` на компоненты `Card`/`CardHeader`/`CardContent` для единообразия.
+- [x] Убран `min-h-[328px]` с `TelegramFilesIndexer` — grid сам выравнивает высоту через `stretch`.
+- [x] Убран `items-start` с внутренней grid в `SyncSettingsShadix` — колонки растягиваются на равную высоту.
+- [x] Убраны дублирующие `p-6` из `CardHeader`/`CardContent` во всех admin-компонентах (оставлены только специфичные отступы `pb-*`, `pt-*`).
+
+## Изменённые файлы
+- `src/components/ui/card.tsx` — базовый Card: убран `py-6`, добавлен `py-6` в CardHeader/CardContent/CardFooter, `text-base` в CardTitle
+- `src/components/admin/telegram-stats.tsx` — убраны `p-6` из CardHeader/CardContent
+- `src/components/admin/sync-settings-shadix.tsx` — убраны `p-6` из всех CardHeader/CardContent, убран `items-start`
+- `src/components/admin/telegram-files-indexer.tsx` — убраны `p-6`, `min-h-[328px]`, `text-sm`
+- `src/components/admin/sync-results-panel.tsx` — убраны `p-6` из CardHeader/CardContent
+- `src/app/admin/page.tsx` — Переподключение Telegram и Операционный журнал переведены на Card
+
+## Правило
+При изменении стилей карточек: `Card` базовый НЕ должен иметь `py-6`. Вертикальный padding задаётся в `CardHeader`/`CardContent`/`CardFooter`. Заголовки через `CardTitle` с базовым `text-base`.
+
+## Проверка
+- [x] `bunx biome check --write` по измененным файлам
+- [x] `bun run build` — успешно
