@@ -415,6 +415,7 @@ export default function AdminPage() {
 									user={user}
 									userProfile={userProfile}
 									onLogout={handleLogout}
+									collapsible={false}
 								/>
 							</div>
 						</div>

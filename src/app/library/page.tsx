@@ -416,6 +416,7 @@ function LibraryContent() {
 									user={user}
 									userProfile={userProfile}
 									onLogout={handleLogout}
+									collapsible={false}
 								/>
 							</div>
 						</div>

@@ -619,3 +619,10 @@ Chromium может рендерить `backdrop-blur` + sticky-элементы
 - Для привязки файлов сохранять двухколоночную модель: сначала очередь/список книг, затем доказательства/действия по кандидатам.
 - Карточки кандидатов должны показывать оценку, совпавшие слова, сигналы автор/название/message-id и действие в одном маршруте сканирования.
 - Не использовать hover-трансформации, `backdrop-blur`, `mix-blend-mode`, hover-переключаемый `will-change` или JS mouse-follow-фоны в рабочем пространстве админки.
+
+## Project Verification Rule - 2026-07-08
+
+- Do not start the dev server in this project.
+- Do not perform browser-based verification in this project.
+- Before finishing UI/code changes, run Biome and `bun run build`.
+- After successful verification, commit and push the changes when requested.

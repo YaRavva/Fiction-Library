@@ -630,3 +630,10 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 ## Проверка
 - [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
 - [x] `bun run build` проходит.
+
+## Project Rule Update - 2026-07-08
+
+- For this project, do not start the dev server.
+- Do not verify results in a browser for this project.
+- Verification flow requested by the user: run Biome and production build, then commit and push.
+- If a dev server was started accidentally, stop it before continuing.

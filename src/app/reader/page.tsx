@@ -870,6 +870,7 @@ function ReaderContent() {
 									user={user}
 									userProfile={userProfile}
 									onLogout={handleLogout}
+									collapsible={false}
 								/>
 							</div>
 						</div>
