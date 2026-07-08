@@ -473,9 +473,9 @@ export default function AdminPage() {
 							</div>
 
 							<TabsContent value="dashboard" className="mt-0">
-								<div className="mx-auto w-full max-w-[1320px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
-									<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-										<div className="space-y-5 xl:col-start-1 xl:row-start-1">
+								<div className="mx-auto w-full max-w-[1320px] px-4 py-7 sm:px-6 lg:px-8">
+									<div className="grid gap-6 xl:grid-cols-[1fr_1fr_420px]">
+										<div className="space-y-6 xl:contents">
 											<TelegramStatsSection />
 											<SyncSettingsShadix
 												bookWormRunning={bookWormRunning}
@@ -486,7 +486,7 @@ export default function AdminPage() {
 												handleToggleAutoUpdate={setBookWormAutoUpdate}
 												setBookWormInterval={setBookWormInterval}
 											/>
-											<div className="rounded-lg border bg-card p-4 shadow-sm">
+											<div className="rounded-lg border bg-card p-4 shadow-sm xl:col-span-3">
 												<div className="mb-3 flex items-center gap-2">
 													<DatabaseZap className="size-4 text-muted-foreground" />
 													<h2 className="font-semibold text-sm">
@@ -501,7 +501,7 @@ export default function AdminPage() {
 										</div>
 
 										<aside className="space-y-5 xl:contents">
-											<div className="rounded-lg border bg-card p-4 shadow-sm h-full xl:col-start-2 xl:row-start-1">
+											<div className="h-full rounded-lg border bg-card p-6 shadow-sm xl:col-start-3 xl:row-start-1">
 												<div className="mb-3 flex items-center gap-2">
 													<Key className="size-4 text-muted-foreground" />
 													<h2 className="font-semibold text-sm">

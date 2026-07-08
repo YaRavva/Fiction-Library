@@ -156,8 +156,8 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 	};
 
 	return (
-		<Card>
-			<CardHeader className="pb-3">
+		<Card className="rounded-lg shadow-sm xl:col-span-3">
+			<CardHeader className="p-6 pb-3">
 				<div className="flex items-center justify-between">
 					<CardTitle className="text-base font-semibold flex items-center gap-2">
 						<Clock className="h-4 w-4" />
@@ -173,7 +173,7 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 					</Button>
 				</div>
 			</CardHeader>
-			<CardContent>
+			<CardContent className="p-6 pt-0">
 				<ScrollArea className="h-[400px] pr-4">
 					{loading && results.length === 0 ? (
 						<div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -189,7 +189,7 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 							{results.map((result) => (
 								<div
 									key={result.id}
-									className="border rounded-lg overflow-hidden"
+									className="overflow-hidden rounded-md border"
 								>
 									{/* Заголовок задачи */}
 									<button

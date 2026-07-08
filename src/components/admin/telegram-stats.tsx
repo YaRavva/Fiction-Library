@@ -325,11 +325,11 @@ export function TelegramStatsSection() {
 	};
 
 	return (
-		<Card className="relative">
-			<CardHeader className="space-y-0 pb-2">
+		<Card className="relative rounded-lg shadow-sm xl:col-span-2">
+			<CardHeader className="space-y-0 p-6 pb-2">
 				<CardTitle className="text-lg font-semibold">Статистика</CardTitle>
 			</CardHeader>
-			<div className="absolute top-2 right-3">
+			<div className="absolute top-3 right-3 sm:top-4 sm:right-4">
 				<Button
 					onClick={updateStats}
 					disabled={updating}
@@ -347,9 +347,9 @@ export function TelegramStatsSection() {
 					)}
 				</Button>
 			</div>
-			<CardContent className="pb-4">
-				<div className="mb-1 grid grid-cols-1 gap-3 md:grid-cols-4">
-					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+			<CardContent className="p-6 pt-8">
+				<div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-md border bg-card p-4 text-center transition-colors hover:bg-muted/40">
 						<BookOpen className="absolute left-4 top-4 h-5 w-5 text-blue-500" />
 						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
 							Книг в Telegram
@@ -359,7 +359,7 @@ export function TelegramStatsSection() {
 						</p>
 					</div>
 
-					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-md border bg-card p-4 text-center transition-colors hover:bg-muted/40">
 						<Database className="absolute left-4 top-4 h-5 w-5 text-green-500" />
 						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
 							Книг в базе данных
@@ -369,7 +369,7 @@ export function TelegramStatsSection() {
 						</p>
 					</div>
 
-					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-md border bg-card p-4 text-center transition-colors hover:bg-muted/40">
 						<AlertCircle className="absolute left-4 top-4 h-5 w-5 text-yellow-500" />
 						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
 							Отсутствует
@@ -379,7 +379,7 @@ export function TelegramStatsSection() {
 						</p>
 					</div>
 
-					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-lg border bg-card p-4 text-center transition-colors hover:bg-muted/40">
+					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-md border bg-card p-4 text-center transition-colors hover:bg-muted/40">
 						<File className="absolute left-4 top-4 h-5 w-5 text-red-500" />
 						<h3 className="max-w-[calc(100%-56px)] pt-1 font-medium text-sm leading-tight">
 							Книг без файлов
