@@ -637,3 +637,9 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 - Do not verify results in a browser for this project.
 - Verification flow requested by the user: run Biome and production build, then commit and push.
 - If a dev server was started accidentally, stop it before continuing.
+
+## Sidebar Refinement - 2026-07-08
+
+- Sidebar expanded width should follow content with a bounded max width, not a fixed `w-72`.
+- Sidebar collapsed width uses an icon-only rail.
+- Sidebar brand/header block height must match the top navbar height (`h-16`) to avoid a visual step.

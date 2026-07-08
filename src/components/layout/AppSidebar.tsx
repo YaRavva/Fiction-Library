@@ -3,10 +3,10 @@
 import type { Session } from "@supabase/supabase-js";
 import {
 	BookOpen,
+	ChevronsLeft,
+	ChevronsRight,
 	Library,
 	LogOut,
-	PanelLeftClose,
-	PanelLeftOpen,
 	ShieldCheck,
 	UserRound,
 } from "lucide-react";
@@ -64,10 +64,10 @@ export function AppSidebar({
 		<aside
 			className={cn(
 				"relative z-10 flex h-full w-full flex-col border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 lg:h-screen lg:border-r",
-				isCollapsed ? "lg:w-20" : "lg:w-72",
+				isCollapsed ? "lg:w-16" : "lg:w-max lg:min-w-60 lg:max-w-64",
 			)}
 		>
-			<div className="border-sidebar-border border-b px-4 py-4">
+			<div className="flex h-16 items-center border-sidebar-border border-b px-4">
 				<button
 					type="button"
 					className={cn(
@@ -159,14 +159,20 @@ export function AppSidebar({
 					<Button
 						variant="ghost"
 						size="icon"
-						className="mb-2 hidden size-10 w-full rounded-md lg:flex"
+						className={cn(
+							"mb-2 hidden h-9 rounded-md border border-sidebar-border bg-background/40 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:flex",
+							isCollapsed ? "w-full" : "w-full justify-center gap-2",
+						)}
 						onClick={() => setCollapsed((value) => !value)}
 						title={isCollapsed ? "Развернуть меню" : "Свернуть меню"}
 					>
 						{isCollapsed ? (
-							<PanelLeftOpen className="size-4" />
+							<ChevronsRight className="size-4" />
 						) : (
-							<PanelLeftClose className="size-4" />
+							<>
+								<ChevronsLeft className="size-4" />
+								<span className="font-medium text-xs">Свернуть</span>
+							</>
 						)}
 					</Button>
 				) : null}
