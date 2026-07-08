@@ -3,7 +3,6 @@
 import { Database, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
 
 interface IndexStats {
@@ -93,29 +92,27 @@ export function TelegramFilesIndexer() {
 	};
 
 	return (
-		<Card>
-			<CardHeader className="pb-2">
-				<CardTitle className="flex items-center justify-between gap-3 text-sm">
-					<span className="flex items-center gap-2">
-						<Database className="size-4 text-muted-foreground" />
-						Индексация файлов Telegram
-					</span>
-					<Button
-						onClick={handleIndex}
-						disabled={isIndexing}
-						className="h-8 gap-1.5"
-						size="sm"
-					>
-						{isIndexing ? (
-							<Loader2 className="size-3.5 animate-spin" />
-						) : (
-							<RefreshCw className="size-3.5" />
-						)}
-						{isIndexing ? "Идет" : "Обновить"}
-					</Button>
-				</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-3 pt-0">
+		<div className="rounded-lg border bg-card p-4 shadow-sm">
+			<div className="mb-3 flex items-center justify-between gap-3">
+				<div className="flex items-center gap-2">
+					<Database className="size-4 text-muted-foreground" />
+					<h2 className="font-semibold text-sm">Индексация файлов Telegram</h2>
+				</div>
+				<Button
+					onClick={handleIndex}
+					disabled={isIndexing}
+					className="h-8 gap-1.5"
+					size="sm"
+				>
+					{isIndexing ? (
+						<Loader2 className="size-3.5 animate-spin" />
+					) : (
+						<RefreshCw className="size-3.5" />
+					)}
+					{isIndexing ? "Идет" : "Обновить"}
+				</Button>
+			</div>
+			<div className="space-y-3 pt-0">
 				{stats && (
 					<div className="grid grid-cols-2 gap-2">
 						<div className="rounded-md border bg-muted/40 p-2">
@@ -142,7 +139,7 @@ export function TelegramFilesIndexer() {
 						{error}
 					</div>
 				)}
-			</CardContent>
-		</Card>
+			</div>
+		</div>
 	);
 }
