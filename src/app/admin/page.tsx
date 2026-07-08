@@ -486,10 +486,22 @@ export default function AdminPage() {
 												handleToggleAutoUpdate={setBookWormAutoUpdate}
 												setBookWormInterval={setBookWormInterval}
 											/>
+											<div className="rounded-lg border bg-card p-4 shadow-sm">
+												<div className="mb-3 flex items-center gap-2">
+													<DatabaseZap className="size-4 text-muted-foreground" />
+													<h2 className="font-semibold text-sm">
+														Операционный журнал
+													</h2>
+												</div>
+												<pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
+													{lastBookWormReport ||
+														"Событий в текущей сессии пока нет."}
+												</pre>
+											</div>
 										</div>
 
 										<aside className="space-y-5 xl:contents">
-											<div className="rounded-lg border bg-card p-4 shadow-sm xl:col-start-2 xl:row-start-1">
+											<div className="rounded-lg border bg-card p-4 shadow-sm h-full xl:col-start-2 xl:row-start-1">
 												<div className="mb-3 flex items-center gap-2">
 													<Key className="size-4 text-muted-foreground" />
 													<h2 className="font-semibold text-sm">
@@ -665,18 +677,6 @@ export default function AdminPage() {
 												)}
 											</div>
 											<TelegramFilesIndexer />
-											<div className="rounded-lg border bg-card p-4 shadow-sm">
-												<div className="mb-3 flex items-center gap-2">
-													<DatabaseZap className="size-4 text-muted-foreground" />
-													<h2 className="font-semibold text-sm">
-														Операционный журнал
-													</h2>
-												</div>
-												<pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
-													{lastBookWormReport ||
-														"Событий в текущей сессии пока нет."}
-												</pre>
-											</div>
 											<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
 										</aside>
 									</div>
