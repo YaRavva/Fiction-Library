@@ -474,7 +474,7 @@ export default function AdminPage() {
 
 							<TabsContent value="dashboard" className="mt-0">
 								<div className="mx-auto w-full max-w-[1320px] px-4 py-7 sm:px-6 lg:px-8">
-									<div className="grid items-start gap-6 xl:grid-cols-[1fr_1fr_420px]">
+									<div className="grid gap-6 xl:grid-cols-[1fr_1fr_420px]">
 										<div className="space-y-6 xl:contents">
 											<TelegramStatsSection />
 											<SyncSettingsShadix
@@ -503,7 +503,7 @@ export default function AdminPage() {
 										</div>
 
 										<aside className="space-y-6 xl:contents">
-											<Card className="min-h-[156px] rounded-lg xl:col-start-3 xl:row-start-1">
+											<Card className="h-full min-h-[252px] rounded-lg xl:col-start-3 xl:row-start-1">
 												<CardHeader className="pb-3">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />
