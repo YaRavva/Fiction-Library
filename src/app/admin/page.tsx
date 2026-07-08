@@ -501,7 +501,7 @@ export default function AdminPage() {
 										</div>
 
 										<aside className="space-y-6 xl:contents">
-											<Card className="min-h-[176px] rounded-lg xl:col-start-3 xl:row-start-1">
+											<Card className="min-h-[252px] rounded-lg xl:col-start-3 xl:row-start-1">
 												<CardHeader className="pb-2">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />
