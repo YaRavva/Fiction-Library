@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { requireAdminRequest } from "@/lib/admin-auth";
+import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +17,7 @@ export async function GET() {
 		}
 
 		// Получаем общее количество сообщений в Telegram (примерное значение)
-		// В реальной реализации это может быть сложнее
-		const telegramTotal = 995; // Значение из вашего примера
+		const telegramTotal = 995;
 
 		// Получаем общее количество книг в базе данных
 		const { count: databaseTotal, error: countError } = await supabase
@@ -54,7 +53,6 @@ export async function GET() {
 			);
 		}
 
-		// Вычисляем статистику
 		const stats = {
 			telegramTotal,
 			databaseTotal: databaseTotal || 0,

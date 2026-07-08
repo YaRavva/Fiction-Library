@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
 
@@ -12,38 +13,8 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function GET(request: NextRequest) {
 	try {
-		// Проверяем авторизацию
-		const authHeader = request.headers.get("authorization");
-		if (!authHeader) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		// Получаем токен из заголовка
-		const token = authHeader.replace("Bearer ", "");
-
-		// Проверяем пользователя через Supabase
-		const {
-			data: { user },
-			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
-
-		if (authError || !user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		// Проверяем, что пользователь - админ
-		const { data: profile, error: profileError } = await supabaseAdmin
-			.from("user_profiles")
-			.select("role")
-			.eq("id", user.id)
-			.single();
-
-		if (profileError || profile?.role !== "admin") {
-			return NextResponse.json(
-				{ error: "Forbidden: Admin access required" },
-				{ status: 403 },
-			);
-		}
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 
 		// Проверяем наличие записей о последней синхронизации в базе данных
 		const { data: lastSync, error: syncError } = await supabaseAdmin
@@ -68,8 +39,6 @@ export async function GET(request: NextRequest) {
 			.select("*", { count: "exact" })
 			.gte("processed_at", twentyFourHoursAgo);
 
-		// Здесь будет логика получения статуса выполнения "Книжного Червя"
-		// Пока что возвращаем информацию о последней синхронизации
 		return NextResponse.json({
 			status: lastSync ? "recent" : "idle",
 			message: lastSync

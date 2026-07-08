@@ -43,9 +43,9 @@
 				"useExhaustiveDependencies": "off",
 				"noInvalidUseBeforeDeclaration": "off",
 				"noUnusedFunctionParameters": "off",
-				"noUnusedVariables": "off",
-				"noEmptyCharacterClassInRegex": "off",
-				"noUnreachable": "off"
+				"noUnusedVariables": "warn",
+				"noEmptyCharacterClassInRegex": "error",
+				"noUnreachable": "error"
 			},
 			"complexity": {
 				"noStaticOnlyClass": "off"
