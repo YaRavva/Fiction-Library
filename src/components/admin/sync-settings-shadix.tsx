@@ -147,7 +147,7 @@ export function SyncSettingsShadix({
 
 	return (
 		<div className="space-y-4 xl:col-span-2">
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
 				{/* Основная синхронизация */}
 				<Card className="rounded-lg shadow-sm">
 					<CardHeader className="pb-4">
