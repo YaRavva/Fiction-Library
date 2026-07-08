@@ -631,44 +631,23 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 - [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
 - [x] `bun run build` проходит.
 
-# Обновление активного контекста - 2026-07-08 16:00
+# Обновление активного контекста - 2026-07-08 16:30
 
 ## Текущий фокус
-Оптимизация `runUpdateSync()` в BookWormService + защита auto-update от зависших записей.
+Оптимизация admin dashboard: компактные блоки Переподключение Telegram и Индексация файлов в одном столбце.
 
-## Проблема 1: 5+ часовое зависание
-Автообновление BookWorm зависало на 5+ часов из-за шага 4 (привязка файлов):
-1. Брало **все 50 книг** без файлов из БД (не только новые)
-2. Для каждой вызывало `processSingleFileById()` с таймаутом 3 мин на скачивание
-
-## Решение 1: Оптимизация runUpdateSync
-- [x] Шаг 4 переписан: только книги из `resultImport.details` с `status === "added"`
-- [x] Скачивание файла **только при подтверждённом совпадении** (таймаут 120 сек)
-- [x] Убран вызов `processSingleFileById()` — прямое скачивание + загрузка в S3
-- [x] Удалён шаг 5 (ретроактивное скачивание обложек) из update-режима
-
-## Проблема 2: Зависшие записи running
-Запись auto-update от 8 июля застряла в статусе `running` навсегда — `.then()/.catch()` fire-and-forget не имел защиты от зависания.
-
-## Решение 2: Защита auto-update
-- [x] Перед запуском проверяем наличие `running` записей старше 60 минут → помечаем как `failed`
-- [x] Отклоняем новые запуски пока предыдущий ещё выполняется (< 60 мин)
-- [x] Вручную очищена зависшая запись в БД (`0be2aca7-...` → `failed`)
+## Изменения UI
+- [x] `TelegramFilesIndexer` перенесен из левого столбца в правый (рядом с Переподключением Telegram)
+- [x] Оба блока сделаны компактнее: убраны `Card`/`CardHeader`/`CardContent`, используют простой `div` с `rounded-lg border bg-card p-4`
+- [x] Операционный журнал и История операций размещены ниже в правом столбце
 
 ## Изменённые файлы
-- `src/lib/telegram/book-worm-service.ts` — импорт `extractExtension`, переписан `runUpdateSync()` шаги 4-5
-- `src/app/api/admin/book-worm/auto-update/route.ts` — stale sync guard
+- `src/app/admin/page.tsx` — перестроен layout дашборда
+- `src/components/admin/telegram-files-indexer.tsx` — компактный стиль без Card
 
 ## Проверка
-- [x] `bun x biome check --write src/app/api/admin/book-worm/auto-update/route.ts`
+- [x] `bun x biome check --write src/app/admin/page.tsx src/components/admin/telegram-files-indexer.tsx`
 - [x] `bun run build` — успешно
-- [x] Запись в БД очищена вручную
 
-## Коммиты
-- `74258f6` — fix: оптимизация runUpdateSync, только новые книги
-- `df76e47` — fix: stale sync guard + таймаут для auto-update background task
-
-## Project Rules
-- Не запускать dev-сервер.
-- Не проверять результаты в браузере.
-- Верификация: Biome + production build → коммит + пуш.
+## Коммит
+- `4df00af` — refactor: move TelegramFilesIndexer to right column, make both blocks compact

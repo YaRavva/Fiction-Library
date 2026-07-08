@@ -560,3 +560,17 @@
 ## Контроль изменений
 - `74258f6` — fix: оптимизация runUpdateSync, только новые книги
 - `df76e47` — fix: stale sync guard + таймаут для auto-update background task
+
+# Обновление прогресса - 2026-07-08 Admin Dashboard Compact Blocks
+
+## Изменения UI
+- [x] `TelegramFilesIndexer` перенесен из левого столбца в правый (рядом с Переподключением Telegram)
+- [x] Оба блока сделаны компактнее: убраны `Card`/`CardHeader`/`CardContent`, используют простой `div`
+- [x] Операционный журнал и История операций размещены ниже в правом столбце
+
+## Проверка
+- [x] `bun x biome check --write src/app/admin/page.tsx src/components/admin/telegram-files-indexer.tsx`
+- [x] `bun run build` — успешно
+
+## Контроль изменений
+- `4df00af` — refactor: move TelegramFilesIndexer to right column, make both blocks compact
