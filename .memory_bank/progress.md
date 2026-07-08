@@ -541,3 +541,22 @@
 ## Проверка
 - [x] `bun x biome check --write src/lib/telegram/book-worm-service.ts` — исправлен 1 файл
 - [x] `bun run build` — успешно
+
+# Обновление прогресса - 2026-07-08 Auto-Update Stale Guard
+
+## Проблема
+Запись auto-update от 8 июля застряла в статусе `running` навсегда. `.then()/.catch()` fire-and-forget не имел защиты от зависания фоновой задачи.
+
+## Изменения
+- [x] `src/app/api/admin/book-worm/auto-update/route.ts` — добавлена проверка stale `running` записей
+- [x] Записи `running` старше 60 минут автоматически помечаются как `failed` с сообщением о таймауте
+- [x] Новые запуски отклоняются пока предыдущий ещё выполняется (< 60 мин)
+- [x] Вручную очищена зависшая запись в БД
+
+## Проверка
+- [x] `bun x biome check --write src/app/api/admin/book-worm/auto-update/route.ts`
+- [x] `bun run build` — успешно
+
+## Контроль изменений
+- `74258f6` — fix: оптимизация runUpdateSync, только новые книги
+- `df76e47` — fix: stale sync guard + таймаут для auto-update background task

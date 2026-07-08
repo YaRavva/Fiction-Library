@@ -631,42 +631,44 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 - [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
 - [x] `bun run build` проходит.
 
-# Обновление активного контекста - 2026-07-08
+# Обновление активного контекста - 2026-07-08 16:00
 
 ## Текущий фокус
-Оптимизация `runUpdateSync()` в BookWormService: устранение 5+ часового зависания автопроверки.
+Оптимизация `runUpdateSync()` в BookWormService + защита auto-update от зависших записей.
 
-## Проблема
+## Проблема 1: 5+ часовое зависание
 Автообновление BookWorm зависало на 5+ часов из-за шага 4 (привязка файлов):
 1. Брало **все 50 книг** без файлов из БД (не только новые)
-2. Загружало **2000 файлов** из Telegram (описания + скачивание)
-3. Для каждой совпавшей книги вызывало `processSingleFileById()` который **заново** искал книгу, скачивал файл (таймаут 3 мин), загружал в S3, делал 6+ SQL-запросов
-4. Плюс ретроактивное скачивание обложек для 20 книг
+2. Для каждой вызывало `processSingleFileById()` с таймаутом 3 мин на скачивание
 
-## Решение
-- [x] Добавлен импорт `extractExtension` из `./utils` в `book-worm-service.ts`
-- [x] Шаг 4 переписан: только книги из `resultImport.details` с `status === "added"` (новые в этом запуске)
-- [x] Скачивание файла **только при подтверждённом совпадении** (таймаут 120 сек вместо 180)
-- [x] Убран вызов `processSingleFileById()` — скачивание и загрузка в S3 выполняются напрямую
+## Решение 1: Оптимизация runUpdateSync
+- [x] Шаг 4 переписан: только книги из `resultImport.details` с `status === "added"`
+- [x] Скачивание файла **только при подтверждённом совпадении** (таймаут 120 сек)
+- [x] Убран вызов `processSingleFileById()` — прямое скачивание + загрузка в S3
 - [x] Удалён шаг 5 (ретроактивное скачивание обложек) из update-режима
-- [x] Сводка обновлена: `coversDownloaded` всегда 0 в update-режиме
+
+## Проблема 2: Зависшие записи running
+Запись auto-update от 8 июля застряла в статусе `running` навсегда — `.then()/.catch()` fire-and-forget не имел защиты от зависания.
+
+## Решение 2: Защита auto-update
+- [x] Перед запуском проверяем наличие `running` записей старше 60 минут → помечаем как `failed`
+- [x] Отклоняем новые запуски пока предыдущий ещё выполняется (< 60 мин)
+- [x] Вручную очищена зависшая запись в БД (`0be2aca7-...` → `failed`)
 
 ## Изменённые файлы
 - `src/lib/telegram/book-worm-service.ts` — импорт `extractExtension`, переписан `runUpdateSync()` шаги 4-5
+- `src/app/api/admin/book-worm/auto-update/route.ts` — stale sync guard
 
 ## Проверка
-- [x] `bun x biome check --write src/lib/telegram/book-worm-service.ts` — исправлен 1 файл
+- [x] `bun x biome check --write src/app/api/admin/book-worm/auto-update/route.ts`
 - [x] `bun run build` — успешно
+- [x] Запись в БД очищена вручную
 
-## Project Rule Update - 2026-07-08
+## Коммиты
+- `74258f6` — fix: оптимизация runUpdateSync, только новые книги
+- `df76e47` — fix: stale sync guard + таймаут для auto-update background task
 
-- For this project, do not start the dev server.
-- Do not verify results in a browser for this project.
-- Verification flow requested by the user: run Biome and production build, then commit and push.
-- If a dev server was started accidentally, stop it before continuing.
-
-## Sidebar Refinement - 2026-07-08
-
-- Sidebar expanded width should follow content with a bounded max width, not a fixed `w-72`.
-- Sidebar collapsed width uses an icon-only rail.
-- Sidebar brand/header block height must match the top navbar height (`h-16`) to avoid a visual step.
+## Project Rules
+- Не запускать dev-сервер.
+- Не проверять результаты в браузере.
+- Верификация: Biome + production build → коммит + пуш.
