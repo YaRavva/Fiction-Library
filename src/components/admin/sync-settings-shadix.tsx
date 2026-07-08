@@ -149,7 +149,7 @@ export function SyncSettingsShadix({
 		<div className="space-y-4 xl:col-span-2">
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				{/* Основная синхронизация */}
-				<Card className="h-full rounded-lg shadow-sm">
+				<Card className="rounded-lg shadow-sm">
 					<CardHeader className="pb-4">
 						<CardTitle className="flex items-center gap-2">
 							<RotateCcw className="h-5 w-5" />
