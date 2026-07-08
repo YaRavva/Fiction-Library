@@ -67,7 +67,7 @@ export function AppSidebar({
 				isCollapsed ? "lg:w-16" : "lg:w-max lg:min-w-60 lg:max-w-64",
 			)}
 		>
-			<div className="flex h-16 items-center border-sidebar-border border-b px-4">
+			<div className="flex h-16 items-center px-4">
 				<button
 					type="button"
 					className={cn(
@@ -91,14 +91,6 @@ export function AppSidebar({
 			</div>
 
 			<nav className="space-y-1 px-3 py-4">
-				<p
-					className={cn(
-						"px-3 pb-2 font-medium text-[11px] text-muted-foreground uppercase",
-						isCollapsed && "lg:sr-only",
-					)}
-				>
-					Работа
-				</p>
 				{mainItems.map((item) => {
 					const active =
 						pathname === item.href || pathname?.startsWith(`${item.href}/`);
@@ -126,14 +118,7 @@ export function AppSidebar({
 
 				{canOpenAdmin && (
 					<>
-						<p
-							className={cn(
-								"px-3 pb-2 pt-5 font-medium text-[11px] text-muted-foreground uppercase",
-								isCollapsed && "lg:sr-only",
-							)}
-						>
-							Операции
-						</p>
+						<div className="h-4" />
 						<Button
 							variant="ghost"
 							className={cn(
