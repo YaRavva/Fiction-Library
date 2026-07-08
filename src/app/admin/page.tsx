@@ -492,26 +492,11 @@ export default function AdminPage() {
 												/>
 												<TelegramFilesIndexer />
 											</div>
-											<Card className="min-h-[156px] rounded-lg xl:col-span-3">
-												<CardHeader className="pb-3">
-													<CardTitle className="flex items-center gap-2">
-														<DatabaseZap className="h-4 w-4 text-muted-foreground" />
-														Операционный журнал
-													</CardTitle>
-												</CardHeader>
-												<CardContent className="pt-0">
-													<pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
-														{lastBookWormReport ||
-															"Событий в текущей сессии пока нет."}
-													</pre>
-												</CardContent>
-											</Card>
-											<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
 										</div>
 
 										<aside className="space-y-6">
-											<Card className="min-h-[156px] rounded-lg xl:col-start-3 xl:row-start-1">
-												<CardHeader className="pb-3">
+											<Card className="min-h-[176px] rounded-lg xl:col-start-3 xl:row-start-1">
+												<CardHeader className="pb-2">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />
 														Переподключение Telegram
@@ -693,6 +678,21 @@ export default function AdminPage() {
 											<AdminToolCards />
 										</aside>
 									</div>
+									<Card className="min-h-[156px] rounded-lg">
+										<CardHeader className="pb-2">
+											<CardTitle className="flex items-center gap-2">
+												<DatabaseZap className="h-4 w-4 text-muted-foreground" />
+												Операционный журнал
+											</CardTitle>
+										</CardHeader>
+										<CardContent className="pt-0">
+											<pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
+												{lastBookWormReport ||
+													"Событий в текущей сессии пока нет."}
+											</pre>
+										</CardContent>
+									</Card>
+									<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
 								</div>
 							</TabsContent>
 							<TabsContent value="file-linking" className="mt-0">

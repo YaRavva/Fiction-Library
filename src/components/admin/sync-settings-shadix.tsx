@@ -149,7 +149,7 @@ export function SyncSettingsShadix({
 
 	return (
 		<Card className="min-h-[224px] rounded-lg shadow-sm">
-			<CardHeader className="pb-4">
+			<CardHeader className="pb-2">
 				<CardTitle className="flex items-center gap-2">
 					<RotateCcw className="h-5 w-5" />
 					Синхронизация контента
@@ -233,7 +233,7 @@ export function AdminToolCards() {
 	return (
 		<>
 			<Card className="min-h-[100px] rounded-lg shadow-sm">
-				<CardHeader className="pb-3">
+				<CardHeader className="pb-2">
 					<CardTitle className="flex items-center gap-2">
 						<Search className="h-4 w-4" />
 						Ручной поиск файлов
@@ -245,7 +245,7 @@ export function AdminToolCards() {
 			</Card>
 
 			<Card className="min-h-[100px] rounded-lg shadow-sm">
-				<CardHeader className="pb-3">
+				<CardHeader className="pb-2">
 					<CardTitle className="flex items-center gap-2">
 						<Trash2 className="h-4 w-4" />
 						Управление дубликатами
