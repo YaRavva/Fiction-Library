@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { UniversalFileMatcher } from "@/lib/universal-file-matcher-enhanced";
 
 // Используем service role key для доступа ко всем данным
@@ -10,7 +10,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 	throw new Error("Missing Supabase environment variables");
 }
 
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+const auth.admin = createClient(supabaseUrl, serviceRoleKey);
 
 interface FileRecord {
 	message_id: number;
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 		console.log(`🔍 Поиск файлов для книги: "${author}" - "${title}"`);
 
 		// 1. Загружаем все файлы из БД
-		const { data: allFiles, error } = await supabaseAdmin
+		const { data: allFiles, error } = await auth.admin
 			.from("telegram_files")
 			.select("message_id, file_name, file_size, mime_type, caption, date")
 			.not("file_name", "is", null);

@@ -1,15 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
-
-// Используем service role key для админских операций
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-	throw new Error("Missing Supabase environment variables");
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+import { requireAdminRequest } from "@/lib/admin-auth";
 
 /**
  * GET /api/admin/sync-progress
@@ -30,14 +20,14 @@ export async function GET(request: NextRequest) {
 		const {
 			data: { user },
 			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
+		} = await auth.admin.auth.getUser(token);
 
 		if (authError || !user) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		// Проверяем, что пользователь - админ
-		const { data: profile, error: profileError } = await supabaseAdmin
+		const { data: profile, error: profileError } = await auth.admin
 			.from("user_profiles")
 			.select("role")
 			.eq("id", user.id)
@@ -66,7 +56,7 @@ export async function GET(request: NextRequest) {
 		} = {};
 
 		// Получаем общее количество книг в БД
-		const { count: totalBooks, error: countError } = await supabaseAdmin
+		const { count: totalBooks, error: countError } = await auth.admin
 			.from("books")
 			.select("*", { count: "exact", head: true });
 
@@ -78,7 +68,7 @@ export async function GET(request: NextRequest) {
 		stats.totalBooks = totalBooks || 0;
 
 		// Получаем количество обработанных книг
-		const { count: processedBooks, error: processedError } = await supabaseAdmin
+		const { count: processedBooks, error: processedError } = await auth.admin
 			.from("books")
 			.select("*", { count: "exact", head: true })
 			.eq("metadata_processed", true);
@@ -92,7 +82,7 @@ export async function GET(request: NextRequest) {
 
 		// Получаем количество необработанных книг
 		const { count: unprocessedBooks, error: unprocessedError } =
-			await supabaseAdmin
+			await auth.admin
 				.from("books")
 				.select("*", { count: "exact", head: true })
 				.eq("metadata_processed", false);
@@ -105,7 +95,7 @@ export async function GET(request: NextRequest) {
 		stats.unprocessedBooks = unprocessedBooks || 0;
 
 		// Получаем список последних необработанных книг
-		const { data: recentUnprocessed, error: recentError } = await supabaseAdmin
+		const { data: recentUnprocessed, error: recentError } = await auth.admin
 			.from("books")
 			.select("id, title, author, created_at")
 			.eq("metadata_processed", false)
@@ -121,7 +111,7 @@ export async function GET(request: NextRequest) {
 
 		// Получаем статистику по обработанным сообщениям
 		const { count: processedMessages, error: messagesError } =
-			await supabaseAdmin
+			await auth.admin
 				.from("telegram_processed_messages")
 				.select("*", { count: "exact", head: true });
 

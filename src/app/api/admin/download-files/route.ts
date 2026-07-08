@@ -19,36 +19,21 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
  */
 export async function POST(request: NextRequest) {
 	try {
-		// Проверяем авторизацию
-		const authHeader = request.headers.get("authorization");
-		if (!authHeader) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 		// Получаем токен из заголовка
-		const token = authHeader.replace("Bearer ", "");
 
 		// Проверяем пользователя через Supabase
 		const {
 			data: { user },
 			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
 
-		if (authError || !user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		// Проверяем, что пользователь - админ
 		const { data: profile, error: profileError } = await supabaseAdmin
-			.from("user_profiles")
-			.select("role")
-			.eq("id", user.id)
-			.single();
 
-		if (profileError || profile?.role !== "admin") {
 			return NextResponse.json(
-				{ error: "Forbidden: Admin access required" },
-				{ status: 403 },
 			);
 		}
 
@@ -96,36 +81,21 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
 	try {
-		// Проверяем авторизацию
-		const authHeader = request.headers.get("authorization");
-		if (!authHeader) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 		// Получаем токен из заголовка
-		const token = authHeader.replace("Bearer ", "");
 
 		// Проверяем пользователя через Supabase
 		const {
 			data: { user },
 			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
 
-		if (authError || !user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		// Проверяем, что пользователь - админ
 		const { data: profile, error: profileError } = await supabaseAdmin
-			.from("user_profiles")
-			.select("role")
-			.eq("id", user.id)
-			.single();
 
-		if (profileError || profile?.role !== "admin") {
 			return NextResponse.json(
-				{ error: "Forbidden: Admin access required" },
-				{ status: 403 },
 			);
 		}
 

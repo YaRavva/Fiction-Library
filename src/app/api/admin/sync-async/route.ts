@@ -1,17 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { BackgroundSyncHandler } from "@/lib/background-sync";
 import { taskManager } from "@/lib/task-manager";
-
-// Используем service role key для админских операций
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-	throw new Error("Missing Supabase environment variables");
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 /**
  * POST /api/admin/sync-async
@@ -32,14 +22,14 @@ export async function POST(request: NextRequest) {
 		const {
 			data: { user },
 			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
+		} = await auth.admin.auth.getUser(token);
 
 		if (authError || !user) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		// Проверяем, что пользователь - админ
-		const { data: profile, error: profileError } = await supabaseAdmin
+		const { data: profile, error: profileError } = await auth.admin
 			.from("user_profiles")
 			.select("role")
 			.eq("id", user.id)
@@ -112,14 +102,14 @@ export async function GET(request: NextRequest) {
 		const {
 			data: { user },
 			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
+		} = await auth.admin.auth.getUser(token);
 
 		if (authError || !user) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		// Проверяем, что пользователь - админ
-		const { data: profile, error: profileError } = await supabaseAdmin
+		const { data: profile, error: profileError } = await auth.admin
 			.from("user_profiles")
 			.select("role")
 			.eq("id", user.id)

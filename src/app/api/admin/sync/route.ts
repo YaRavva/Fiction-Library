@@ -1,22 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { TelegramSyncService } from "@/lib/telegram/sync";
-
-// Используем service role key для админских операций
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-	throw new Error("Missing Supabase environment variables");
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 /**
  * Enhanced duplicate checking function
  * Checks for duplicates based on multiple criteria
  */
 async function _checkForDuplicates(
+	admin: any,
 	title: string,
 	author: string,
 	publicationYear?: number,
@@ -33,7 +24,7 @@ async function _checkForDuplicates(
 	};
 }> {
 	try {
-		let query = supabaseAdmin
+		let query = admin
 			.from("books")
 			.select(
 				"id, title, author, publication_year, file_url, created_at, updated_at",
@@ -65,6 +56,7 @@ async function _checkForDuplicates(
 }
 
 async function _findBookInDatabase(
+	admin: any,
 	title: string,
 	author: string,
 	publicationYear?: number,
@@ -73,7 +65,8 @@ async function _findBookInDatabase(
 	book?: { id: string; publication_year?: number; file_url?: string };
 }> {
 	try {
-		let query = supabaseAdmin
+
+		let query = admin
 			.from("books")
 			.select(
 				"id, title, author, publication_year, file_url, created_at, updated_at",
@@ -81,7 +74,6 @@ async function _findBookInDatabase(
 			.eq("title", title)
 			.eq("author", author);
 
-		// If publication year is provided, use it for more precise matching
 		if (publicationYear) {
 			query = query.eq("publication_year", publicationYear);
 		}
@@ -89,7 +81,6 @@ async function _findBookInDatabase(
 		const { data, error } = await query.limit(1).single();
 
 		if (error && error.code !== "PGRST116") {
-			// PGRST116 is "single row expected" which is expected when no rows found
 			console.error("Error checking for duplicates:", error);
 			return { exists: false };
 		}
@@ -114,38 +105,8 @@ async function _findBookInDatabase(
  */
 export async function POST(request: NextRequest) {
 	try {
-		// Проверяем авторизацию
-		const authHeader = request.headers.get("authorization");
-		if (!authHeader) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		// Получаем токен из заголовка
-		const token = authHeader.replace("Bearer ", "");
-
-		// Проверяем пользователя через Supabase
-		const {
-			data: { user },
-			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
-
-		if (authError || !user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		// Проверяем, что пользователь - админ
-		const { data: profile, error: profileError } = await supabaseAdmin
-			.from("user_profiles")
-			.select("role")
-			.eq("id", user.id)
-			.single();
-
-		if (profileError || profile?.role !== "admin") {
-			return NextResponse.json(
-				{ error: "Forbidden: Admin access required" },
-				{ status: 403 },
-			);
-		}
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 
 		// Получаем параметры из body
 		const body = await request.json();
@@ -189,7 +150,6 @@ export async function POST(request: NextRequest) {
 						);
 					case "skipped": {
 						const reason = detail.reason || "неизвестная причина";
-						// Переводим причины на русский
 						let russianReason = reason;
 						switch (reason) {
 							case "existing book has better description":
@@ -208,8 +168,6 @@ export async function POST(request: NextRequest) {
 								russianReason = "у существующей книги есть ID сообщения";
 								break;
 							case "book already exists in database":
-								russianReason = "книга уже существует в базе данных";
-								break;
 							case "book already exists":
 								russianReason = "книга уже существует в базе данных";
 								break;
@@ -301,24 +259,11 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
 	try {
-		// Проверяем авторизацию
-		const authHeader = request.headers.get("authorization");
-		if (!authHeader) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		const token = authHeader.replace("Bearer ", "");
-		const {
-			data: { user },
-			error: authError,
-		} = await supabaseAdmin.auth.getUser(token);
-
-		if (authError || !user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 
 		// Получаем статус синхронизации из базы
-		const { data: syncStatus, error: statusError } = await supabaseAdmin
+		const { data: syncStatus, error: statusError } = await auth.admin
 			.from("telegram_sync_status")
 			.select("*")
 			.order("last_sync_at", { ascending: false })
@@ -329,11 +274,11 @@ export async function GET(request: NextRequest) {
 		}
 
 		// Получаем статистику по книгам
-		const { count: totalBooks } = await supabaseAdmin
+		const { count: totalBooks } = await auth.admin
 			.from("books")
 			.select("*", { count: "exact", head: true });
 
-		const { count: totalSeries } = await supabaseAdmin
+		const { count: totalSeries } = await auth.admin
 			.from("series")
 			.select("*", { count: "exact", head: true });
 
@@ -355,3 +300,4 @@ export async function GET(request: NextRequest) {
 		);
 	}
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 

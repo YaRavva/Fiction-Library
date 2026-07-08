@@ -62,3 +62,4 @@ logs
 .kiro/
 
 stitch_mcp_config.json
+supabase/migrations_legacy/
