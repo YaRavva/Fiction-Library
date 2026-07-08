@@ -500,7 +500,7 @@ export default function AdminPage() {
 											</div>
 										</div>
 
-										<aside className="space-y-6 xl:col-start-3 xl:row-span-2 xl:row-start-1">
+										<aside className="grid h-full gap-6 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:grid-rows-[auto_1fr]">
 											<Card className="min-h-[158px] rounded-lg">
 												<CardHeader className="pb-0">
 													<CardTitle className="flex items-center gap-2">
@@ -681,7 +681,7 @@ export default function AdminPage() {
 													)}
 												</CardContent>
 											</Card>
-											<AdminToolCards />
+											<AdminToolCards className="h-full xl:grid-rows-[auto_1fr]" />
 										</aside>
 									</div>
 									<Card className="min-h-[156px] rounded-lg xl:col-span-3">

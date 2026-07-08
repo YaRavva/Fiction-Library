@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
+import { cn } from "@/lib/utils";
 import { DuplicatesResolverModal } from "./duplicates-resolver-modal";
 import { FileSearchManager } from "./file-search-manager";
 
@@ -227,11 +228,15 @@ export function SyncSettingsShadix({
 	);
 }
 
-export function AdminToolCards() {
+interface AdminToolCardsProps {
+	className?: string;
+}
+
+export function AdminToolCards({ className }: AdminToolCardsProps) {
 	const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
 
 	return (
-		<>
+		<div className={cn("grid gap-6", className)}>
 			<Card className="min-h-[100px] rounded-lg shadow-sm">
 				<CardHeader className="pb-2">
 					<CardTitle className="flex items-center gap-2">
@@ -268,6 +273,6 @@ export function AdminToolCards() {
 				isOpen={showDuplicatesModal}
 				onClose={() => setShowDuplicatesModal(false)}
 			/>
-		</>
+		</div>
 	);
 }
