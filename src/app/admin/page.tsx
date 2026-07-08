@@ -501,8 +501,8 @@ export default function AdminPage() {
 										</div>
 
 										<aside className="space-y-6 xl:col-start-3 xl:row-span-2 xl:row-start-1">
-											<Card className="min-h-[176px] rounded-lg">
-												<CardHeader className="pb-2">
+											<Card className="min-h-[166px] rounded-lg">
+												<CardHeader className="pb-0">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />
 														Переподключение Telegram
