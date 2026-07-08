@@ -476,25 +476,31 @@ export default function AdminPage() {
 							</div>
 
 							<TabsContent value="dashboard" className="mt-0">
-								<div className="mx-auto w-full max-w-[1320px] px-4 py-7 sm:px-6 lg:px-8">
-									<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-										<div className="space-y-6">
-											<TelegramStatsSection />
-											<div className="grid gap-6 xl:grid-cols-2">
-												<SyncSettingsShadix
-													bookWormRunning={bookWormRunning}
-													bookWormMode={bookWormMode}
-													bookWormInterval={bookWormInterval}
-													bookWormAutoUpdate={bookWormAutoUpdate}
-													handleRunBookWorm={handleRunBookWorm}
-													handleToggleAutoUpdate={setBookWormAutoUpdate}
-													setBookWormInterval={setBookWormInterval}
-												/>
-												<TelegramFilesIndexer />
+								<div className="mx-auto grid w-full max-w-[1320px] items-start gap-6 px-4 py-7 sm:px-6 lg:px-8 xl:grid-cols-[1fr_1fr_420px]">
+									<div className="contents">
+										<div className="grid gap-6 xl:contents">
+											<div className="xl:col-span-2">
+												<TelegramStatsSection />
+											</div>
+											<div className="grid gap-6 xl:contents">
+												<div className="xl:col-start-1 xl:row-start-2">
+													<SyncSettingsShadix
+														bookWormRunning={bookWormRunning}
+														bookWormMode={bookWormMode}
+														bookWormInterval={bookWormInterval}
+														bookWormAutoUpdate={bookWormAutoUpdate}
+														handleRunBookWorm={handleRunBookWorm}
+														handleToggleAutoUpdate={setBookWormAutoUpdate}
+														setBookWormInterval={setBookWormInterval}
+													/>
+												</div>
+												<div className="xl:col-start-2 xl:row-start-2">
+													<TelegramFilesIndexer />
+												</div>
 											</div>
 										</div>
 
-										<aside className="space-y-6">
+										<aside className="space-y-6 xl:contents">
 											<Card className="min-h-[176px] rounded-lg xl:col-start-3 xl:row-start-1">
 												<CardHeader className="pb-2">
 													<CardTitle className="flex items-center gap-2">
@@ -675,10 +681,12 @@ export default function AdminPage() {
 													)}
 												</CardContent>
 											</Card>
-											<AdminToolCards />
+											<div className="space-y-6 xl:col-start-3 xl:row-start-2">
+												<AdminToolCards />
+											</div>
 										</aside>
 									</div>
-									<Card className="min-h-[156px] rounded-lg">
+									<Card className="min-h-[156px] rounded-lg xl:col-span-3">
 										<CardHeader className="pb-2">
 											<CardTitle className="flex items-center gap-2">
 												<DatabaseZap className="h-4 w-4 text-muted-foreground" />
@@ -692,7 +700,9 @@ export default function AdminPage() {
 											</pre>
 										</CardContent>
 									</Card>
-									<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+									<div className="xl:col-span-3">
+										<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+									</div>
 								</div>
 							</TabsContent>
 							<TabsContent value="file-linking" className="mt-0">

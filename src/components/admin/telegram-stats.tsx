@@ -325,7 +325,7 @@ export function TelegramStatsSection() {
 	};
 
 	return (
-		<Card className="relative min-h-[252px] rounded-lg shadow-sm xl:col-span-2">
+		<Card className="relative min-h-[252px] rounded-lg shadow-sm">
 			<CardHeader className="space-y-0 pb-1">
 				<CardTitle>Статистика</CardTitle>
 			</CardHeader>
