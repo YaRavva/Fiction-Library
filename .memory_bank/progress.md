@@ -574,3 +574,18 @@
 
 ## Контроль изменений
 - `4df00af` — refactor: move TelegramFilesIndexer to right column, make both blocks compact
+
+# Обновление прогресса - 2026-07-08 Admin Dashboard Layout Fix
+
+## Изменения UI
+- [x] `TelegramFilesIndexer` перенесен в правый столбец (рядом с Переподключением Telegram)
+- [x] Вернута стилизация `Card`/`CardHeader`/`CardContent` для TelegramFilesIndexer
+- [x] `Операционный журнал` оставлен в левом столбце (под Синхронизацией контента)
+- [x] Блок «Переподключение Telegram» получил `h-full` для выравнивания по высоте с «Синхронизацией контента»
+
+## Проверка
+- [x] `bun x biome check --write src/app/admin/page.tsx src/components/admin/telegram-files-indexer.tsx`
+- [x] `bun run build` — успешно
+
+## Контроль изменений
+- `ace4fb7` — fix: restore Card styling, move Operational Journal to left column, match heights

@@ -631,23 +631,24 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 - [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
 - [x] `bun run build` проходит.
 
-# Обновление активного контекста - 2026-07-08 16:30
+# Обновление активного контекста - 2026-07-08 17:00
 
 ## Текущий фокус
-Оптимизация admin dashboard: компактные блоки Переподключение Telegram и Индексация файлов в одном столбце.
+Исправление layout admin dashboard: TelegramFilesIndexer в правом столбце, Card стилизация, одинаковая высота блоков.
 
 ## Изменения UI
-- [x] `TelegramFilesIndexer` перенесен из левого столбца в правый (рядом с Переподключением Telegram)
-- [x] Оба блока сделаны компактнее: убраны `Card`/`CardHeader`/`CardContent`, используют простой `div` с `rounded-lg border bg-card p-4`
-- [x] Операционный журнал и История операций размещены ниже в правом столбце
+- [x] `TelegramFilesIndexer` перенесен в правый столбец (рядом с Переподключением Telegram)
+- [x] Вернута стилизация `Card`/`CardHeader`/`CardContent` для TelegramFilesIndexer
+- [x] `Операционный журнал` оставлен в левом столбце (под Синхронизацией контента)
+- [x] Блок «Переподключение Telegram» получил `h-full` для выравнивания по высоте с «Синхронизацией контента»
 
 ## Изменённые файлы
-- `src/app/admin/page.tsx` — перестроен layout дашборда
-- `src/components/admin/telegram-files-indexer.tsx` — компактный стиль без Card
+- `src/app/admin/page.tsx` — финальный layout дашборда
+- `src/components/admin/telegram-files-indexer.tsx` — восстановлена стилизация Card
 
 ## Проверка
 - [x] `bun x biome check --write src/app/admin/page.tsx src/components/admin/telegram-files-indexer.tsx`
 - [x] `bun run build` — успешно
 
 ## Коммит
-- `4df00af` — refactor: move TelegramFilesIndexer to right column, make both blocks compact
+- `ace4fb7` — fix: restore Card styling, move Operational Journal to left column, match heights
