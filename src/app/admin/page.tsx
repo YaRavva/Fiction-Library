@@ -501,7 +501,7 @@ export default function AdminPage() {
 										</div>
 
 										<aside className="grid gap-6 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:grid-rows-[auto_1fr] xl:self-stretch">
-											<Card className="min-h-[158px] rounded-lg">
+											<Card className="min-h-[142px] gap-2 rounded-lg">
 												<CardHeader className="pb-0">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />
