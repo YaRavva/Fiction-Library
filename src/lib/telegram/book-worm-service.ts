@@ -15,6 +15,7 @@ import { EnhancedFileProcessingService } from "./file-processing-service-enhance
 import { TelegramFileService } from "./file-service";
 import { TelegramMetadataService } from "./metadata-service";
 import { type BookMetadata, MetadataParser } from "./parser";
+import { extractExtension } from "./utils";
 
 const db = serverSupabase as any;
 
@@ -432,149 +433,229 @@ export class BookWormService {
 				resultImport.skipped +
 				details.filter((d) => (d as any).status === "skipped").length;
 
-			// 4. Привязка файлов к новым книгам
+			// 4. Привязка файлов ТОЛЬКО к новым книгам (добавленных в этом запуске)
 			console.log("🔗 Привязка файлов к новым книгам...");
 			let matchedCount = 0;
 
 			try {
-				// Получаем ВСЕ книги без файлов (не только из текущего запуска)
-				const { data: booksToLink, error: booksLinkError } = await db
-					.from("books")
-					.select(
-						"id, title, author, telegram_post_id, file_url, telegram_file_id",
-					)
-					.is("file_url", null)
-					.not("title", "is", null)
-					.not("author", "is", null)
-					.limit(50);
+				// Извлекаем ID новых книг из resultImport.details
+				const newBookIds = resultImport.details
+					.filter((d: any) => d.status === "added" && d.bookId)
+					.map((d: any) => d.bookId as string);
 
-				if (booksLinkError) {
-					console.warn(
-						"⚠️ Ошибка загрузки книг для привязки файлов:",
-						booksLinkError,
-					);
-				} else if (booksToLink && booksToLink.length > 0) {
+				if (newBookIds.length > 0) {
 					console.log(
-						`📚 Найдено ${booksToLink.length} книг без файлов для привязки`,
+						`📚 Найдено ${newBookIds.length} новых книг для привязки файлов`,
 					);
 
-					// Загружаем файлы из архивного канала
-					console.log("📥 Загрузка файлов из Telegram...");
-					const filesToProcess = await this.fileService.getFilesToProcess(2000);
-					console.log(
-						`📊 Загружено ${filesToProcess.length} файлов для сопоставления`,
-					);
+					// Получаем только новые книги без файлов
+					const { data: newBooks, error: booksError } = await db
+						.from("books")
+						.select(
+							"id, title, author, telegram_post_id, file_url, telegram_file_id",
+						)
+						.in("id", newBookIds)
+						.is("file_url", null);
 
-					if (filesToProcess.length > 0) {
-						for (const book of booksToLink) {
-							try {
-								console.log(
-									`  🔍 Ищем файл для "${book.title}" (${book.author})...`,
-								);
-								const matchingFile = await this.findMatchingFile(
-									book,
-									filesToProcess,
-								);
+					if (booksError) {
+						console.warn(
+							"⚠️ Ошибка загрузки новых книг для привязки файлов:",
+							booksError,
+						);
+					} else if (newBooks && newBooks.length > 0) {
+						console.log(
+							`📚 ${newBooks.length} новых книг без файлов для привязки`,
+						);
 
-								if (matchingFile) {
+						// Загружаем ТОЛЬКО описания файлов (имена, ID сообщений) — без скачивания
+						console.log("📥 Загрузка описаний файлов из Telegram...");
+						const filesToProcess =
+							await this.fileService.getFilesToProcess(2000);
+						console.log(
+							`📊 Загружено ${filesToProcess.length} описаний файлов для сопоставления`,
+						);
+
+						if (filesToProcess.length > 0) {
+							for (const book of newBooks) {
+								try {
 									console.log(
-										`    📨 Найден файл: ${matchingFile.filename} (msg: ${matchingFile.messageId})`,
+										`  🔍 Ищем файл для "${book.title}" (${book.author})...`,
+									);
+									const matchingFile = await this.findMatchingFile(
+										book,
+										filesToProcess,
 									);
 
-									try {
-										const result =
-											await this.enhancedFileService?.processSingleFileById(
-												parseInt(matchingFile.messageId as string, 10),
+									if (matchingFile) {
+										console.log(
+											`    📨 Совпадение: ${matchingFile.filename} (msg: ${matchingFile.messageId})`,
+										);
+
+										try {
+											// Скачиваем файл ТОЛЬКО при подтверждённом совпадении
+											const messageId = parseInt(
+												matchingFile.messageId as string,
+												10,
 											);
 
-										if (result && (result as any).skipped) {
-											console.log(
-												`    ⚠️ Файл пропущен: ${(result as any).reason}`,
+											// Получаем канал с файлами
+											const filesChannel =
+												await this.telegramService?.getFilesChannel();
+											const filesChannelId =
+												typeof filesChannel?.id === "object" &&
+												filesChannel?.id !== null
+													? (
+															filesChannel.id as {
+																toString: () => string;
+															}
+														).toString()
+													: String(filesChannel?.id);
+
+											// Получаем сообщение с файлом
+											const messages = (await this.telegramService?.getMessages(
+												filesChannelId,
+												1,
+												messageId,
+											)) as any[];
+											if (!messages || messages.length === 0) {
+												console.warn(
+													`    ⚠️ Сообщение ${messageId} не найдено в канале`,
+												);
+												continue;
+											}
+
+											const targetMsg = messages[0];
+											if (!targetMsg?.media) {
+												console.warn(
+													`    ⚠️ Сообщение ${messageId} не содержит медиа`,
+												);
+												continue;
+											}
+
+											// Скачиваем файл с таймаутом 2 минуты
+											const buffer = (await Promise.race([
+												this.telegramService?.downloadMedia(targetMsg.media),
+												new Promise<Buffer>((_, reject) =>
+													setTimeout(
+														() =>
+															reject(
+																new Error(
+																	"Timeout: File download took too long",
+																),
+															),
+														120000,
+													),
+												),
+											])) as Buffer | undefined;
+
+											if (
+												!buffer ||
+												!(buffer instanceof Buffer) ||
+												buffer.length === 0
+											) {
+												console.warn(
+													`    ⚠️ Не удалось скачать файл для ${messageId}`,
+												);
+												continue;
+											}
+
+											// Определяем расширение и формат
+											let ext = ".fb2";
+											if (
+												targetMsg.document &&
+												(targetMsg.document as any).attributes
+											) {
+												const attrFileName = (
+													targetMsg.document as any
+												).attributes.find(
+													(a: any) =>
+														a.className === "DocumentAttributeFilename",
+												);
+												if (attrFileName?.fileName) {
+													ext =
+														extractExtension(attrFileName.fileName) || ".fb2";
+												}
+											}
+
+											const fileFormat = ext === ".zip" ? "zip" : "fb2";
+											const storageKey = `${messageId}${ext}`;
+
+											// Загружаем в S3
+											const bucketName = process.env.S3_BUCKET_NAME;
+											if (!bucketName) {
+												throw new Error("S3_BUCKET_NAME not set");
+											}
+											await putObject(
+												storageKey,
+												Buffer.from(buffer),
+												bucketName,
 											);
-										} else {
-											console.log(`    ✅ Файл привязан`);
-											matchedCount++;
+
+											const fileUrl = `https://${bucketName}.s3.cloud.ru/${storageKey}`;
+
+											// Обновляем запись книги
+											const { error: updateBookError } = await db
+												.from("books")
+												.update({
+													file_url: fileUrl,
+													file_size: buffer.length,
+													file_format: fileFormat,
+													telegram_file_id: String(messageId),
+													updated_at: new Date().toISOString(),
+												})
+												.eq("id", book.id);
+
+											if (updateBookError) {
+												console.warn(
+													`    ⚠️ Ошибка обновления книги:`,
+													updateBookError,
+												);
+											} else {
+												// Обновляем запись в telegram_processed_messages
+												if (book.telegram_post_id) {
+													await db.from("telegram_processed_messages").upsert(
+														{
+															message_id: book.telegram_post_id,
+															channel:
+																process.env.TELEGRAM_METADATA_CHANNEL_ID || "",
+															book_id: book.id,
+															telegram_file_id: String(messageId),
+															processed_at: new Date().toISOString(),
+														},
+														{ onConflict: "message_id" },
+													);
+												}
+
+												console.log(
+													`    ✅ Файл привязан: ${matchingFile.filename} → "${book.title}"`,
+												);
+												matchedCount++;
+											}
+										} catch (downloadErr) {
+											console.warn(
+												`    ❌ Ошибка скачивания/загрузки файла:`,
+												downloadErr,
+											);
 										}
-									} catch (processErr) {
-										console.warn(`    ❌ Ошибка обработки файла:`, processErr);
+									} else {
+										console.log(`    ⚠️ Файл не найден`);
 									}
-								} else {
-									console.log(`    ⚠️ Файл не найден`);
+								} catch (matchErr) {
+									console.warn(
+										`    ⚠️ Ошибка привязки файла для "${book.title}":`,
+										matchErr,
+									);
 								}
-							} catch (matchErr) {
-								console.warn(
-									`    ⚠️ Ошибка привязки файла для "${book.title}":`,
-									matchErr,
-								);
 							}
 						}
+					} else {
+						console.log("  ℹ️ Нет новых книг без файлов для привязки");
 					}
 				} else {
-					console.log("  ℹ️  Нет книг без файлов для привязки");
+					console.log("  ℹ️ Нет новых книг для привязки файлов");
 				}
 			} catch (fileLinkError) {
 				console.warn("⚠️ Ошибка при привязке файлов:", fileLinkError);
-			}
-
-			// 5. Ретроактивное скачивание обложек для книг без обложек
-			console.log("📸 Скачивание обложек для книг без обложек...");
-			let coversDownloaded = 0;
-
-			try {
-				const { data: booksNoCover, error: coverFetchError } = await db
-					.from("books")
-					.select("id, title, author, telegram_post_id, cover_url")
-					.is("cover_url", null)
-					.not("telegram_post_id", "is", null)
-					.limit(20);
-
-				if (coverFetchError) {
-					console.warn("⚠️ Ошибка загрузки книг без обложек:", coverFetchError);
-				} else if (booksNoCover && booksNoCover.length > 0) {
-					console.log(
-						`📚 Найдено ${booksNoCover.length} книг без обложек для скачивания`,
-					);
-
-					const channel = await this.telegramService.getMetadataChannel();
-					const channelId =
-						typeof channel.id === "object" && channel.id !== null
-							? (channel.id as { toString: () => string }).toString()
-							: String(channel.id);
-
-					for (const book of booksNoCover) {
-						try {
-							const postId = parseInt(book.telegram_post_id!, 10);
-							const messages = (await this.telegramService.getMessages(
-								channelId,
-								1,
-								postId,
-							)) as any[];
-
-							if (messages && messages.length > 0) {
-								const coverUrl = await this.downloadCover(messages[0]);
-								if (coverUrl) {
-									await db
-										.from("books")
-										.update({ cover_url: coverUrl })
-										.eq("id", book.id);
-									coversDownloaded++;
-									console.log(
-										`    ✅ Обложка для "${book.title}": ${coverUrl}`,
-									);
-								}
-							}
-						} catch (coverErr) {
-							console.warn(
-								`    ⚠️ Ошибка скачивания обложки для "${book.title}":`,
-								coverErr,
-							);
-						}
-					}
-				} else {
-					console.log("  ℹ️  Все книги уже имеют обложки");
-				}
-			} catch (coverError) {
-				console.warn("⚠️ Ошибка при скачивании обложек:", coverError);
 			}
 
 			// Сводка
@@ -584,7 +665,6 @@ export class BookWormService {
 			console.log(`   Добавлено книг: ${resultImport.added}`);
 			console.log(`   Обновлено книг: ${resultImport.updated}`);
 			console.log(`   Привязано файлов: ${matchedCount}`);
-			console.log(`   Скачано обложек: ${coversDownloaded}`);
 			console.log(`   Пропущено: ${totalSkipped}`);
 			console.log(`   Ошибок: ${resultImport.errors}`);
 
@@ -597,9 +677,9 @@ export class BookWormService {
 				errors: resultImport.errors,
 				details: combinedDetails,
 				matched: matchedCount,
-				coversDownloaded,
+				coversDownloaded: 0,
 				lastProcessedMessageId: lastMessageId,
-				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Covers: ${coversDownloaded}, Processed: ${newMessages.length}`,
+				message: `Sync completed. Added: ${resultImport.added}, Updated: ${resultImport.updated}, Matched: ${matchedCount}, Processed: ${newMessages.length}`,
 				detailedLogs: detailedLogs.sort((a, b) => {
 					const idA = parseInt(a.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);
 					const idB = parseInt(b.match(/\[ID:(\d+)\]/)?.[1] || "0", 10);

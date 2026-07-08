@@ -525,3 +525,19 @@
 ## Проверка
 - [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
 - [x] `bun run build` проходит.
+
+# Обновление прогресса - 2026-07-08 BookWormService Оптимизация Update-режима
+
+## Проблема
+Автообновление BookWorm зависало на 5+ часов: `runUpdateSync()` на шаге 4 обрабатывало все 50 книг без файлов, вызывая `processSingleFileById()` с таймаутом 3 мин на каждое скачивание.
+
+## Изменения
+- [x] `src/lib/telegram/book-worm-service.ts` — добавлен импорт `extractExtension`
+- [x] Шаг 4: обрабатываются **только новые книги** (`resultImport.details` → `status === "added"`)
+- [x] Скачивание файла **только при подтверждённом совпадении** (таймаут 120 сек)
+- [x] Убран вызов `processSingleFileById()` — прямое скачивание + загрузка в S3
+- [x] Удалён шаг 5 (ретроактивное скачивание обложек) из update-режима
+
+## Проверка
+- [x] `bun x biome check --write src/lib/telegram/book-worm-service.ts` — исправлен 1 файл
+- [x] `bun run build` — успешно

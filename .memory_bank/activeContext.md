@@ -631,6 +631,33 @@ Book-file scoring fixes, file linking admin tab, and embedding service route upd
 - [x] `bun x biome check src/components/admin/file-linking-view.tsx` проходит.
 - [x] `bun run build` проходит.
 
+# Обновление активного контекста - 2026-07-08
+
+## Текущий фокус
+Оптимизация `runUpdateSync()` в BookWormService: устранение 5+ часового зависания автопроверки.
+
+## Проблема
+Автообновление BookWorm зависало на 5+ часов из-за шага 4 (привязка файлов):
+1. Брало **все 50 книг** без файлов из БД (не только новые)
+2. Загружало **2000 файлов** из Telegram (описания + скачивание)
+3. Для каждой совпавшей книги вызывало `processSingleFileById()` который **заново** искал книгу, скачивал файл (таймаут 3 мин), загружал в S3, делал 6+ SQL-запросов
+4. Плюс ретроактивное скачивание обложек для 20 книг
+
+## Решение
+- [x] Добавлен импорт `extractExtension` из `./utils` в `book-worm-service.ts`
+- [x] Шаг 4 переписан: только книги из `resultImport.details` с `status === "added"` (новые в этом запуске)
+- [x] Скачивание файла **только при подтверждённом совпадении** (таймаут 120 сек вместо 180)
+- [x] Убран вызов `processSingleFileById()` — скачивание и загрузка в S3 выполняются напрямую
+- [x] Удалён шаг 5 (ретроактивное скачивание обложек) из update-режима
+- [x] Сводка обновлена: `coversDownloaded` всегда 0 в update-режиме
+
+## Изменённые файлы
+- `src/lib/telegram/book-worm-service.ts` — импорт `extractExtension`, переписан `runUpdateSync()` шаги 4-5
+
+## Проверка
+- [x] `bun x biome check --write src/lib/telegram/book-worm-service.ts` — исправлен 1 файл
+- [x] `bun run build` — успешно
+
 ## Project Rule Update - 2026-07-08
 
 - For this project, do not start the dev server.
