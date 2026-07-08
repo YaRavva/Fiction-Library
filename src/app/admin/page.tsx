@@ -17,7 +17,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { FileLinkingView } from "@/components/admin/file-linking-view";
 import { SyncResultsPanel } from "@/components/admin/sync-results-panel";
-import { SyncSettingsShadix } from "@/components/admin/sync-settings-shadix";
+import {
+	AdminToolCards,
+	SyncSettingsShadix,
+} from "@/components/admin/sync-settings-shadix";
 import { TelegramFilesIndexer } from "@/components/admin/telegram-files-indexer";
 import { TelegramStatsSection } from "@/components/admin/telegram-stats";
 import { AppSidebar } from "@/components/layout/AppSidebar";
@@ -474,18 +477,21 @@ export default function AdminPage() {
 
 							<TabsContent value="dashboard" className="mt-0">
 								<div className="mx-auto w-full max-w-[1320px] px-4 py-7 sm:px-6 lg:px-8">
-									<div className="grid gap-6 xl:grid-cols-[1fr_1fr_420px]">
-										<div className="space-y-6 xl:contents">
+									<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+										<div className="space-y-6">
 											<TelegramStatsSection />
-											<SyncSettingsShadix
-												bookWormRunning={bookWormRunning}
-												bookWormMode={bookWormMode}
-												bookWormInterval={bookWormInterval}
-												bookWormAutoUpdate={bookWormAutoUpdate}
-												handleRunBookWorm={handleRunBookWorm}
-												handleToggleAutoUpdate={setBookWormAutoUpdate}
-												setBookWormInterval={setBookWormInterval}
-											/>
+											<div className="grid gap-6 xl:grid-cols-2">
+												<SyncSettingsShadix
+													bookWormRunning={bookWormRunning}
+													bookWormMode={bookWormMode}
+													bookWormInterval={bookWormInterval}
+													bookWormAutoUpdate={bookWormAutoUpdate}
+													handleRunBookWorm={handleRunBookWorm}
+													handleToggleAutoUpdate={setBookWormAutoUpdate}
+													setBookWormInterval={setBookWormInterval}
+												/>
+												<TelegramFilesIndexer />
+											</div>
 											<Card className="min-h-[156px] rounded-lg xl:col-span-3">
 												<CardHeader className="pb-3">
 													<CardTitle className="flex items-center gap-2">
@@ -500,10 +506,11 @@ export default function AdminPage() {
 													</pre>
 												</CardContent>
 											</Card>
+											<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
 										</div>
 
-										<aside className="space-y-6 xl:contents">
-											<Card className="h-full min-h-[252px] rounded-lg xl:col-start-3 xl:row-start-1">
+										<aside className="space-y-6">
+											<Card className="min-h-[156px] rounded-lg xl:col-start-3 xl:row-start-1">
 												<CardHeader className="pb-3">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />
@@ -683,8 +690,7 @@ export default function AdminPage() {
 													)}
 												</CardContent>
 											</Card>
-											<TelegramFilesIndexer />
-											<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+											<AdminToolCards />
 										</aside>
 									</div>
 								</div>

@@ -41,10 +41,6 @@ export function SyncSettingsShadix({
 		useState(bookWormAutoUpdate);
 	const [timerValue, setTimerValue] = useState(bookWormInterval);
 	const [initialLoad, setInitialLoad] = useState(true);
-	// const [searching, setSearching] = useState(false);
-	// const [removing, setRemoving] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
 
 	const loadAutoUpdateSettings = async () => {
 		try {
@@ -80,7 +76,6 @@ export function SyncSettingsShadix({
 		}
 	};
 
-	// Загружаем настройки автообновления при монтировании компонента
 	useEffect(() => {
 		loadAutoUpdateSettings();
 	}, [supabase, handleToggleAutoUpdate, setBookWormInterval]);
@@ -99,8 +94,8 @@ export function SyncSettingsShadix({
 					Authorization: `Bearer ${session.access_token}`,
 				},
 				body: JSON.stringify({
-					enabled: enabled,
-					interval: interval,
+					enabled,
+					interval,
 				}),
 			});
 
@@ -124,8 +119,6 @@ export function SyncSettingsShadix({
 		const newChecked = Boolean(checked);
 		setAutoUpdateEnabled(newChecked);
 		handleToggleAutoUpdate(newChecked);
-
-		// Сохраняем изменения в базу данных только при изменении состояния чекбокса
 		saveAutoUpdateSettings(newChecked, timerValue);
 	};
 
@@ -137,150 +130,144 @@ export function SyncSettingsShadix({
 		setTimerValue(newValue);
 		setBookWormInterval(newValue);
 
-		// Сохраняем изменения в базу данных ТОЛЬКО если автообновление включено
 		if (autoUpdateEnabled) {
 			saveAutoUpdateSettings(autoUpdateEnabled, newValue);
 		}
 	};
 
-	// Action Button handlers removed (direct calls used)
+	if (initialLoad) {
+		return (
+			<Card className="min-h-[224px] rounded-lg shadow-sm">
+				<CardContent className="flex h-full min-h-[224px] items-center justify-center">
+					<div className="text-muted-foreground text-sm">
+						Загрузка настроек...
+					</div>
+				</CardContent>
+			</Card>
+		);
+	}
 
 	return (
-		<div className="space-y-6 xl:contents">
-			<div className="grid grid-cols-1 items-start gap-6 xl:contents">
-				{/* Основная синхронизация */}
-				<Card className="min-h-[224px] rounded-lg shadow-sm xl:col-start-1 xl:row-start-2">
-					<CardHeader className="pb-4">
-						<CardTitle className="flex items-center gap-2">
-							<RotateCcw className="h-5 w-5" />
-							Синхронизация контента
-						</CardTitle>
-						<CardDescription>
-							Управление загрузкой книг и файлов из Telegram
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-6 pt-0">
-						<div className="flex flex-col gap-4">
-							<div className="flex flex-wrap gap-3">
-								<div className="flex flex-wrap gap-3">
-									<Button
-										onClick={() => handleRunBookWorm("full")}
-										disabled={bookWormRunning && bookWormMode === "full"}
-										size="default"
-										title="Полная синхронизация"
-										className="flex-1 min-w-[140px]"
-									>
-										<Database className="h-4 w-4 mr-2" />
-										{bookWormRunning && bookWormMode === "full"
-											? "Выполняется..."
-											: "Полная"}
-									</Button>
+		<Card className="min-h-[224px] rounded-lg shadow-sm">
+			<CardHeader className="pb-4">
+				<CardTitle className="flex items-center gap-2">
+					<RotateCcw className="h-5 w-5" />
+					Синхронизация контента
+				</CardTitle>
+				<CardDescription>
+					Управление загрузкой книг и файлов из Telegram
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-6 pt-0">
+				<div className="flex flex-col gap-4">
+					<div className="flex flex-wrap gap-3">
+						<Button
+							onClick={() => handleRunBookWorm("full")}
+							disabled={bookWormRunning && bookWormMode === "full"}
+							size="default"
+							title="Полная синхронизация"
+							className="min-w-[140px] flex-1"
+						>
+							<Database className="mr-2 h-4 w-4" />
+							{bookWormRunning && bookWormMode === "full"
+								? "Выполняется..."
+								: "Полная"}
+						</Button>
 
-									<Button
-										onClick={() => handleRunBookWorm("update")}
-										disabled={bookWormRunning && bookWormMode === "update"}
-										variant="outline"
-										size="default"
-										title="Обновление библиотеки"
-										className="flex-1 min-w-[140px]"
-									>
-										<RotateCcw className="h-4 w-4 mr-2" />
-										{bookWormRunning && bookWormMode === "update"
-											? "Обновление..."
-											: "Обновление"}
-									</Button>
-								</div>
-							</div>
+						<Button
+							onClick={() => handleRunBookWorm("update")}
+							disabled={bookWormRunning && bookWormMode === "update"}
+							variant="outline"
+							size="default"
+							title="Обновление библиотеки"
+							className="min-w-[140px] flex-1"
+						>
+							<RotateCcw className="mr-2 h-4 w-4" />
+							{bookWormRunning && bookWormMode === "update"
+								? "Обновление..."
+								: "Обновление"}
+						</Button>
+					</div>
 
-							<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-								<div className="flex items-center space-x-2">
-									<Checkbox
-										id="auto-update"
-										checked={autoUpdateEnabled}
-										onCheckedChange={handleAutoUpdateChange}
-									/>
-									<label
-										htmlFor="auto-update"
-										className="text-sm font-medium leading-none cursor-pointer select-none"
-									>
-										Автообновление
-									</label>
-								</div>
-								<div className="flex items-center gap-2">
-									<Label
-										htmlFor="book-worm-interval"
-										className="text-sm font-medium whitespace-nowrap"
-									>
-										Интервал (мин):
-									</Label>
-									<Input
-										id="book-worm-interval"
-										type="number"
-										min="5"
-										max="1440"
-										value={timerValue}
-										onChange={handleTimerChange}
-										className="w-20 h-8 text-sm font-mono"
-									/>
-								</div>
-							</div>
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex items-center space-x-2">
+							<Checkbox
+								id="auto-update"
+								checked={autoUpdateEnabled}
+								onCheckedChange={handleAutoUpdateChange}
+							/>
+							<label
+								htmlFor="auto-update"
+								className="cursor-pointer select-none font-medium text-sm leading-none"
+							>
+								Автообновление
+							</label>
 						</div>
-					</CardContent>
-				</Card>
-
-				{/* Дополнительные инструменты */}
-				<div className="grid grid-cols-1 gap-6 xl:col-start-3 xl:row-start-2 xl:h-full xl:grid-rows-2">
-					{/* Поиск файлов */}
-					<Card className="h-full min-h-[100px] rounded-lg shadow-sm">
-						<CardHeader className="pb-3">
-							<CardTitle className="flex items-center gap-2">
-								<Search className="h-4 w-4" />
-								Ручной поиск файлов
-							</CardTitle>
-						</CardHeader>
-						<CardContent className="pt-0">
-							<FileSearchManager />
-						</CardContent>
-					</Card>
-
-					{/* Дубликаты */}
-					<Card className="h-full min-h-[100px] rounded-lg shadow-sm">
-						<CardHeader className="pb-3">
-							<CardTitle className="flex items-center gap-2">
-								<Trash2 className="h-4 w-4" />
-								Управление дубликатами
-							</CardTitle>
-						</CardHeader>
-						<CardContent className="pt-0">
-							<div className="space-y-4">
-								<div className="flex flex-wrap gap-3">
-									<Button
-										onClick={() => setShowDuplicatesModal(true)}
-										variant="destructive"
-										size="default"
-										className="flex-1"
-									>
-										<Trash2 className="h-4 w-4 mr-2" />
-										Управление дубликатами (Mod)
-									</Button>
-								</div>
-
-								{error && (
-									<div className="text-destructive text-sm p-3 bg-destructive/10 rounded-md flex items-center gap-2">
-										<div className="h-2 w-2 rounded-full bg-destructive" />
-										{error}
-									</div>
-								)}
-							</div>
-						</CardContent>
-					</Card>
+						<div className="flex items-center gap-2">
+							<Label
+								htmlFor="book-worm-interval"
+								className="whitespace-nowrap font-medium text-sm"
+							>
+								Интервал (мин):
+							</Label>
+							<Input
+								id="book-worm-interval"
+								type="number"
+								min="5"
+								max="1440"
+								value={timerValue}
+								onChange={handleTimerChange}
+								className="h-8 w-20 font-mono text-sm"
+							/>
+						</div>
+					</div>
 				</div>
-			</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+export function AdminToolCards() {
+	const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
+
+	return (
+		<>
+			<Card className="min-h-[100px] rounded-lg shadow-sm">
+				<CardHeader className="pb-3">
+					<CardTitle className="flex items-center gap-2">
+						<Search className="h-4 w-4" />
+						Ручной поиск файлов
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="pt-0">
+					<FileSearchManager />
+				</CardContent>
+			</Card>
+
+			<Card className="min-h-[100px] rounded-lg shadow-sm">
+				<CardHeader className="pb-3">
+					<CardTitle className="flex items-center gap-2">
+						<Trash2 className="h-4 w-4" />
+						Управление дубликатами
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="pt-0">
+					<Button
+						onClick={() => setShowDuplicatesModal(true)}
+						variant="destructive"
+						size="default"
+						className="w-full"
+					>
+						<Trash2 className="mr-2 h-4 w-4" />
+						Управление дубликатами (Mod)
+					</Button>
+				</CardContent>
+			</Card>
 
 			<DuplicatesResolverModal
 				isOpen={showDuplicatesModal}
 				onClose={() => setShowDuplicatesModal(false)}
 			/>
-		</div>
+		</>
 	);
 }
