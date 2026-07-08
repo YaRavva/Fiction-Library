@@ -626,3 +626,10 @@ Chromium может рендерить `backdrop-blur` + sticky-элементы
 - Do not perform browser-based verification in this project.
 - Before finishing UI/code changes, run Biome and `bun run build`.
 - After successful verification, commit and push the changes when requested.
+
+## Memory Bank Auto-Update Rule - 2026-07-08
+
+- Always update `.memory_bank/activeContext.md` and `.memory_bank/progress.md` after completing any code changes.
+- Update activeContext.md with current focus, recent changes, and next steps.
+- Update progress.md with completed tasks, verification results, and commit hashes.
+- Do this automatically without waiting for user reminders.
