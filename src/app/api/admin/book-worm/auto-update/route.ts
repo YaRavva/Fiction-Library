@@ -300,6 +300,39 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
+		// Проверяем, нет ли зависшей записи running (старше 60 минут)
+		const { data: staleRunning } = await (supabaseAdmin as any)
+			.from("sync_job_results")
+			.select("id, started_at")
+			.eq("job_type", "auto")
+			.eq("status", "running")
+			.order("started_at", { ascending: false })
+			.limit(1)
+			.single();
+
+		if (staleRunning) {
+			const staleAge = Date.now() - new Date(staleRunning.started_at).getTime();
+			const STALE_THRESHOLD_MS = 60 * 60 * 1000; // 60 минут
+
+			if (staleAge > STALE_THRESHOLD_MS) {
+				console.log(
+					`⚠️ Found stale running record (${Math.round(staleAge / 60000)}min old), marking as failed`,
+				);
+				await updateSyncResult(supabaseAdmin, staleRunning.id, {
+					status: "failed",
+					completed_at: new Date().toISOString(),
+					error_message: `Timeout: previous run did not complete within ${Math.round(staleAge / 60000)} minutes`,
+				});
+			} else {
+				console.log("Auto update already in progress, skipping");
+				return NextResponse.json({
+					success: true,
+					message: "Auto update already in progress",
+					existing_run: staleRunning.id,
+				});
+			}
+		}
+
 		// Создаем запись о начале автосинхронизации
 		const syncRecord = await saveSyncResult(supabaseAdmin, {
 			job_type: "auto",
@@ -310,7 +343,17 @@ export async function POST(request: NextRequest) {
 		// Получаем экземпляр сервиса
 		const bookWorm = await BookWormService.getInstance();
 
-		// Выполняем обновление асинхронно
+		// Максимальное время выполнения — 30 минут
+		const SYNC_TIMEOUT_MS = 30 * 60 * 1000;
+
+		// Выполняем обновление асинхронно с таймаутом
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(
+				() => reject(new Error("Timeout: sync exceeded 30 minutes")),
+				SYNC_TIMEOUT_MS,
+			),
+		);
+
 		bookWorm
 			.runUpdateSync()
 			.then(async (result) => {
