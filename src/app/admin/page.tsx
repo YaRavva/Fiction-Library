@@ -560,7 +560,7 @@ export default function AdminPage() {
 															)}
 
 															{tgStep === "phone" && (
-																<div className="space-y-1">
+																<div className="space-y-2">
 																	<Label className="text-xs">Телефон</Label>
 																	<div className="flex gap-2">
 																		<Input

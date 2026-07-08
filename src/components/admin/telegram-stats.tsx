@@ -347,7 +347,7 @@ export function TelegramStatsSection() {
 					)}
 				</Button>
 			</div>
-			<CardContent className="pt-8">
+			<CardContent className="pt-2">
 				<div className="grid grid-cols-1 gap-3 md:grid-cols-4">
 					<div className="relative flex min-h-[132px] flex-col items-center justify-between rounded-md border bg-card p-4 text-center transition-colors hover:bg-muted/40">
 						<BookOpen className="absolute left-4 top-4 h-5 w-5 text-blue-500" />
