@@ -93,7 +93,7 @@ export function TelegramFilesIndexer() {
 	};
 
 	return (
-		<Card className="rounded-lg shadow-sm xl:col-start-3 xl:row-start-2">
+		<Card className="min-h-[224px] rounded-lg shadow-sm xl:col-start-2 xl:row-start-2">
 			<CardHeader className="pb-4">
 				<CardTitle className="flex items-center justify-between gap-3">
 					<span className="flex items-center gap-2">

@@ -146,10 +146,10 @@ export function SyncSettingsShadix({
 	// Action Button handlers removed (direct calls used)
 
 	return (
-		<div className="space-y-4 xl:col-span-2">
-			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+		<div className="space-y-6 xl:contents">
+			<div className="grid grid-cols-1 items-start gap-6 xl:contents">
 				{/* Основная синхронизация */}
-				<Card className="rounded-lg shadow-sm">
+				<Card className="min-h-[224px] rounded-lg shadow-sm xl:col-start-1 xl:row-start-2">
 					<CardHeader className="pb-4">
 						<CardTitle className="flex items-center gap-2">
 							<RotateCcw className="h-5 w-5" />
@@ -229,9 +229,9 @@ export function SyncSettingsShadix({
 				</Card>
 
 				{/* Дополнительные инструменты */}
-				<div className="grid grid-cols-1 gap-6">
+				<div className="grid grid-cols-1 gap-6 xl:col-start-3 xl:row-start-2 xl:h-full xl:grid-rows-2">
 					{/* Поиск файлов */}
-					<Card className="rounded-lg shadow-sm">
+					<Card className="h-full min-h-[100px] rounded-lg shadow-sm">
 						<CardHeader className="pb-3">
 							<CardTitle className="flex items-center gap-2">
 								<Search className="h-4 w-4" />
@@ -244,7 +244,7 @@ export function SyncSettingsShadix({
 					</Card>
 
 					{/* Дубликаты */}
-					<Card className="rounded-lg shadow-sm">
+					<Card className="h-full min-h-[100px] rounded-lg shadow-sm">
 						<CardHeader className="pb-3">
 							<CardTitle className="flex items-center gap-2">
 								<Trash2 className="h-4 w-4" />

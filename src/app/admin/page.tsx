@@ -486,7 +486,7 @@ export default function AdminPage() {
 												handleToggleAutoUpdate={setBookWormAutoUpdate}
 												setBookWormInterval={setBookWormInterval}
 											/>
-											<Card className="rounded-lg xl:col-span-3">
+											<Card className="min-h-[156px] rounded-lg xl:col-span-3">
 												<CardHeader className="pb-3">
 													<CardTitle className="flex items-center gap-2">
 														<DatabaseZap className="h-4 w-4 text-muted-foreground" />
@@ -503,7 +503,7 @@ export default function AdminPage() {
 										</div>
 
 										<aside className="space-y-6 xl:contents">
-											<Card className="rounded-lg xl:col-start-3 xl:row-start-1">
+											<Card className="min-h-[156px] rounded-lg xl:col-start-3 xl:row-start-1">
 												<CardHeader className="pb-3">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />

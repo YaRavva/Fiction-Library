@@ -156,7 +156,7 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 	};
 
 	return (
-		<Card className="rounded-lg shadow-sm xl:col-span-3">
+		<Card className="min-h-[420px] rounded-lg shadow-sm xl:col-span-3">
 			<CardHeader className="pb-3">
 				<div className="flex items-center justify-between">
 					<CardTitle className="flex items-center gap-2">
