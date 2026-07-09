@@ -38,7 +38,7 @@
 ## Осталось
 
 ### Приоритет 1 — Важно
-- [ ] **Исправить 34 ошибки biome** — `useExhaustiveDependencies` (15), `noUnusedVariables` (3), `noArrayIndexKey` (3), `noStaticOnlyClass` (3), `noDangerouslySetInnerHtml` (1), `noUnusedFunctionParameters` (1), `format` (1), `noSvgWithoutTitle` (5), `useBiomeIgnoreFolder` (1)
+- [x] **Исправить 34 ошибки biome** — все исправлены, 0 ошибок (только warnings `noExplicitAny`)
 
 ### Приоритет 2 — Улучшения
 - [ ] **CI/CD** — GitHub Actions (biome + tests + build), но сначала исправить ошибки biome
@@ -48,8 +48,8 @@
 ## Контекст сессии
 
 **Дата**: 2026-07-09
-**Последний коммит**: `d55db84` — chore: удаляю CI workflow
-**Biome**: 34 ошибки (pre-existing), ~158 warnings
+**Последний коммит**: `fb2fcc8` — fix: 0 ошибок biome
+**Biome**: 0 ошибок, 163 warnings (noExplicitAny)
 **TS ошибки**: 0 (build проходит)
 **Тесты**: 17/17 pass
 **Деплой**: Ready на Vercel
