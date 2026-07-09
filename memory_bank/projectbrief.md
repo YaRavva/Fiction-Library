@@ -12,8 +12,8 @@
 | --- | --- | --- | --- |
 | DLV-01 | Каталог и поиск (UI, фильтры, сортировка, отображение) | completed | 20 |
 | DLV-02 | Telegram-синхронизация (Book Worm, metadata, file sync) | completed | 20 |
-| DLV-03 | Аутентификация и админ-панель (Supabase Auth, RLS, админка) | in_progress | 15 |
-| DLV-04 | Качество данных (дедупликация, сопоставление файлов, чистка) | completed | 10 |
+| DLV-03 | Аутентификация и админ-панель (Supabase Auth, RLS, админка) | completed | 15 |
+| DLV-04 | Качество данных (дедупликация, hybrid file matching, чистка) | completed | 10 |
 | DLV-05 | Файловое хранилище (S3, скачивание, обработка) | completed | 10 |
-| DLV-06 | Инфраструктура (code quality, CI/CD, архитектура, БД) | in_progress | 15 |
-| DLV-07 | Читалка и социальные функции (FB2 reader, закладки, история) | in_progress | 10 |
+| DLV-06 | Инфраструктура (code quality, архитектура, БД, API consolidation) | completed | 15 |
+| DLV-07 | Читалка и социальные функции (FB2 reader, закладки, история) | completed | 10 |
