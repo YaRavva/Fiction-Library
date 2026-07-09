@@ -104,6 +104,21 @@ export async function POST(request: NextRequest) {
 			started_at: new Date().toISOString(),
 		});
 
+		// Таймаут: если sync не завершится за 60 минут, помечаем как failed
+		const SYNC_TIMEOUT_MS = 60 * 60 * 1000;
+		let timeoutCleared = false;
+		const timeoutId = setTimeout(async () => {
+			if (timeoutCleared) return;
+			console.error(`[book-worm] Sync timed out after 60 minutes (${mode})`);
+			if (syncRecord?.id) {
+				await updateSyncResult(supabaseAdmin, syncRecord.id, {
+					status: "failed",
+					completed_at: new Date().toISOString(),
+					error_message: "Timeout: sync exceeded 60 minutes",
+				});
+			}
+		}, SYNC_TIMEOUT_MS);
+
 		try {
 			const result =
 				mode === "full"
@@ -137,6 +152,9 @@ export async function POST(request: NextRequest) {
 				});
 			}
 
+			clearTimeout(timeoutId);
+			timeoutCleared = true;
+
 			return NextResponse.json({
 				success: true,
 				mode,
@@ -145,6 +163,8 @@ export async function POST(request: NextRequest) {
 				formattedMessage,
 			});
 		} catch (syncError: unknown) {
+			clearTimeout(timeoutId);
+			timeoutCleared = true;
 			const errorMessage =
 				syncError instanceof Error ? syncError.message : "Unknown error";
 

@@ -18,6 +18,9 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 // Максимальное количество записей для хранения
 const MAX_RESULTS = 20;
 
+// Порог времени для определения зависшей задачи (60 минут)
+const STALE_THRESHOLD_MS = 60 * 60 * 1000;
+
 // Типы операций
 export type OperationType =
 	| "full"
@@ -163,6 +166,48 @@ export async function GET(request: NextRequest) {
 }
 
 /**
+ * Очистка зависших задач (running дольше STALE_THRESHOLD_MS)
+ * Вызывается перед созданием новой задачи того же типа
+ */
+async function cleanupStaleRunningJobs(
+	supabaseAdmin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+	jobType: string,
+	staleThresholdMs: number = STALE_THRESHOLD_MS,
+) {
+	try {
+		const typedAdmin = supabaseAdmin as any;
+		const { data: runningJobs } = await typedAdmin
+			.from("sync_job_results")
+			.select("id, started_at")
+			.eq("job_type", jobType)
+			.eq("status", "running")
+			.order("started_at", { ascending: false });
+
+		if (!runningJobs || runningJobs.length === 0) return;
+
+		const now = Date.now();
+		for (const job of runningJobs) {
+			const age = now - new Date(job.started_at).getTime();
+			if (age > staleThresholdMs) {
+				console.log(
+					`[cleanup] Marking stale job ${job.id} (${jobType}) as failed — running for ${Math.round(age / 60000)} min`,
+				);
+				await typedAdmin
+					.from("sync_job_results")
+					.update({
+						status: "failed",
+						completed_at: new Date().toISOString(),
+						error_message: `Timeout: job did not complete within ${Math.round(age / 60000)} minutes`,
+					})
+					.eq("id", job.id);
+			}
+		}
+	} catch (error) {
+		console.error("[cleanup] Error cleaning stale running jobs:", error);
+	}
+}
+
+/**
  * Вспомогательная функция для сохранения результата синхронизации
  * Используется из других API endpoints
  */
@@ -170,6 +215,11 @@ export async function saveSyncResult(
 	supabaseAdmin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
 	result: Omit<OperationResult, "id" | "created_at">,
 ): Promise<OperationResult | null> {
+	// Очищаем зависшие задачи перед созданием новой
+	if (result.job_type) {
+		await cleanupStaleRunningJobs(supabaseAdmin, result.job_type);
+	}
+
 	const typedAdmin = supabaseAdmin as any;
 	const { data, error } = await typedAdmin
 		.from("sync_job_results")
