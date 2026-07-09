@@ -149,7 +149,7 @@ export function SyncSettingsShadix({
 	}
 
 	return (
-		<Card className="min-h-[224px] rounded-lg shadow-sm">
+		<Card className="h-full min-h-[224px] rounded-lg shadow-sm">
 			<CardHeader className="pb-2">
 				<CardTitle className="flex items-center gap-2">
 					<RotateCcw className="h-5 w-5" />

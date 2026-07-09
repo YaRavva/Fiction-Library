@@ -486,32 +486,11 @@ export default function AdminPage() {
 
 							<TabsContent value="dashboard" className="mt-0">
 								<div className="mx-auto grid w-full max-w-[1320px] items-start gap-6 px-4 py-7 sm:px-6 lg:px-8 xl:grid-cols-[1fr_1fr_420px]">
-									<div className="contents">
-										<div className="grid gap-6 xl:contents">
-											<div className="xl:col-span-2">
-												<TelegramStatsSection />
-											</div>
-											<div className="grid gap-6 xl:contents">
-												<div className="xl:col-start-1 xl:row-start-2">
-													<SyncSettingsShadix
-														bookWormRunning={bookWormRunning}
-														bookWormMode={bookWormMode}
-														bookWormInterval={bookWormInterval}
-														bookWormAutoUpdate={bookWormAutoUpdate}
-														handleRunBookWorm={handleRunBookWorm}
-														handleToggleAutoUpdate={setBookWormAutoUpdate}
-														setBookWormInterval={setBookWormInterval}
-													/>
-												</div>
-												<div className="xl:col-start-2 xl:row-start-2">
-													<TelegramFilesIndexer />
-												</div>
-											</div>
-										</div>
-
-										<aside className="grid gap-6 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:grid-rows-[auto_1fr] xl:self-stretch">
-											<Card className="min-h-[142px] gap-2 rounded-lg">
-												<CardHeader className="pb-0">
+									<div className="xl:col-span-2">
+										<TelegramStatsSection />
+									</div>
+									<Card className="min-h-[142px] gap-2 rounded-lg xl:col-start-3 xl:row-start-1">
+											<CardHeader className="pb-0">
 													<CardTitle className="flex items-center gap-2">
 														<Key className="h-4 w-4 text-muted-foreground" />
 														Переподключение Telegram
@@ -690,10 +669,22 @@ export default function AdminPage() {
 													)}
 												</CardContent>
 											</Card>
-											<AdminToolCards className="h-full xl:grid-rows-[auto_1fr]" />
-										</aside>
+									<div className="xl:col-start-1 xl:row-start-2">
+										<SyncSettingsShadix
+											bookWormRunning={bookWormRunning}
+											bookWormMode={bookWormMode}
+											bookWormInterval={bookWormInterval}
+											bookWormAutoUpdate={bookWormAutoUpdate}
+											handleRunBookWorm={handleRunBookWorm}
+											handleToggleAutoUpdate={setBookWormAutoUpdate}
+											setBookWormInterval={setBookWormInterval}
+										/>
 									</div>
-									<Card className="min-h-[156px] rounded-lg xl:col-span-3">
+									<div className="xl:col-start-2 xl:row-start-2">
+										<TelegramFilesIndexer />
+									</div>
+									<AdminToolCards className="h-full xl:col-start-3 xl:row-start-2 xl:grid-rows-[auto_1fr]" />
+								<Card className="min-h-[156px] rounded-lg xl:col-span-3">
 										<CardHeader className="pb-2">
 											<CardTitle className="flex items-center gap-2">
 												<DatabaseZap className="h-4 w-4 text-muted-foreground" />
