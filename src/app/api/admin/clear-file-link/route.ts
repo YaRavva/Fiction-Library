@@ -1,5 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
+import type { Database } from "@/lib/database.types";
 
 /**
  * POST /api/admin/clear-file-link
@@ -10,8 +12,12 @@ import { requireAdminRequest } from "@/lib/admin-auth";
  */
 export async function POST(request: NextRequest) {
 	try {
-		const auth = await requireAdminRequest(request);
-		if ("error" in auth) return auth.error;
+		const authResult = await requireAdminRequest(request);
+		if ("error" in authResult) return authResult.error;
+		const auth = authResult as {
+			admin: SupabaseClient<Database>;
+			user: { id: string };
+		};
 
 		// Получаем параметры из body
 		const body = await request.json();
@@ -25,11 +31,14 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Проверяем, что книга существует
-		const { data: book, error: bookError } = await auth.admin
+		const { data: book, error: bookError } = (await auth.admin
 			.from("books")
 			.select("*")
 			.eq("id", bookId)
-			.single();
+			.single()) as {
+			data: Database["public"]["Tables"]["books"]["Row"] | null;
+			error: any;
+		};
 
 		if (bookError || !book) {
 			return NextResponse.json({ error: "Book not found" }, { status: 404 });
@@ -41,7 +50,7 @@ export async function POST(request: NextRequest) {
 
 		try {
 			// Очищаем привязку файла к книге
-			const { data: _data, error } = await auth.admin
+			const { data: _data, error } = await (auth.admin as any)
 				.from("books")
 				.update({
 					file_url: null,

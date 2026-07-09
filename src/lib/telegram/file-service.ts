@@ -1,4 +1,4 @@
-import { FileProcessingService } from "./file-processing-service";
+import { FileProcessingService } from "./file-processing-service-enhanced";
 
 /**
  * @deprecated Use FileProcessingService instead

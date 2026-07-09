@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 		const syncService = await TelegramSyncService.getInstance();
 
 		// Обрабатываем файл
-		const result = await syncService.processSingleFileById(messageId);
+		const result = await syncService.processSingleFileById(Number(messageId));
 
 		const success = result.success !== false;
 

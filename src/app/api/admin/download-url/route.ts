@@ -1,77 +1,29 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { serverSupabase } from "@/lib/serverSupabase";
 
-// Интерфейсы для типизации данных
 interface Book {
 	id: string;
 	file_url: string;
-	// ... другие поля книги
 }
 
 interface DownloadTask {
 	id: string;
 	file_url: string;
-	// ... другие поля задачи
 }
 
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "books";
-const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
+const SIGNED_URL_EXPIRY = 3600;
 
 /**
  * GET /api/admin/download-url
  * Генерирует signed URL для скачивания файла из приватного bucket
- *
- * Query params:
- * - bookId: UUID книги
- * - taskId: UUID задачи из download_queue (альтернатива bookId)
- * - expiresIn: время жизни URL в секундах (по умолчанию 3600)
  */
 export async function GET(request: NextRequest) {
 	try {
-		// Проверяем аутентификацию пользователя
-		const cookieStore = await cookies();
-		const supabase = createServerClient(
-			process.env.NEXT_PUBLIC_SUPABASE_URL!,
-			process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-			{
-				cookies: {
-					getAll() {
-						return cookieStore.getAll();
-					},
-					setAll(cookiesToSet) {
-						cookiesToSet.forEach(({ name, value, options }) =>
-							cookieStore.set(name, value, options),
-						);
-					},
-				},
-			},
-		);
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 
-		const {
-			data: { user },
-		} = await supabase.auth.getUser();
-
-		if (!user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-		}
-
-		// Проверяем права администратора
-		const { data: profile } = await supabase
-			.from("user_profiles")
-			.select("role")
-			.eq("id", user.id)
-			.single();
-
-		if (profile?.role !== "admin") {
-			return NextResponse.json(
-				{ error: "Forbidden: Admin access required" },
-				{ status: 403 },
-			);
-		}
-
-		// Получаем параметры запроса
 		const { searchParams } = new URL(request.url);
 		const bookId = searchParams.get("bookId");
 		const taskId = searchParams.get("taskId");
@@ -89,7 +41,6 @@ export async function GET(request: NextRequest) {
 
 		let storagePath: string | null = null;
 
-		// Получаем file_url из books или download_queue
 		if (bookId) {
 			const { data: book, error: bookError } = await serverSupabase
 				.from("books")
@@ -123,7 +74,6 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		// Генерируем signed URL с использованием service role client
 		const { data: signedUrlData, error: signedUrlError } =
 			await serverSupabase.storage
 				.from(BUCKET)

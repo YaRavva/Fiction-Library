@@ -255,12 +255,14 @@ export async function POST(request: NextRequest) {
 			); // interval в минутах
 
 			// Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
-			const settingsForDb = {
-				enabled: autoUpdateSettings.enabled,
-				interval: autoUpdateSettings.interval,
-				last_run: autoUpdateSettings.lastRun,
-				next_run: updatedNextRun.toISOString(),
-			};
+			const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] =
+				{
+					id: 1,
+					enabled: autoUpdateSettings.enabled,
+					interval: autoUpdateSettings.interval,
+					last_run: autoUpdateSettings.lastRun,
+					next_run: updatedNextRun.toISOString(),
+				};
 
 			// Обновляем настройки в базе данных
 			console.log(
@@ -270,7 +272,7 @@ export async function POST(request: NextRequest) {
 
 			const { data, error: updateError } = await autoUpdateTable(
 				supabaseAdmin,
-			).upsert(settingsForDb, { onConflict: "id" });
+			).upsert(settingsForDb as any, { onConflict: "id" });
 
 			if (updateError) {
 				console.error("Error updating auto update settings:", updateError);
@@ -306,14 +308,14 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Проверяем, нет ли зависшей записи running (старше 60 минут)
-		const { data: staleRunning } = await supabaseAdmin
+		const { data: staleRunning } = (await supabaseAdmin
 			.from("sync_job_results")
 			.select("id, started_at")
 			.eq("job_type", "auto")
 			.eq("status", "running")
 			.order("started_at", { ascending: false })
 			.limit(1)
-			.single();
+			.single()) as { data: { id: string; started_at: string } | null };
 
 		if (staleRunning) {
 			const staleAge = Date.now() - new Date(staleRunning.started_at).getTime();
@@ -385,7 +387,7 @@ export async function POST(request: NextRequest) {
 
 				const { data, error: updateError } = await autoUpdateTable(
 					supabaseAdmin,
-				).upsert(settingsForDb, { onConflict: "id" });
+				).upsert(settingsForDb as any, { onConflict: "id" });
 
 				if (updateError) {
 					console.error(
@@ -555,7 +557,7 @@ export async function PUT(request: NextRequest) {
 		// Сохраняем настройки в базе данных
 		const { data, error: updateError } = await autoUpdateTable(
 			supabaseAdmin,
-		).upsert(settingsForDb, { onConflict: "id" });
+		).upsert(settingsForDb as any, { onConflict: "id" });
 
 		if (updateError) {
 			console.error("Error saving auto update settings:", updateError);

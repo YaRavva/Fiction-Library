@@ -1,27 +1,17 @@
-import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import {
 	saveSyncResult,
 	updateSyncResult,
 } from "@/app/api/admin/sync-results/route";
+import { requireAdminRequest } from "@/lib/admin-auth";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import { TelegramService } from "@/lib/telegram/client";
-
-// Используем service role key для доступа ко всем данным
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-	throw new Error("Missing Supabase environment variables");
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 /**
  * Извлекает оригинальное имя файла из сообщения Telegram
  */
 function getOriginalFilename(message: any): string | null {
 	try {
-		// Проверяем document.attributes
 		if (message.document?.attributes) {
 			for (const attr of message.document.attributes) {
 				if (attr.className === "DocumentAttributeFilename" && attr.fileName) {
@@ -29,13 +19,11 @@ function getOriginalFilename(message: any): string | null {
 				}
 			}
 		}
-		// Альтернативные пути
 		if (message.document?.fileName) return message.document.fileName;
 		if (message.fileName) return message.fileName;
 		if (message.media?.document?.fileName)
 			return message.media.document.fileName;
 
-		// Проверяем media.document.attributes
 		if (message.media?.document?.attributes) {
 			for (const attr of message.media.document.attributes) {
 				if (attr.className === "DocumentAttributeFilename" && attr.fileName) {
@@ -63,7 +51,7 @@ function extractFileData(message: any): {
 	if (!message?.id) return null;
 
 	const doc = message.document || message.media?.document;
-	if (!doc) return null; // Пропускаем сообщения без файлов
+	if (!doc) return null;
 
 	const fileName = getOriginalFilename(message);
 	const fileSize = doc.size || null;
@@ -85,7 +73,7 @@ function extractFileData(message: any): {
  * POST /api/admin/telegram-files/index
  * Запускает индексацию всех файлов из Telegram канала
  */
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
 	const startTime = Date.now();
 	const logs: string[] = [];
 	let operationId: string | null = null;
@@ -95,9 +83,12 @@ export async function POST(_request: NextRequest) {
 	};
 
 	try {
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
+		const { admin: supabaseAdmin } = auth;
+
 		log("🚀 Начинаем индексацию файлов из Telegram...");
 
-		// Создаём запись об операции со статусом "running"
 		const operation = await saveSyncResult(supabaseAdmin as any, {
 			job_type: "file_index",
 			status: "running",
@@ -106,20 +97,17 @@ export async function POST(_request: NextRequest) {
 		});
 		if (operation) operationId = operation.id;
 
-		// 1. Получаем Telegram клиент и канал
 		const telegramClient = await TelegramService.getInstance();
 		const channel = await telegramClient.getFilesChannel();
 
 		log(`📡 Подключились к каналу: ${(channel as any).title || channel}`);
 
-		// 2. Загружаем все сообщения из канала
 		const allMessages = await telegramClient.getAllMessages(channel, 300, {
 			onLog: log,
 		});
 
 		log(`📥 Загружено ${allMessages.length} сообщений`);
 
-		// 3. Извлекаем данные о файлах
 		const fileRecords: any[] = [];
 		let skipped = 0;
 
@@ -136,18 +124,16 @@ export async function POST(_request: NextRequest) {
 			`📂 Найдено ${fileRecords.length} файлов (пропущено ${skipped} сообщений без файлов)`,
 		);
 
-		// 4. Upsert в базу данных пакетами по 500
 		const batchSize = 500;
 		let inserted = 0;
-		const _updated = 0;
 		let errors = 0;
 
 		for (let i = 0; i < fileRecords.length; i += batchSize) {
 			const batch = fileRecords.slice(i, i + batchSize);
 
-			const { error } = await supabaseAdmin
+			const { error } = await (supabaseAdmin as any)
 				.from("telegram_files")
-				.upsert(batch, {
+				.upsert(batch as any, {
 					onConflict: "message_id",
 					ignoreDuplicates: false,
 				});
@@ -171,7 +157,6 @@ export async function POST(_request: NextRequest) {
 			`   📊 Всего: ${fileRecords.length}, Сохранено: ${inserted}, Ошибок: ${errors}`,
 		);
 
-		// Обновляем запись об операции
 		if (operationId) {
 			await updateSyncResult(supabaseAdmin as any, operationId, {
 				status: "completed",
@@ -204,9 +189,8 @@ export async function POST(_request: NextRequest) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		log(`❌ Критическая ошибка: ${errorMessage}`);
 
-		// Обновляем запись об операции с ошибкой
 		if (operationId) {
-			await updateSyncResult(supabaseAdmin as any, operationId, {
+			await updateSyncResult(getSupabaseAdmin() as any, operationId, {
 				status: "failed",
 				completed_at: new Date().toISOString(),
 				error_message: errorMessage,
@@ -229,16 +213,19 @@ export async function POST(_request: NextRequest) {
  * GET /api/admin/telegram-files/index
  * Возвращает статистику текущего индекса
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
 	try {
-		const { count, error } = await supabaseAdmin
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
+		const { admin: supabaseAdmin } = auth;
+
+		const { count, error } = await (supabaseAdmin as any)
 			.from("telegram_files")
 			.select("*", { count: "exact", head: true });
 
 		if (error) throw error;
 
-		// Получаем дату последней индексации
-		const { data: lastIndexed } = await supabaseAdmin
+		const { data: lastIndexed } = await (supabaseAdmin as any)
 			.from("telegram_files")
 			.select("indexed_at")
 			.order("indexed_at", { ascending: false })

@@ -11,9 +11,20 @@ export async function GET(request: NextRequest) {
 		if ("error" in auth) return auth.error;
 
 		// Получаем настройки таймеров для всех процессов
-		const { data: timerSettings, error: timerError } = await auth.admin
+		const { data: timerSettings, error: timerError } = (await (
+			auth.admin as any
+		)
 			.from("timer_settings")
-			.select("*");
+			.select("*")) as {
+			data: Array<{
+				process_name: string;
+				enabled: boolean;
+				interval_minutes: number;
+				last_run: string | null;
+				next_run: string | null;
+			}> | null;
+			error: any;
+		};
 
 		if (timerError) {
 			console.error("Error fetching timer settings:", timerError);
@@ -28,7 +39,7 @@ export async function GET(request: NextRequest) {
 		let lastRun: string | null = null;
 		let nextRun: string | null = null;
 
-		timerSettings.forEach((setting) => {
+		timerSettings?.forEach((setting) => {
 			formattedSettings[setting.process_name] = {
 				enabled: setting.enabled,
 				intervalMinutes: setting.interval_minutes,
@@ -104,7 +115,7 @@ export async function PUT(request: NextRequest) {
 					updateData.next_run = nextRun;
 				}
 
-				const { error: updateError } = await auth.admin
+				const { error: updateError } = await (auth.admin as any)
 					.from("timer_settings")
 					.update(updateData)
 					.eq("process_name", process);

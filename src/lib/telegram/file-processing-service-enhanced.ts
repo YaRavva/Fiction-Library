@@ -13,20 +13,220 @@ import { MetadataExtractionService } from "./metadata-extraction-service";
 
 const db = serverSupabase as any;
 
-export class EnhancedFileProcessingService {
-	private static instance: EnhancedFileProcessingService;
+export class FileProcessingService {
+	private static instance: FileProcessingService;
 	private telegramClient: TelegramService | null = null;
 
 	private constructor() {}
 
-	public static async getInstance(): Promise<EnhancedFileProcessingService> {
-		if (!EnhancedFileProcessingService.instance) {
-			EnhancedFileProcessingService.instance =
-				new EnhancedFileProcessingService();
-			EnhancedFileProcessingService.instance.telegramClient =
+	public static async getInstance(): Promise<FileProcessingService> {
+		if (!FileProcessingService.instance) {
+			FileProcessingService.instance = new FileProcessingService();
+			FileProcessingService.instance.telegramClient =
 				await TelegramService.getInstance();
 		}
-		return EnhancedFileProcessingService.instance;
+		return FileProcessingService.instance;
+	}
+
+	/**
+	 * Скачивает и обрабатывает файлы из канала "Архив для фантастики" напрямую (без очереди)
+	 * @param limit Количество сообщений для обработки
+	 */
+	public async downloadAndProcessFilesDirectly(
+		limit: number = 10,
+	): Promise<{ [key: string]: unknown }[]> {
+		if (!this.telegramClient) {
+			throw new Error("Telegram client not initialized");
+		}
+
+		try {
+			console.log('📚 Получаем доступ к каналу "Архив для фантастики"...');
+			const channel = await this.telegramClient.getFilesChannel();
+
+			console.log("🔍 Получаем ID последнего загруженного файла...");
+			const result: { data: any | null; error: any } = await db
+				.from("telegram_processed_messages")
+				.select("telegram_file_id")
+				.not("telegram_file_id", "is", null)
+				.order("processed_at", { ascending: false })
+				.limit(1)
+				.single();
+
+			const { data: lastProcessed } = result;
+
+			let lastFileId: number | undefined;
+			if (lastProcessed?.telegram_file_id) {
+				lastFileId = parseInt(lastProcessed.telegram_file_id, 10);
+				console.log(`  📌 Начинаем с файла ID: ${lastFileId}`);
+			} else {
+				console.log("  🆕 Начинаем с самых новых файлов");
+			}
+
+			const channelId =
+				typeof channel.id === "object" && channel.id !== null
+					? (channel.id as { toString: () => string }).toString()
+					: String(channel.id);
+
+			console.log(
+				`📥 Получаем сообщения (лимит: ${limit}, lastFileId: ${lastFileId})...`,
+			);
+			const messages = (await Promise.race([
+				this.telegramClient.getMessages(
+					channelId,
+					limit,
+					lastFileId,
+				) as unknown as any[],
+				new Promise((_, reject) =>
+					setTimeout(
+						() => reject(new Error("Timeout getting messages")),
+						60000,
+					),
+				),
+			])) as unknown as any[];
+			console.log(`✅ Получено ${messages.length} сообщений\n`);
+
+			const results: { [key: string]: unknown }[] = [];
+
+			for (const msg of messages) {
+				const anyMsg = msg as unknown as { [key: string]: unknown };
+
+				if (lastFileId && parseInt(String(anyMsg.id), 10) > lastFileId) {
+					console.log(`⏭️  Пропускаем сообщение ${anyMsg.id} (уже обработано)`);
+					continue;
+				}
+
+				console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
+
+				if (!(anyMsg.media as unknown)) {
+					console.log(
+						`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа, пропускаем`,
+					);
+					continue;
+				}
+
+				try {
+					const result = await this.downloadAndProcessSingleFile(anyMsg);
+					results.push(result);
+				} catch (msgError) {
+					console.error(
+						`  ❌ Ошибка обработки сообщения ${anyMsg.id}:`,
+						msgError,
+					);
+					results.push({
+						messageId: anyMsg.id,
+						success: false,
+						error:
+							msgError instanceof Error ? msgError.message : "Unknown error",
+					});
+				}
+			}
+
+			console.log(`\n📊 Всего обработано файлов: ${results.length}`);
+			return results;
+		} catch (error) {
+			console.error("Error downloading files from archive channel:", error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Получает список файлов для обработки без их непосредственной обработки
+	 * @param limit Количество сообщений для получения
+	 * @param offsetId ID сообщения, с которого начинать (для пагинации)
+	 */
+	public async getFilesToProcess(
+		limit: number = 10,
+		offsetId?: number,
+	): Promise<{ [key: string]: unknown }[]> {
+		if (!this.telegramClient) {
+			throw new Error("Telegram client not initialized");
+		}
+
+		try {
+			console.log('📚 Получаем доступ к каналу "Архив для фантастики"...');
+			const channel = await this.telegramClient.getFilesChannel();
+
+			const channelId =
+				typeof channel.id === "object" && channel.id !== null
+					? (channel.id as { toString: () => string }).toString()
+					: String(channel.id);
+
+			const allResults: { [key: string]: unknown }[] = [];
+
+			console.log(
+				`📥 Получаем сообщения (лимит: ${limit}, offsetId: ${offsetId})...`,
+			);
+			const messages = (await Promise.race([
+				this.telegramClient.getMessages(
+					channelId,
+					limit,
+					offsetId,
+				) as unknown as any[],
+				new Promise((_, reject) =>
+					setTimeout(
+						() => reject(new Error("Timeout getting messages")),
+						60000,
+					),
+				),
+			])) as unknown as any[];
+
+			console.log(`✅ Получено ${messages.length} сообщений`);
+
+			for (const msg of messages) {
+				const anyMsg = msg as unknown as { [key: string]: unknown };
+
+				if (!(anyMsg.media as unknown)) {
+					continue;
+				}
+
+				let filenameCandidate = `book_${anyMsg.id}.fb2`;
+
+				if (
+					anyMsg.document &&
+					(anyMsg.document as { [key: string]: unknown }).attributes
+				) {
+					const attributes = (anyMsg.document as { [key: string]: unknown })
+						.attributes as unknown[];
+					const attrFileName = attributes.find((attr: unknown) => {
+						const attrObj = attr as { [key: string]: unknown };
+						return attrObj.className === "DocumentAttributeFilename";
+					}) as { [key: string]: unknown } | undefined;
+					if (attrFileName?.fileName) {
+						filenameCandidate = attrFileName.fileName as string;
+					}
+				} else if (
+					anyMsg.document &&
+					(anyMsg.document as { [key: string]: unknown }).fileName
+				) {
+					filenameCandidate = (anyMsg.document as { [key: string]: unknown })
+						.fileName as string;
+				} else if (anyMsg.fileName) {
+					filenameCandidate = anyMsg.fileName as string;
+				}
+
+				allResults.push({
+					messageId: anyMsg.id,
+					filename: filenameCandidate,
+					hasMedia: !!(anyMsg.media as unknown),
+				});
+			}
+
+			console.log(`\n📊 Всего файлов для обработки: ${allResults.length}`);
+			return allResults;
+		} catch (error) {
+			console.error("Error getting files to process:", error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Обрабатывает один файл напрямую с правильной логикой
+	 * @param message Сообщение Telegram с файлом
+	 */
+	public async processSingleFile(message: {
+		[key: string]: unknown;
+	}): Promise<{ [key: string]: unknown }> {
+		return await this.downloadAndProcessSingleFile(message);
 	}
 
 	/**

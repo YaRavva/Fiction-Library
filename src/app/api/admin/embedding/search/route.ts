@@ -45,14 +45,13 @@ export async function POST(request: NextRequest) {
 
 		// Try using the PostgreSQL function first
 		try {
-			const { data: vectorResults, error: vectorError } = await auth.admin.rpc(
-				"match_books",
-				{
-					query_embedding: `[${queryEmbedding.join(",")}]`,
-					match_threshold: threshold,
-					match_count: limit,
-				},
-			);
+			const { data: vectorResults, error: vectorError } = await (
+				auth.admin as any
+			).rpc("match_books", {
+				query_embedding: `[${queryEmbedding.join(",")}]`,
+				match_threshold: threshold,
+				match_count: limit,
+			});
 
 			if (!vectorError && vectorResults && vectorResults.length > 0) {
 				return NextResponse.json({

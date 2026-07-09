@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
 import { TelegramService } from "@/lib/telegram/client";
-import { FileProcessingService } from "@/lib/telegram/file-processing-service";
+import { FileProcessingService } from "@/lib/telegram/file-processing-service-enhanced";
 
 interface TelegramMessage {
 	id: number | string;

@@ -60,20 +60,6 @@ export function DuplicatesResolverModal({
 
 	const supabase = getBrowserSupabase();
 
-	// Load duplicates when opened
-	useEffect(() => {
-		if (isOpen) {
-			loadDuplicates();
-		} else {
-			// Reset state on close
-			setGroups([]);
-			setCurrentIndex(0);
-			setSelectedBookId(null);
-			setStats({ processed: 0, deleted: 0 });
-			setError(null);
-		}
-	}, [isOpen, loadDuplicates]);
-
 	const loadDuplicates = async () => {
 		setLoading(true);
 		setError(null);
@@ -106,6 +92,20 @@ export function DuplicatesResolverModal({
 			setLoading(false);
 		}
 	};
+
+	// Load duplicates when opened
+	useEffect(() => {
+		if (isOpen) {
+			loadDuplicates();
+		} else {
+			// Reset state on close
+			setGroups([]);
+			setCurrentIndex(0);
+			setSelectedBookId(null);
+			setStats({ processed: 0, deleted: 0 });
+			setError(null);
+		}
+	}, [isOpen, loadDuplicates]);
 
 	const handleResolve = async () => {
 		if (!selectedBookId || groups.length === 0) return;

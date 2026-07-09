@@ -1,72 +1,17 @@
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import {
 	type BookWithoutFile,
 	FileSearchService,
 	type TelegramFile,
 } from "@/lib/file-search-service";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-	throw new Error("Missing Supabase environment variables");
-}
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
 export async function POST(request: NextRequest) {
 	try {
 		console.log("POST /api/admin/file-search called");
 
-		// Проверяем авторизацию
-		const cookieStore = await cookies();
-		const supabase = createServerClient(
-			process.env.NEXT_PUBLIC_SUPABASE_URL!,
-			process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-			{
-				cookies: {
-					getAll() {
-						return cookieStore.getAll();
-					},
-					setAll(cookiesToSet) {
-						cookiesToSet.forEach(({ name, value, options }) =>
-							cookieStore.set(name, value, options),
-						);
-					},
-				},
-			},
-		);
-
-		let user = null;
-		const authHeader = request.headers.get("authorization");
-		if (authHeader?.startsWith("Bearer ")) {
-			const token = authHeader.substring(7);
-			try {
-				const {
-					data: { user: bearerUser },
-					error: bearerError,
-				} = await supabaseAdmin.auth.getUser(token);
-				if (!bearerError && bearerUser) {
-					user = bearerUser;
-				}
-			} catch (bearerAuthError) {
-				console.log("Bearer auth error (ignored):", bearerAuthError);
-			}
-		}
-
-		if (!user) {
-			const {
-				data: { user: cookieUser },
-			} = await supabase.auth.getUser();
-			user = cookieUser;
-		}
-
-		if (!user) {
-			return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-		}
+		const auth = await requireAdminRequest(request);
+		if ("error" in auth) return auth.error;
 
 		const { book, telegramFiles } = await request.json();
 

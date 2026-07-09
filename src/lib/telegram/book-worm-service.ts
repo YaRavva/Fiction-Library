@@ -11,7 +11,7 @@ import {
 import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
-import { EnhancedFileProcessingService } from "./file-processing-service-enhanced";
+import { FileProcessingService } from "./file-processing-service-enhanced";
 import { TelegramFileService } from "./file-service";
 import { TelegramMetadataService } from "./metadata-service";
 import { type BookMetadata, MetadataParser } from "./parser";
@@ -33,7 +33,7 @@ export class BookWormService {
 	private telegramService: TelegramService | null = null;
 	private metadataService: TelegramMetadataService | null = null;
 	private fileService: TelegramFileService | null = null;
-	private enhancedFileService: EnhancedFileProcessingService | null = null;
+	private enhancedFileService: FileProcessingService | null = null;
 
 	private constructor() {}
 
@@ -50,7 +50,7 @@ export class BookWormService {
 		this.metadataService = await TelegramMetadataService.getInstance();
 		this.fileService = await TelegramFileService.getInstance();
 		this.enhancedFileService =
-			await EnhancedFileProcessingService.getInstance();
+			await FileProcessingService.getInstance();
 	}
 
 	/**

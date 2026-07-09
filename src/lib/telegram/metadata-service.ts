@@ -1,8 +1,21 @@
-import type { Message } from "node-telegram-bot-api";
 import { putObject } from "../s3";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
 import { type BookMetadata, MetadataParser } from "./parser";
+
+// Local type definition for Telegram Message (node-telegram-bot-api was removed)
+interface Message {
+	message_id: number;
+	text?: string;
+	document?: {
+		file_id: string;
+		file_name?: string;
+		file_size?: number;
+		mime_type?: string;
+	};
+	date?: number;
+	caption?: string;
+}
 
 const db = serverSupabase as any;
 

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
 import { serverSupabase } from "@/lib/serverSupabase";
-import { EnhancedFileProcessingService } from "@/lib/telegram/file-processing-service-enhanced";
+import { FileProcessingService } from "@/lib/telegram/file-processing-service-enhanced";
 
 /**
  * POST /api/admin/file-linking/link
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const service = await EnhancedFileProcessingService.getInstance();
+		const service = await FileProcessingService.getInstance();
 		const result = await service.processSingleFileById(
 			Number(telegramFileId),
 			bookId,
