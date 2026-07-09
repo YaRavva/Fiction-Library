@@ -192,31 +192,6 @@ export async function POST(request: NextRequest) {
 			`   📊 Всего: ${fileRecords.length}, Сохранено: ${inserted}, Ошибок: ${errors}`,
 		);
 
-		// Генерация эмбеддингов для новых файлов без эмбеддингов
-		try {
-			const { data: filesWithoutEmbedding } = await (supabaseAdmin as any)
-				.from("telegram_files")
-				.select("message_id, file_name")
-				.is("embedding", null)
-				.limit(200);
-
-			if (filesWithoutEmbedding && filesWithoutEmbedding.length > 0) {
-				log(`\n🧠 Генерация эмбеддингов для ${filesWithoutEmbedding.length} файлов...`);
-				let embGenerated = 0;
-				for (const f of filesWithoutEmbedding) {
-					const ok = await ensureFileEmbedding(
-						supabaseAdmin,
-						f.message_id,
-						f.file_name ?? "",
-					);
-					if (ok) embGenerated++;
-				}
-				log(`   ✅ Эмбеддинги: ${embGenerated}/${filesWithoutEmbedding.length}`);
-			}
-		} catch (embError) {
-			log(`   ⚠️ Ошибка генерации эмбеддингов: ${embError}`);
-		}
-
 		if (operationId) {
 			await updateSyncResult(supabaseAdmin, operationId, {
 				status: "completed",
@@ -232,6 +207,20 @@ export async function POST(request: NextRequest) {
 				},
 			});
 		}
+
+		// Генерация эмбеддингов — в фоне, не блокируя ответ
+		(supabaseAdmin as any)
+			.from("telegram_files")
+			.select("message_id, file_name")
+			.is("embedding", null)
+			.limit(10)
+			.then(async ({ data }: { data: { message_id: number; file_name: string | null }[] | null }) => {
+				if (!data || data.length === 0) return;
+				for (const f of data) {
+					await ensureFileEmbedding(supabaseAdmin, f.message_id, f.file_name ?? "");
+				}
+			})
+			.catch(() => {});
 
 		return NextResponse.json({
 			success: true,
