@@ -113,7 +113,7 @@ export default function MyBooksPage() {
 		};
 
 		loadData();
-	}, [supabase]);
+	}, [supabase, router]);
 
 	const handleLogout = async () => {
 		await supabase.auth.signOut();

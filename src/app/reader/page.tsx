@@ -249,12 +249,12 @@ function ReaderContent() {
 			// Try UTF-8 first with fatal=true to catch invalid sequences
 			const decoder = new TextDecoder("utf-8", { fatal: true });
 			return decoder.decode(buffer);
-		} catch (e) {
+		} catch (_e) {
 			// Fallback to windows-1251 if UTF-8 fails (common for old RU books)
 			try {
 				const legacyDecoder = new TextDecoder("windows-1251");
 				return legacyDecoder.decode(buffer);
-			} catch (legacyError) {
+			} catch (_legacyError) {
 				// If specific legacy decode fails, fall back to loose UTF-8
 				const safeDecoder = new TextDecoder("utf-8");
 				return safeDecoder.decode(buffer);
@@ -274,7 +274,7 @@ function ReaderContent() {
 			console.error("Error loading file content:", error);
 			setContent("Ошибка при загрузке файла.");
 		}
-	}, [bookId]);
+	}, [bookId, decodeText, formatContent]);
 
 	// Загрузка содержимого архива
 	const loadZipContent = useCallback(
@@ -354,7 +354,7 @@ function ReaderContent() {
 				setContent("Ошибка при загрузке содержимого.");
 			}
 		},
-		[bookId],
+		[bookId, decodeText, formatContent],
 	);
 
 	const incrementViews = useCallback(
@@ -476,6 +476,7 @@ function ReaderContent() {
 		loadFileContent,
 		loadZipContent,
 		incrementViews,
+		getHistory,
 	]);
 
 	const handleFileSelect = (fileName: string) => {

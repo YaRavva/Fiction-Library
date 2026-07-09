@@ -95,7 +95,7 @@ export async function checkFileExists(
 			size: response.ContentLength || 0,
 			contentType: response.ContentType,
 		};
-	} catch (error) {
+	} catch (_error) {
 		// Файл не найден или ошибка доступа
 		return null;
 	}
@@ -189,4 +189,32 @@ export async function listObjects(
 	} while (continuationToken);
 
 	return allObjects;
+}
+
+/**
+ * Генерация заголовков аутентификации AWS Signature V4 для Cloud.ru S3
+ */
+export async function getS3AuthHeaders(requestParams: {
+	method: string;
+	pathname: string;
+	query: Record<string, string>;
+	headers: Record<string, string>;
+	payload: string;
+	keyId: string;
+	keySecret: string;
+	tenantId: string;
+	region: string;
+	service: string;
+}) {
+	const date = new Date().toISOString().replace(/[:-]|\.\d{3}/g, "");
+	const dateShort = date.substring(0, 8);
+
+	const credentialScope = `${dateShort}/${requestParams.region}/${requestParams.service}/aws4_request`;
+
+	return {
+		Authorization: `AWS4-HMAC-SHA256 Credential=${requestParams.tenantId}:${requestParams.keyId}/${credentialScope}, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=UNSIGNED-PAYLOAD`,
+		"x-amz-date": date,
+		"x-amz-content-sha256": "UNSIGNED-PAYLOAD",
+		host: requestParams.headers.host,
+	};
 }

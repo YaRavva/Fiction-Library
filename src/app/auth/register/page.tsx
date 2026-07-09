@@ -34,7 +34,7 @@ function RegisterContent() {
 		const rawRedirect = searchParams.get("redirectTo");
 		setRedirectTo(isValidRedirectUrl(rawRedirect) ? rawRedirect : null);
 		setLoading(false);
-	}, [searchParams]);
+	}, [searchParams, isValidRedirectUrl]);
 
 	useEffect(() => {
 		if (loading) return;

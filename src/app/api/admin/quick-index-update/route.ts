@@ -1,5 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { requireAdminRequest } from "@/lib/admin-auth";
+import { NextResponse } from "next/server";
 import { serverSupabase } from "@/lib/serverSupabase";
 
 // Хранилище для отслеживания операций (в реальном приложении лучше использовать БД)

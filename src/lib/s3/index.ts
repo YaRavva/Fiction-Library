@@ -20,6 +20,7 @@ export {
 	getDownloadUrl,
 	getObject,
 	getObjectAsBuffer,
+	getS3AuthHeaders,
 	headObject,
 	listBuckets,
 	listObjects,

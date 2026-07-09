@@ -72,7 +72,7 @@ export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
 
 	useEffect(() => {
 		fetchResults();
-	}, [fetchResults, refreshTrigger]);
+	}, [fetchResults]);
 
 	// Автообновление каждые 30 секунд если есть running задачи
 	useEffect(() => {

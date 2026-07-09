@@ -804,11 +804,9 @@ export class TelegramMetadataService {
 				const msgId = book.messageId;
 
 				// Проверяем наличие книги в БД по нормализованному названию и автору
-				const {
-					checkForBookDuplicates,
-					normalizeBookText,
-					selectBestBookFromDuplicates,
-				} = await import("../book-deduplication-service");
+				const { checkForBookDuplicates, normalizeBookText } = await import(
+					"../book-deduplication-service"
+				);
 
 				const duplicateCheck = await checkForBookDuplicates(
 					book.title,

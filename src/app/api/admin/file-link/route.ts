@@ -1,7 +1,6 @@
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { TelegramSyncService } from "@/lib/telegram/sync";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -11,7 +10,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 	throw new Error("Missing Supabase environment variables");
 }
 
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+const _supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 /**
  * POST /api/admin/sync-files

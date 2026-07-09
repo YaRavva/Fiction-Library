@@ -25,9 +25,9 @@ const nextConfig: NextConfig = {
 			},
 		],
 	},
-	// Отключаем строгую проверку типов для деплоя
+	// Включаем строгую проверку типов
 	typescript: {
-		ignoreBuildErrors: true,
+		ignoreBuildErrors: false,
 	},
 	// Убираем output: 'standalone' для корректной работы на Vercel
 	// output: 'standalone',

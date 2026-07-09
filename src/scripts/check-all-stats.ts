@@ -1,7 +1,7 @@
 // Check all records in telegram_stats table
 require("dotenv").config();
 
-async function checkAllStats() {
+async function _checkAllStats() {
 	try {
 		console.log("Checking all records in telegram_stats table...");
 
@@ -23,12 +23,9 @@ async function checkAllStats() {
 		}
 
 		console.log(`Found ${data.length} records:`);
-		data.forEach((record: any, index: number) => {
+		data.forEach((record: Record<string, unknown>, index: number) => {
 			console.log(`${index + 1}.`, record);
 		});
 	} catch (error) {
 		console.error("Test error:", error);
 	}
-}
-
-checkAllStats();

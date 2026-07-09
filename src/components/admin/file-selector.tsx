@@ -49,7 +49,7 @@ export function FileSelector({
 	// Инициализация при изменении файлов
 	useEffect(() => {
 		setSelectedIndex(0);
-	}, [files]);
+	}, []);
 
 	const handleSelect = useCallback(() => {
 		if (isProcessing || selectedIndex >= files.length) return;

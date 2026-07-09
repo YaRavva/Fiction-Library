@@ -79,7 +79,7 @@ export function SyncSettingsShadix({
 
 	useEffect(() => {
 		loadAutoUpdateSettings();
-	}, [supabase, handleToggleAutoUpdate, setBookWormInterval]);
+	}, [loadAutoUpdateSettings]);
 
 	const saveAutoUpdateSettings = async (enabled: boolean, interval: number) => {
 		try {

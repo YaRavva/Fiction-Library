@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDownloadUrl } from "@/lib/cloud-ru-s3-service";
+import { getDownloadUrl } from "@/lib/s3";
 import { serverSupabase } from "@/lib/serverSupabase";
 
 export async function GET(
@@ -169,7 +169,7 @@ export async function GET(
 
 		// Формируем Content-Disposition строго по RFC 6266
 		// Экранируем кавычки для filename
-		const safeFilename = filename.replace(/"/g, '\\"');
+		const _safeFilename = filename.replace(/"/g, '\\"');
 		// Кодируем для filename* (UTF-8)
 		const encodedFilename = encodeURIComponent(filename).replace(
 			/['()!*]/g,

@@ -1,5 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
-import { requireAdminRequest } from "@/lib/admin-auth";
+import type { Database } from "@/lib/database.types";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { BookWormService } from "@/lib/telegram/book-worm-service";
 import { saveSyncResult, updateSyncResult } from "../../sync-results/route";
@@ -31,12 +32,15 @@ function toAutoUpdateSettings(
 	};
 }
 
-function autoUpdateTable(supabaseAdmin: any) {
-	return (supabaseAdmin as any).from("auto_update_settings");
+function autoUpdateTable(supabaseAdmin: SupabaseClient<Database>) {
+	return supabaseAdmin.from("auto_update_settings");
 }
 
 // Функция для проверки авторизации
-async function checkAuthorization(request: NextRequest, supabaseAdmin: any) {
+async function checkAuthorization(
+	request: NextRequest,
+	supabaseAdmin: SupabaseClient<Database>,
+) {
 	let userIsAdmin = false;
 	const authHeader = request.headers.get("authorization");
 
@@ -302,7 +306,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Проверяем, нет ли зависшей записи running (старше 60 минут)
-		const { data: staleRunning } = await (supabaseAdmin as any)
+		const { data: staleRunning } = await supabaseAdmin
 			.from("sync_job_results")
 			.select("id, started_at")
 			.eq("job_type", "auto")
@@ -348,7 +352,7 @@ export async function POST(request: NextRequest) {
 		const SYNC_TIMEOUT_MS = 30 * 60 * 1000;
 
 		// Выполняем обновление асинхронно с таймаутом
-		const timeoutPromise = new Promise<never>((_, reject) =>
+		const _timeoutPromise = new Promise<never>((_, reject) =>
 			setTimeout(
 				() => reject(new Error("Timeout: sync exceeded 30 minutes")),
 				SYNC_TIMEOUT_MS,

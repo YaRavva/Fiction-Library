@@ -235,7 +235,7 @@ async function addBookMetadata() {
 						console.log(`⏭️ Message ${messageId} is a duplicate. Skipping.`);
 						duplicateCount++;
 						// Помечаем сообщение как обработанное, чтобы не проверять его снова
-						const processedTable: any = serverSupabase.from(
+						const processedTable = serverSupabase.from(
 							"telegram_processed_messages",
 						);
 						await processedTable.insert([
@@ -281,7 +281,7 @@ async function addBookMetadata() {
 					// @ts-expect-error
 					if (metadata.books && metadata.books.length > 0) {
 						console.log("📚 This is a series, creating a series record...");
-						const seriesData: any = {
+						const seriesData: Record<string, unknown> = {
 							title: metadata.title,
 							author: metadata.author,
 							description: metadata.description,
@@ -299,8 +299,8 @@ async function addBookMetadata() {
 						}
 
 						// Workaround for TypeScript typing issue
-						const seriesTable: any = serverSupabase.from("series");
-						const seriesResult: any = await seriesTable.insert([seriesData]);
+						const seriesTable = serverSupabase.from("series");
+						const seriesResult = await seriesTable.insert([seriesData]);
 
 						if (seriesResult.error) {
 							console.error(
@@ -310,7 +310,7 @@ async function addBookMetadata() {
 						} else {
 							// Get the inserted series ID
 							// @ts-expect-error
-							const { data: newSeries, error: selectError }: any =
+							const { data: newSeries, error: selectError } =
 								await serverSupabase
 									.from("series")
 									.select("id")
@@ -333,7 +333,7 @@ async function addBookMetadata() {
 
 					console.log("📚 Inserting book metadata into the database...");
 
-					const bookData: any = {
+					const bookData: Record<string, unknown> = {
 						title: metadata.title,
 						author: metadata.author,
 						description: metadata.description,
@@ -351,8 +351,8 @@ async function addBookMetadata() {
 					}
 
 					// Workaround for TypeScript typing issue
-					const booksTable: any = serverSupabase.from("books");
-					const bookResult: any = await booksTable.insert([bookData]);
+					const booksTable = serverSupabase.from("books");
+					const bookResult = await booksTable.insert([bookData]);
 
 					if (bookResult.error) {
 						console.error(
@@ -366,7 +366,7 @@ async function addBookMetadata() {
 
 						// Get the inserted book ID
 						// @ts-expect-error
-						const { data: bookRecord, error: selectError }: any =
+						const { data: bookRecord, error: selectError } =
 							await serverSupabase
 								.from("books")
 								.select("id")
@@ -381,10 +381,10 @@ async function addBookMetadata() {
 						} else {
 							// Mark this message as processed
 							// Workaround for TypeScript typing issue
-							const processedTable: any = serverSupabase.from(
+							const processedTable = serverSupabase.from(
 								"telegram_processed_messages",
 							);
-							const { error: processedError }: any =
+							const { error: processedError } =
 								await processedTable.insert([
 									{
 										message_id: messageId.toString(),

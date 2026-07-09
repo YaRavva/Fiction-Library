@@ -72,7 +72,7 @@ export function DuplicatesResolverModal({
 			setStats({ processed: 0, deleted: 0 });
 			setError(null);
 		}
-	}, [isOpen]);
+	}, [isOpen, loadDuplicates]);
 
 	const loadDuplicates = async () => {
 		setLoading(true);

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
 		try {
 			// Очищаем привязку файла к книге
-			const { data, error } = await auth.admin
+			const { data: _data, error } = await auth.admin
 				.from("books")
 				.update({
 					file_url: null,

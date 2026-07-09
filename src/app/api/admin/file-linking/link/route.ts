@@ -74,10 +74,14 @@ export async function POST(request: NextRequest) {
 			messageId,
 			result,
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error linking file:", error);
 		return NextResponse.json(
-			{ error: error.message || "Failed to link file" },
+			{
+				error:
+					(error instanceof Error ? error.message : null) ||
+					"Failed to link file",
+			},
 			{ status: 500 },
 		);
 	}

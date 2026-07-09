@@ -77,7 +77,7 @@ export function FileSearchManager() {
 			throw new Error(`Ошибка получения сессии: ${error.message}`);
 		}
 
-		if (!session || !session.access_token) {
+		if (!session?.access_token) {
 			throw new Error("Токен авторизации не найден");
 		}
 
@@ -213,7 +213,7 @@ export function FileSearchManager() {
 
 	// Поиск подходящих файлов для книги (Клиентская версия - более не используется активно, но может пригодиться как fallback)
 	const _findMatchingFilesClient = (
-		book: BookWithoutFile,
+		_book: BookWithoutFile,
 		files: FileOption[],
 	): FileOption[] => {
 		// ... старая логика ...
@@ -270,7 +270,7 @@ export function FileSearchManager() {
 				message: "Ожидание выбора пользователя...",
 			});
 		},
-		[currentBookIndex, logToResults],
+		[currentBookIndex, logToResults, performServerSearch],
 	);
 
 	// Обработка следующей книги

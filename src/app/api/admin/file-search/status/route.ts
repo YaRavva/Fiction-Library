@@ -1,6 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { requireAdminRequest } from "@/lib/admin-auth";
-import { createClient } from "@supabase/supabase-js";
 
 // Используем service role key для админских операций
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

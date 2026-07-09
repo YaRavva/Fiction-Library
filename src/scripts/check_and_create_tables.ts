@@ -3,12 +3,12 @@ import { serverSupabase } from "../lib/serverSupabase";
 
 dotenv.config();
 
-async function checkAndCreateTables() {
+async function _checkAndCreateTables() {
 	try {
 		console.log("🔍 Checking if telegram_processed_messages table exists...");
 
 		// Try to query the table to see if it exists
-		const { data, error } = await serverSupabase
+		const { data: _data, error } = await serverSupabase
 			.from("telegram_processed_messages")
 			.select("count")
 			.limit(1);
@@ -58,4 +58,4 @@ async function checkAndCreateTables() {
 	}
 }
 
-checkAndCreateTables();
+checkAndCreateTab;

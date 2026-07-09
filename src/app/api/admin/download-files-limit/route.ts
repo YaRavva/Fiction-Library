@@ -3,6 +3,19 @@ import { requireAdminRequest } from "@/lib/admin-auth";
 import { TelegramService } from "@/lib/telegram/client";
 import { FileProcessingService } from "@/lib/telegram/file-processing-service";
 
+interface TelegramMessage {
+	id: number | string;
+	media?: unknown;
+	document?: {
+		className?: string;
+		attributes?: Array<{
+			className?: string;
+			fileName?: string;
+		}>;
+	};
+	[key: string]: unknown;
+}
+
 /**
  * POST /api/admin/download-files-limit
  * Добавляет задачи загрузки файлов в очередь из Telegram с указанным лимитом
@@ -35,11 +48,11 @@ export async function POST(request: NextRequest) {
 		// Получаем сообщения с пагинацией
 		console.log(`📥 Получаем сообщения (лимит: ${limit})...`);
 		const messages = (await Promise.race([
-			telegramClient.getMessages(channelId, limit) as unknown as any[],
-			new Promise((_, reject) =>
+			telegramClient.getMessages(channelId, limit),
+			new Promise<TelegramMessage[]>((_, reject) =>
 				setTimeout(() => reject(new Error("Timeout getting messages")), 60000),
 			),
-		])) as unknown as any[];
+		])) as TelegramMessage[];
 		console.log(
 			`✅ Получено ${messages.length} сообщений для добавления в очередь\n`,
 		);
@@ -53,10 +66,10 @@ export async function POST(request: NextRequest) {
 		let errorCount = 0;
 
 		for (const msg of messages) {
-			const anyMsg = msg as unknown as { [key: string]: unknown };
+			const anyMsg = msg as TelegramMessage;
 
 			// Проверяем, есть ли в сообщении медиа (файл)
-			if (!(anyMsg.media as unknown)) {
+			if (!anyMsg.media) {
 				console.log(`  ℹ️ Сообщение ${anyMsg.id} не содержит медиа, пропускаем`);
 				skippedCount++;
 				continue;
@@ -96,8 +109,8 @@ export async function POST(request: NextRequest) {
 			report += `✅ Обработанные файлы:\n`;
 			let taskIndex = 1;
 			for (const msg of messages) {
-				const anyMsg = msg as unknown as { [key: string]: unknown };
-				if (anyMsg.media as unknown) {
+				const anyMsg = msg as TelegramMessage;
+				if (anyMsg.media) {
 					let filename = `book_${anyMsg.id}.fb2`;
 					if (
 						anyMsg.document &&
@@ -124,8 +137,8 @@ export async function POST(request: NextRequest) {
 			report += `⚠️ Пропущенные сообщения:\n`;
 			let skippedIndex = 1;
 			for (const msg of messages) {
-				const anyMsg = msg as unknown as { [key: string]: unknown };
-				if (!(anyMsg.media as unknown)) {
+				const anyMsg = msg as TelegramMessage;
+				if (!anyMsg.media) {
 					report += `${skippedIndex}. Сообщение ${anyMsg.id} (без медиа)\n`;
 					skippedIndex++;
 				}

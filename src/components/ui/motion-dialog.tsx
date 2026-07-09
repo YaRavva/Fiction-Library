@@ -306,15 +306,15 @@ const useMotionDialog = () => {
 
 export {
 	MotionDialog,
-	MotionDialogTrigger,
-	MotionDialogPortal,
+	MotionDialogBody,
 	MotionDialogClose,
-	MotionDialogOverlay,
 	MotionDialogContent,
-	MotionDialogHeader,
-	MotionDialogTitle,
 	MotionDialogDescription,
 	MotionDialogFooter,
-	MotionDialogBody,
+	MotionDialogHeader,
+	MotionDialogOverlay,
+	MotionDialogPortal,
+	MotionDialogTitle,
+	MotionDialogTrigger,
 	useMotionDialog,
 };

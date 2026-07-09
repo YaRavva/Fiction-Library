@@ -228,7 +228,7 @@ export class FileLinkService {
 			const fileFormat = this.detectFileFormat(fileName);
 
 			// Обновляем запись книги
-			const { data, error } = await supabaseAdmin
+			const { data: _data, error } = await supabaseAdmin
 				.from("books")
 				.update({
 					file_url: fileUrl,
@@ -286,7 +286,7 @@ export class FileLinkService {
 			const fileFormat = this.detectFileFormat(fileName);
 
 			// Обновляем запись книги
-			const { data, error } = await supabaseAdmin
+			const { data: _data, error } = await supabaseAdmin
 				.from("books")
 				.update({
 					file_url: fileUrl,

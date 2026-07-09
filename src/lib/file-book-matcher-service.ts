@@ -1,16 +1,14 @@
-import { serverSupabase } from "./serverSupabase";
 import {
-    scoreFileToBook,
-    findBestBookForFile,
-    batchMatchFilesToBooks,
-    extractWords,
-    type FileOption,
-    type BookOption,
-    type MatchResult,
+	type BookOption,
+	type FileOption,
+	findBestBookForFile,
+	type MatchResult,
+	scoreFileToBook,
 } from "./book-file-scorer";
+import { serverSupabase } from "./serverSupabase";
 
 // Re-export types for backward compatibility
-export type { FileOption, BookOption, MatchResult };
+export type { BookOption, FileOption, MatchResult };
 
 /**
  * Универсальный сервис для сопоставления файлов и книг
@@ -89,7 +87,10 @@ export class FileBookMatcherService {
 	 * @param book книга для проверки
 	 * @returns результат сопоставления, если релевантна
 	 */
-	static matchFileWithBook(file: FileOption, book: BookOption): MatchResult | null {
+	static matchFileWithBook(
+		file: FileOption,
+		book: BookOption,
+	): MatchResult | null {
 		const result = scoreFileToBook(file, book);
 
 		if (result.score >= 50) {

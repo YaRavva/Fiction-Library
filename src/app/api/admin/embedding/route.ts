@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
 			models,
 			defaultModel: DEFAULT_EMBEDDING_MODEL,
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error listing embedding models:", error);
 		return NextResponse.json(
-			{ error: error.message || "Failed to list models" },
+			{ error: (error as Error).message || "Failed to list models" },
 			{ status: 500 },
 		);
 	}
@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
 			dimensions: result.embedding.length,
 			usage: result.usage,
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error generating embedding:", error);
 		return NextResponse.json(
-			{ error: error.message || "Failed to generate embedding" },
+			{ error: (error as Error).message || "Failed to generate embedding" },
 			{ status: 500 },
 		);
 	}
@@ -209,10 +209,10 @@ export async function PUT(request: NextRequest) {
 			skippedTargets,
 			dedupeResult,
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error batch embedding:", error);
 		return NextResponse.json(
-			{ error: error.message || "Failed to batch embed" },
+			{ error: (error as Error).message || "Failed to batch embed" },
 			{ status: 500 },
 		);
 	}

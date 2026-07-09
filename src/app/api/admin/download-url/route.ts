@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 			.eq("id", user.id)
 			.single();
 
-		if (!profile || profile.role !== "admin") {
+		if (profile?.role !== "admin") {
 			return NextResponse.json(
 				{ error: "Forbidden: Admin access required" },
 				{ status: 403 },

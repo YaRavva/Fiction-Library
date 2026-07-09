@@ -54,7 +54,7 @@ export class FileProcessingService {
 				.limit(1)
 				.single();
 
-			const { data: lastProcessed, error: lastProcessedError } = result;
+			const { data: lastProcessed, error: _lastProcessedError } = result;
 
 			let lastFileId: number | undefined;
 			if (lastProcessed?.telegram_file_id) {

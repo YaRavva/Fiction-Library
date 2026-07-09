@@ -200,14 +200,23 @@ export async function GET(request: NextRequest) {
 						`Успешно: ${successCount}`,
 						`С ошибками: ${failedCount}`,
 						`Пропущено: ${skippedCount}`,
-						...results.map((result: any, _index: number) => {
-							const status = result.success !== false ? "✅" : "❌";
-							const filename = result.filename || "Без имени";
-							if (result.skipped) {
-								return `⚠️ ${filename} (пропущен)`;
-							}
-							return `${status} ${filename}`;
-						}),
+						...results.map(
+							(
+								result: {
+									success?: boolean;
+									filename?: string;
+									skipped?: boolean;
+								},
+								_index: number,
+							) => {
+								const status = result.success !== false ? "✅" : "❌";
+								const filename = result.filename || "Без имени";
+								if (result.skipped) {
+									return `⚠️ ${filename} (пропущен)`;
+								}
+								return `${status} ${filename}`;
+							},
+						),
 					],
 				},
 				report,

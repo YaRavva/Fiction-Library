@@ -25,7 +25,6 @@
 - `tailwind-merge@^3.3.1`
 - `lucide-react@^0.544.0`
 - `framer-motion@^12.23.26`
-- `motion@^12.23.26`
 
 ### Shadcn-конфигурация
 

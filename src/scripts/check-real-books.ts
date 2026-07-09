@@ -29,8 +29,7 @@ async function checkRealBooks() {
 		}
 
 		console.log(`📚 Найдено ${books?.length || 0} книг:`);
-		// @ts-expect-error
-		books?.forEach((book: any, index: number) => {
+		books?.forEach((book: Record<string, unknown>, index: number) => {
 			console.log(`${index + 1}. ${book.author} - ${book.title}`);
 			// @ts-expect-error
 			console.log(`   Обложка: ${book.cover_url ? "Есть" : "Нет"}`);

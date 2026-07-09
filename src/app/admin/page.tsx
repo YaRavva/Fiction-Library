@@ -319,7 +319,12 @@ export default function AdminPage() {
 				return;
 			}
 
-			const body: any = {
+			const body: {
+				action: string;
+				phone: string;
+				code: string;
+				password?: string;
+			} = {
 				action: "sign_in",
 				phone: tgPhone,
 				code: tgCode,
@@ -342,8 +347,8 @@ export default function AdminPage() {
 				setTgSession(data.session);
 				setTgStep("done");
 			}
-		} catch (err: any) {
-			setTgError(err.message || "Ошибка авторизации");
+		} catch (err: unknown) {
+			setTgError(err instanceof Error ? err.message : "Ошибка авторизации");
 		} finally {
 			setTgLoading(false);
 		}

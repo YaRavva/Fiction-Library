@@ -24,10 +24,14 @@ export async function GET(request: Request) {
 		}
 
 		return NextResponse.json({ books: books || [] });
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error fetching books without files:", error);
 		return NextResponse.json(
-			{ error: error.message || "Failed to fetch books" },
+			{
+				error:
+					(error instanceof Error ? error.message : null) ||
+					"Failed to fetch books",
+			},
 			{ status: 500 },
 		);
 	}

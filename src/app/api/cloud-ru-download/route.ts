@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getS3AuthHeaders } from "@/lib/cloud-ru-s3-service";
+import { getS3AuthHeaders } from "@/lib/s3";
 
 // Конфигурация Cloud.ru S3
 const BUCKET = process.env.S3_BUCKET_NAME || "books";

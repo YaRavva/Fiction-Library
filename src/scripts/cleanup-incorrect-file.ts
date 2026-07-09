@@ -3,12 +3,12 @@ import { serverSupabase } from "../lib/serverSupabase";
 
 dotenv.config();
 
-async function cleanupIncorrectFile() {
+async function _cleanupIncorrectFile() {
 	try {
 		console.log("🚀 Начинаем очистку неправильного файла...");
 
 		// Ищем книгу с неправильным URL
-		const supabase: any = serverSupabase;
+		const supabase = serverSupabase;
 		const { data: book, error } = await supabase
 			.from("books")
 			.select("*")
@@ -25,7 +25,7 @@ async function cleanupIncorrectFile() {
 			return;
 		}
 
-		const anyBook = book as any;
+		const anyBook = book as Record<string, unknown>;
 		console.log(`✅ Найдена книга: "${anyBook.title}" (ID: ${anyBook.id})`);
 		console.log(`  Текущий URL файла: ${anyBook.file_url}`);
 		console.log(`  Текущий путь в хранилище: ${anyBook.storage_path}`);
@@ -125,4 +125,4 @@ async function cleanupIncorrectFile() {
 	}
 }
 
-cleanupIncorrectFile();
+cleanupIn;

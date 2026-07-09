@@ -346,9 +346,8 @@ export class TelegramSyncService {
 				(anyMsg.document &&
 					(anyMsg.document as { fileName?: string }).fileName) ||
 				(anyMsg.media &&
-					(anyMsg.media as { document?: { fileName?: string } }).document &&
 					(anyMsg.media as { document: { fileName?: string } }).document
-						.fileName) ||
+						?.fileName) ||
 				`book_${anyMsg.id}.fb2`;
 
 			const ext = path.extname(filenameCandidate as string) || ".fb2";
@@ -363,9 +362,8 @@ export class TelegramSyncService {
 				(anyMsg.document &&
 					(anyMsg.document as { mimeType?: string }).mimeType) ||
 				(anyMsg.media &&
-					(anyMsg.media as { document?: { mimeType?: string } }).document &&
 					(anyMsg.media as { document: { mimeType?: string } }).document
-						.mimeType) ||
+						?.mimeType) ||
 				"application/octet-stream";
 
 			// Загружаем в S3 бакет (используем S3_BUCKET_NAME из переменных окружения)

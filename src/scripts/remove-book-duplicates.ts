@@ -31,9 +31,9 @@ function logMessage(
 	console.log(consoleMessage);
 
 	// Если скрипт запускается в контексте админки, отправляем в окно результатов
-	if (typeof window !== "undefined" && (window as any).setStatsUpdateReport) {
+	if (typeof window !== "undefined" && (window as Record<string, unknown>).setStatsUpdateReport) {
 		try {
-			(window as any).setStatsUpdateReport(`${consoleMessage}\n`);
+			((window as Record<string, unknown>).setStatsUpdateReport as (msg: string) => void)(`${consoleMessage}\n`);
 		} catch (error) {
 			console.error(
 				"❌ Ошибка при отправке сообщения в окно результатов:",

@@ -93,10 +93,12 @@ export async function GET(request: NextRequest) {
 				},
 			},
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error fetching embedding stats:", error);
 		return NextResponse.json(
-			{ error: error.message || "Failed to fetch stats" },
+			{
+				error: error instanceof Error ? error.message : "Failed to fetch stats",
+			},
 			{ status: 500 },
 		);
 	}

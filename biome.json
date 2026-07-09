@@ -1,79 +1,80 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
-	"vcs": {
-		"enabled": true,
-		"clientKind": "git",
-		"useIgnoreFile": true
-	},
-	"files": {
-		"includes": [
-			"**",
-			"!!**/dist",
-			"!src/app/globals.css",
-			"!src/lib/database.types.ts"
-		]
-	},
-	"formatter": {
-		"enabled": true,
-		"indentStyle": "tab"
-	},
-	"linter": {
-		"enabled": true,
-		"rules": {
-			"recommended": true,
-			"style": {
-				"noNonNullAssertion": "off"
-			},
-			"suspicious": {
-				"noExplicitAny": "off",
-				"useIterableCallbackReturn": "off",
-				"noControlCharactersInRegex": "off",
-				"noImplicitAnyLet": "off",
-				"noArrayIndexKey": "off",
-				"noAssignInExpressions": "off",
-				"noDuplicateClassMembers": "off"
-			},
-			"a11y": {
-				"noStaticElementInteractions": "off",
-				"useKeyWithClickEvents": "off",
-				"noLabelWithoutControl": "off",
-				"useButtonType": "off"
-			},
-			"correctness": {
-				"useExhaustiveDependencies": "off",
-				"noInvalidUseBeforeDeclaration": "off",
-				"noUnusedFunctionParameters": "off",
-				"noUnusedVariables": "warn",
-				"noEmptyCharacterClassInRegex": "error",
-				"noUnreachable": "error"
-			},
-			"complexity": {
-				"noStaticOnlyClass": "off"
-			},
-			"security": {
-				"noDangerouslySetInnerHtml": "off"
-			},
-			"performance": {
-				"noImgElement": "off"
-			}
-		}
-	},
-	"javascript": {
-		"formatter": {
-			"quoteStyle": "double"
-		}
-	},
-	"css": {
-		"parser": {
-			"cssModules": true
-		}
-	},
-	"assist": {
-		"enabled": true,
-		"actions": {
-			"source": {
-				"organizeImports": "on"
-			}
-		}
-	}
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/dist",
+      "!src/app/globals.css",
+      "!src/lib/database.types.ts",
+      "!**/scripts/**"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "tab"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "useIterableCallbackReturn": "off",
+        "noControlCharactersInRegex": "off",
+        "noImplicitAnyLet": "error",
+        "noArrayIndexKey": "error",
+        "noAssignInExpressions": "error",
+        "noDuplicateClassMembers": "error"
+      },
+      "a11y": {
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off",
+        "noLabelWithoutControl": "off",
+        "useButtonType": "off"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "error",
+        "noInvalidUseBeforeDeclaration": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUnusedVariables": "error",
+        "noEmptyCharacterClassInRegex": "error",
+        "noUnreachable": "error"
+      },
+      "complexity": {
+        "noStaticOnlyClass": "error"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error"
+      },
+      "performance": {
+        "noImgElement": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  },
+  "css": {
+    "parser": {
+      "cssModules": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
 }

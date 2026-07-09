@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 
 // Используем service role key для админских операций

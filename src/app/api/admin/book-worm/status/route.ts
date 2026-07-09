@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 			Date.now() - 24 * 60 * 60 * 1000,
 		).toISOString();
 
-		const { count: recentCount, error: countError } = await supabaseAdmin
+		const { count: recentCount, error: _countError } = await supabaseAdmin
 			.from("telegram_processed_messages")
 			.select("*", { count: "exact" })
 			.gte("processed_at", twentyFourHoursAgo);

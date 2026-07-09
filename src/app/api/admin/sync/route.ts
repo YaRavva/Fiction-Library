@@ -65,7 +65,6 @@ async function _findBookInDatabase(
 	book?: { id: string; publication_year?: number; file_url?: string };
 }> {
 	try {
-
 		let query = admin
 			.from("books")
 			.select(

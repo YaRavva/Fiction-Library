@@ -124,7 +124,7 @@ function lookupDictionary(word: string): string | null {
  */
 export function lemmatizeWord(word: string): string {
 	// NFC normalize to handle composed characters (e.g., и + U+0306 breve → й)
-	word = word.normalize('NFC');
+	word = word.normalize("NFC");
 
 	// Проверяем кэш
 	const cached = lemmaCache.get(word);

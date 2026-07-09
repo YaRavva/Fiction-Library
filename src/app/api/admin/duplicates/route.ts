@@ -1,8 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
-import { requireAdminRequest } from "@/lib/admin-auth";
-import { createClient } from "@supabase/supabase-js";
 import {
 	normalizeBookText,
 	removeBookDuplicates,

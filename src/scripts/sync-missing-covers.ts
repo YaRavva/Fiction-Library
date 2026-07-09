@@ -65,7 +65,7 @@ export async function syncMissingCovers(limit?: number) {
 		// Обрабатываем каждую книгу
 		for (const book of booksWithoutCovers) {
 			try {
-				const typedBook = book as any;
+				const typedBook = book as Record<string, unknown>;
 				console.log(
 					`📝 Обрабатываем книгу: ${typedBook.author} - ${typedBook.title}`,
 				);
@@ -82,7 +82,7 @@ export async function syncMissingCovers(limit?: number) {
 					`  📥 Получаем сообщение ${typedBook.telegram_post_id} из Telegram...`,
 				);
 				const channel = await (
-					syncService as any
+					syncService as Record<string, unknown>
 				).telegramClient.getMetadataChannel();
 				if (!channel) {
 					throw new Error("Не удалось получить канал");
@@ -94,8 +94,8 @@ export async function syncMissingCovers(limit?: number) {
 						? (channel.id as { toString: () => string }).toString()
 						: String(channel.id);
 
-				const messages: any[] = await (
-					syncService as any
+				const messages: Record<string, unknown>[] = await (
+					syncService as Record<string, unknown>
 				).telegramClient.getMessages(
 					channelId,
 					1,
@@ -129,7 +129,7 @@ export async function syncMissingCovers(limit?: number) {
 						try {
 							console.log(`    → Скачиваем фото из веб-превью...`);
 							const result = await Promise.race([
-								(syncService as any).telegramClient.downloadMedia(
+								(syncService as Record<string, unknown>).telegramClient.downloadMedia(
 									(anyMsg.media as { webpage: { photo: unknown } }).webpage
 										.photo,
 								),
@@ -178,7 +178,7 @@ export async function syncMissingCovers(limit?: number) {
 						try {
 							console.log(`    → Скачиваем фото...`);
 							const result = await Promise.race([
-								(syncService as any).telegramClient.downloadMedia(msg),
+								(syncService as Record<string, unknown>).telegramClient.downloadMedia(msg),
 								new Promise<never>((_, reject) =>
 									setTimeout(
 										() =>
@@ -227,7 +227,7 @@ export async function syncMissingCovers(limit?: number) {
 							try {
 								console.log(`    → Скачиваем изображение...`);
 								const result = await Promise.race([
-									(syncService as any).telegramClient.downloadMedia(msg),
+									(syncService as Record<string, unknown>).telegramClient.downloadMedia(msg),
 									new Promise<never>((_, reject) =>
 										setTimeout(
 											() =>
@@ -272,9 +272,9 @@ export async function syncMissingCovers(limit?: number) {
 				// Если удалось получить обложки, обновляем книгу
 				if (coverUrls.length > 0) {
 					console.log(`  🔄 Обновляем книгу с обложкой...`);
-					const updateData: any = { cover_url: coverUrls[0] };
+					const updateData: Record<string, unknown> = { cover_url: coverUrls[0] };
 					// @ts-expect-error
-					const { error: updateError } = await (supabase as any)
+					const { error: updateError } = await (supabase as Record<string, unknown>)
 						.from("books")
 						.update(updateData)
 						.eq("id", typedBook.id);
@@ -293,7 +293,7 @@ export async function syncMissingCovers(limit?: number) {
 
 				processed++;
 			} catch (error) {
-				const typedBook = book as any;
+				const typedBook = book as Record<string, unknown>;
 				console.error(
 					`❌ Ошибка обработки книги ${typedBook.author} - ${typedBook.title}:`,
 					error,
@@ -341,8 +341,8 @@ if (require.main === module) {
 				process.exit(0);
 			}, 1000);
 		})
-		.catch((error) => {
-			console.error("❌ Ошибка при выполнении скрипта:", error);
+		.catch((_error) => {
+			console.error("❌ Ошибка при выполнении скрипта:", _error);
 			// Принудительно завершаем скрипт и в случае ошибки
 			setTimeout(() => {
 				process.exit(1);

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 		if ("error" in auth) return auth.error;
 
 		// Получаем ID сообщения из тела запроса
-		let messageId;
+		let messageId: number | string | undefined;
 		try {
 			const body = await request.json();
 			messageId = body.messageId;

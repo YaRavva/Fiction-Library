@@ -1,5 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { requireAdminRequest } from "@/lib/admin-auth";
+import { NextResponse } from "next/server";
 import { TelegramMetadataService } from "@/lib/telegram/metadata-service";
 
 export const dynamic = "force-dynamic";

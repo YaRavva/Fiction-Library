@@ -1,6 +1,5 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { requireAdminRequest } from "@/lib/admin-auth";
 import { createClient } from "@supabase/supabase-js";
+import { type NextRequest, NextResponse } from "next/server";
 import {
 	saveSyncResult,
 	updateSyncResult,
@@ -44,7 +43,7 @@ function getOriginalFilename(message: any): string | null {
 				}
 			}
 		}
-	} catch (e) {
+	} catch (_e) {
 		// ignore
 	}
 	return null;
@@ -61,7 +60,7 @@ function extractFileData(message: any): {
 	caption: string | null;
 	date: Date | null;
 } | null {
-	if (!message || !message.id) return null;
+	if (!message?.id) return null;
 
 	const doc = message.document || message.media?.document;
 	if (!doc) return null; // Пропускаем сообщения без файлов
@@ -140,7 +139,7 @@ export async function POST(_request: NextRequest) {
 		// 4. Upsert в базу данных пакетами по 500
 		const batchSize = 500;
 		let inserted = 0;
-		const updated = 0;
+		const _updated = 0;
 		let errors = 0;
 
 		for (let i = 0; i < fileRecords.length; i += batchSize) {
