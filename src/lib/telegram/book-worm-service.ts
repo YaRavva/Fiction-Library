@@ -4,7 +4,6 @@ import {
 } from "../book-deduplication-service";
 import {
 	type BookOption,
-	batchMatchFilesToBooks,
 	type FileOption,
 	findBestFileForBook,
 } from "../book-file-scorer";
@@ -15,6 +14,11 @@ import { FileProcessingService } from "./file-processing-service-enhanced";
 import { TelegramFileService } from "./file-service";
 import { TelegramMetadataService } from "./metadata-service";
 import { type BookMetadata, MetadataParser } from "./parser";
+import {
+	ensureBookEmbedding,
+	matchFileToBook,
+	prepareBookEmbeddingText,
+} from "./unified-file-matcher";
 import { extractExtension } from "./utils";
 
 const db = serverSupabase as any;
@@ -426,6 +430,34 @@ export class BookWormService {
 				);
 
 			console.log("✅ Импорт новых метаданных завершен");
+
+			// 3.5. Генерация эмбеддингов для новых книг
+			const newBookIdsForEmbedding = resultImport.details
+				.filter((d: any) => d.status === "added" && d.bookId)
+				.map((d: any) => ({
+					id: d.bookId as string,
+					title: d.title as string,
+					author: d.author as string,
+				}));
+
+			if (newBookIdsForEmbedding.length > 0) {
+				console.log(
+					`🧠 Генерация эмбеддингов для ${newBookIdsForEmbedding.length} новых книг...`,
+				);
+				let embeddingsGenerated = 0;
+				for (const book of newBookIdsForEmbedding) {
+					const ok = await ensureBookEmbedding(
+						db,
+						book.id,
+						book.title,
+						book.author,
+					);
+					if (ok) embeddingsGenerated++;
+				}
+				console.log(
+					`✅ Эмбеддинги сгенерированы: ${embeddingsGenerated}/${newBookIdsForEmbedding.length}`,
+				);
+			}
 
 			const combinedDetails = [...details, ...resultImport.details];
 			const totalSkipped =
@@ -1022,61 +1054,56 @@ export class BookWormService {
 							file_size: f.file_size || f.size || undefined,
 						}));
 
-						const bookOptions: BookOption[] = booksWithoutFiles.map(
-							(b: any) => ({
-								id: b.id,
-								title: b.title,
-								author: b.author,
-							}),
-						);
-
-						// Выполняем batch matching за один проход
+						// Unified matching: lexical + embedding hybrid
 						console.log(
-							`⚡ Выполняем batch matching (${bookOptions.length} книг x ${fileOptions.length} файлов)...`,
+							`⚡ Unified matching (${booksWithoutFiles.length} книг x ${fileOptions.length} файлов)...`,
 						);
-						const batchMatches = batchMatchFilesToBooks(
-							fileOptions,
-							bookOptions,
-							50,
-						);
-						console.log(`📊 Найдено ${batchMatches.size} совпадений`);
+						const matchedBookIds = new Set<string>();
 
-						// Обрабатываем результаты
-						for (const [bookId, matchResult] of batchMatches) {
-							const book = booksWithoutFiles.find((b: any) => b.id === bookId);
-							if (!book) continue;
+						for (const fileOpt of fileOptions) {
+							const match = await matchFileToBook(fileOpt, db, {
+								threshold: 50,
+								useEmbeddings: true,
+							});
+							if (match && !matchedBookIds.has(match.book.id)) {
+								matchedBookIds.add(match.book.id);
+								const book = booksWithoutFiles.find(
+									(b: any) => b.id === match.book.id,
+								);
+								if (!book) continue;
 
-							try {
-								// Находим оригинальный файл из списка
-								const matchingFile = filesToProcess.find(
-									(f: any) =>
-										(f.messageId &&
-											f.messageId === matchResult.file.message_id) ||
-										(f.message_id &&
-											f.message_id === matchResult.file.message_id),
+								console.log(
+									`    📨 Найден файл для "${book.title}": ${fileOpt.file_name} (lexical: ${match.lexicalScore}, embedding: ${match.embeddingScore}, hybrid: ${match.hybridScore}, method: ${match.method})`,
 								);
 
-								if (matchingFile) {
-									console.log(
-										`    📨 Найден файл для "${book.title}": ${matchingFile.filename} (оценка: ${matchResult.score})`,
+								try {
+									const matchingFile = filesToProcess.find(
+										(f: any) =>
+											(f.messageId &&
+												f.messageId === fileOpt.message_id) ||
+											(f.message_id &&
+												f.message_id === fileOpt.message_id),
 									);
 
-									// Pass knownBookId to skip ILIKE search
-									const _result =
-										await this.enhancedFileService?.processSingleFileById(
-											parseInt(matchingFile.messageId as string, 10),
-											bookId,
-										);
-									console.log(`    ✅ Файл привязан`);
-									matchedCount++;
+									if (matchingFile) {
+										const _result =
+											await this.enhancedFileService?.processSingleFileById(
+												parseInt(matchingFile.messageId as string, 10),
+												match.book.id,
+											);
+										console.log(`    ✅ Файл привязан`);
+										matchedCount++;
+									}
+								} catch (matchErr) {
+									console.warn(
+										`    ⚠️ Ошибка привязки файла для "${book.title}":`,
+										matchErr,
+									);
 								}
-							} catch (matchErr) {
-								console.warn(
-									`    ⚠️ Ошибка привязки файла для "${book.title}":`,
-									matchErr,
-								);
 							}
 						}
+
+						console.log(`📊 Найдено ${matchedBookIds.size} совпадений`);
 					}
 				} else {
 					console.log("  ℹ️  Нет книг без файлов для привязки");

@@ -44,6 +44,31 @@ const NORMALIZATION_MAP: Record<string, string> = {
 	ё: "е",
 };
 
+/**
+ * Telegram replaces visually similar Cyrillic characters with Latin ones.
+ * e.g. "е" → "e", "о" → "o", "а" → "a", "с" → "c", etc.
+ * We apply this mapping when scoring, not when storing text.
+ */
+const TELEGRAM_CYRILLIC_MAP: Record<string, string> = {
+	е: "e",
+	о: "o",
+	а: "a",
+	с: "c",
+	р: "p",
+	Е: "E",
+	О: "O",
+	А: "A",
+	С: "C",
+	Р: "P",
+	Н: "H",
+	К: "K",
+	В: "B",
+	М: "M",
+	Т: "T",
+	Х: "X",
+	х: "x",
+};
+
 const STOP_WORDS = new Set([
 	// Russian conjunctions and particles
 	"и",
@@ -355,12 +380,27 @@ export function checkAuthorMatch(
 }
 
 /**
+ * Apply Telegram Cyrillic → Latin mapping for scoring comparison.
+ * Telegram replaces visually similar Cyrillic with Latin.
+ */
+function applyTelegramNormalization(text: string): string {
+	let result = text;
+	for (const [from, to] of Object.entries(TELEGRAM_CYRILLIC_MAP)) {
+		result = result.replace(new RegExp(from, "g"), to);
+	}
+	return result;
+}
+
+/**
  * Main scoring function: match a file to a book.
  *
  * Key design decision: filename is parsed into AUTHOR and TITLE parts.
  * File TITLE words are matched against book TITLE words only.
  * File AUTHOR words are checked against book AUTHOR words separately (boolean, no score).
  * Cross-domain matching is FORBIDDEN — prevents "роман"(жанр) ↔ "Роман"(имя).
+ *
+ * Both file and book text are normalized with Telegram Cyrillic mapping
+ * to handle files like "Gubarev - Kniga.fb2" matching "Губарев - Книга".
  */
 export function scoreFileToBook(
 	file: FileOption,
@@ -372,13 +412,25 @@ export function scoreFileToBook(
 	const { titleWords: bookTitleWords, authorWords: bookAuthorWords } =
 		extractBookWords(book);
 
+	// Create Telegram-normalized variants for comparison
+	// This handles files like "Gubarev - Kniga.fb2" matching "Губарев - Книга"
+	const fileTitleWordsNorm = fileTitleWords.map(applyTelegramNormalization);
+	const bookTitleWordsNorm = bookTitleWords.map(applyTelegramNormalization);
+	const fileAuthorWordsNorm = fileAuthorWords.map(applyTelegramNormalization);
+	const bookAuthorWordsNorm = bookAuthorWords.map(applyTelegramNormalization);
+
 	// Match file TITLE words against book TITLE words only
 	const matchedFileTitleWords = new Set<string>();
 	const matchedBookTitleWords = new Set<string>();
 
-	for (const fw of fileTitleWords) {
-		for (const bw of bookTitleWords) {
-			if (fuzzyMatch(fw, bw)) {
+	for (let i = 0; i < fileTitleWords.length; i++) {
+		const fw = fileTitleWords[i];
+		const fwNorm = fileTitleWordsNorm[i];
+		for (let j = 0; j < bookTitleWords.length; j++) {
+			const bw = bookTitleWords[j];
+			const bwNorm = bookTitleWordsNorm[j];
+			// Match on both original and Telegram-normalized forms
+			if (fuzzyMatch(fw, bw) || fuzzyMatch(fwNorm, bwNorm) || fuzzyMatch(fwNorm, bw) || fuzzyMatch(fw, bwNorm)) {
 				matchedFileTitleWords.add(fw);
 				matchedBookTitleWords.add(bw);
 				break;
@@ -387,7 +439,12 @@ export function scoreFileToBook(
 	}
 
 	// Check author match separately (parsed file author vs book author)
-	const authorMatch = checkAuthorMatch(fileAuthorWords, bookAuthorWords);
+	// Also try Telegram-normalized comparison
+	const authorMatch =
+		checkAuthorMatch(fileAuthorWords, bookAuthorWords) ||
+		checkAuthorMatch(fileAuthorWordsNorm, bookAuthorWords) ||
+		checkAuthorMatch(fileAuthorWords, bookAuthorWordsNorm) ||
+		checkAuthorMatch(fileAuthorWordsNorm, bookAuthorWordsNorm);
 
 	// Calculate base metrics (based ONLY on title matching)
 	const matchedCount = matchedFileTitleWords.size;

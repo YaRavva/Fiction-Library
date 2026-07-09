@@ -6,6 +6,10 @@ import {
 import { requireAdminRequest } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { TelegramService } from "@/lib/telegram/client";
+import {
+	ensureFileEmbedding,
+	prepareFileEmbeddingText,
+} from "@/lib/telegram/unified-file-matcher";
 
 /**
  * Извлекает оригинальное имя файла из сообщения Telegram
@@ -156,6 +160,31 @@ export async function POST(request: NextRequest) {
 		log(
 			`   📊 Всего: ${fileRecords.length}, Сохранено: ${inserted}, Ошибок: ${errors}`,
 		);
+
+		// Генерация эмбеддингов для новых файлов без эмбеддингов
+		try {
+			const { data: filesWithoutEmbedding } = await supabaseAdmin
+				.from("telegram_files")
+				.select("message_id, file_name")
+				.is("embedding", null)
+				.limit(200);
+
+			if (filesWithoutEmbedding && filesWithoutEmbedding.length > 0) {
+				log(`\n🧠 Генерация эмбеддингов для ${filesWithoutEmbedding.length} файлов...`);
+				let embGenerated = 0;
+				for (const f of filesWithoutEmbedding) {
+					const ok = await ensureFileEmbedding(
+						supabaseAdmin as any,
+						(f as any).message_id,
+						(f as any).file_name,
+					);
+					if (ok) embGenerated++;
+				}
+				log(`   ✅ Эмбеддинги: ${embGenerated}/${filesWithoutEmbedding.length}`);
+			}
+		} catch (embError) {
+			log(`   ⚠️ Ошибка генерации эмбеддингов: ${embError}`);
+		}
 
 		if (operationId) {
 			await updateSyncResult(supabaseAdmin as any, operationId, {
