@@ -140,17 +140,16 @@ export class TelegramService {
 	public async getFilesChannel() {
 		await this.ensureConnected();
 
-		// Используем прямой доступ к каналу по ID вместо invite link
+		const channelIdEnv = process.env.TELEGRAM_FILES_CHANNEL_ID;
+		if (!channelIdEnv) {
+			throw new Error(
+				"TELEGRAM_FILES_CHANNEL_ID must be set in environment variables",
+			);
+		}
+		const channelId = parseInt(channelIdEnv, 10);
 		const logMessage =
 			'📚 Получаем доступ к каналу "Архив для фантастики" по ID...';
 		console.log(logMessage);
-		if (
-			typeof window !== "undefined" &&
-			(window as any).updateFileSearchResults
-		) {
-			(window as any).updateFileSearchResults(`${logMessage}\n`);
-		}
-		const channelId = 1515159552; // ID канала "Архив для фантастики"
 
 		try {
 			const entity = await this.client.getEntity(
@@ -300,10 +299,39 @@ export class TelegramService {
 		}
 	}
 
-	public async downloadFile(_fileId: string): Promise<Buffer> {
+	public async downloadFile(fileId: string): Promise<Buffer> {
+		await this.ensureConnected();
+
 		try {
-			// This is a placeholder - we'll need to implement proper file downloading
-			throw new Error("downloadFile not implemented for session-based client");
+			const messageId = parseInt(fileId, 10);
+			if (Number.isNaN(messageId)) {
+				throw new Error(`Invalid file ID: ${fileId}`);
+			}
+
+			const channel = await this.getFilesChannel();
+			const channelId =
+				typeof channel.id === "object" && channel.id !== null
+					? (channel.id as { toString: () => string }).toString()
+					: String(channel.id);
+
+			const messages = await this.client.getMessages(channelId, {
+				ids: [messageId],
+			});
+
+			if (!messages || messages.length === 0) {
+				throw new Error(`Message ${messageId} not found in files channel`);
+			}
+
+			const message = messages[0];
+			const buffer = await this.client.downloadMedia(message as any, {});
+
+			if (!buffer) {
+				throw new Error(`Failed to download media from message ${messageId}`);
+			}
+
+			return Buffer.isBuffer(buffer)
+				? buffer
+				: Buffer.from(buffer as unknown as Uint8Array);
 		} catch (error) {
 			console.error("Error downloading file:", error);
 			throw error;

@@ -1,6 +1,6 @@
-import { putObject } from "../s3";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
+import { downloadCoverFromMessage } from "./cover-download";
 import { type BookMetadata, MetadataParser } from "./parser";
 
 // Local type definition for Telegram Message (node-telegram-bot-api was removed)
@@ -554,172 +554,19 @@ export class TelegramMetadataService {
 				}
 
 				// Извлекаем URL обложек из медиа-файлов сообщения ТОЛЬКО если книга не существует
-				const coverUrls: string[] = [];
+				let coverUrls: string[] = [];
 
 				// Проверяем наличие медиа в сообщении ТОЛЬКО если книга не существует
-				if (!bookExists && anyMsg.media) {
+				if (!bookExists && anyMsg.media && this.telegramClient) {
 					console.log(
 						`  📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`,
 					);
-
-					// Функция для повторных попыток загрузки с увеличенным таймаутом
-					const downloadWithRetry = async (media: unknown, maxRetries = 3) => {
-						for (let attempt = 1; attempt <= maxRetries; attempt++) {
-							try {
-								console.log(
-									`    → Попытка загрузки ${attempt}/${maxRetries}...`,
-								);
-								if (!this.telegramClient) {
-									throw new Error("Telegram client not initialized");
-								}
-								const result = await Promise.race([
-									this.telegramClient.downloadMedia(media),
-									new Promise<never>((_, reject) =>
-										setTimeout(
-											() =>
-												reject(
-													new Error(
-														`Timeout: Downloading media took too long (attempt ${attempt}/${maxRetries})`,
-													),
-												),
-											60000,
-										),
-									), // Увеличиваем до 60 секунд
-								]);
-								return result;
-							} catch (err: unknown) {
-								console.warn(
-									`    ⚠️ Попытка ${attempt} не удалась:`,
-									err instanceof Error ? err.message : "Unknown error",
-								);
-								if (attempt === maxRetries) {
-									throw err; // Если все попытки неудачны, выбрасываем ошибку
-								}
-								// Ждем перед следующей попыткой
-								await new Promise((resolve) =>
-									setTimeout(resolve, 2000 * attempt),
-								);
-							}
-						}
-					};
-
-					// Если это веб-превью (MessageMediaWebPage) - основной случай для обложек
-					if (
-						(anyMsg.media as { className: string }).className ===
-							"MessageMediaWebPage" &&
-						(anyMsg.media as { webpage?: { photo?: unknown } }).webpage?.photo
-					) {
-						console.log(`  → Веб-превью с фото`);
-						try {
-							console.log(`  → Скачиваем фото из веб-превью...`);
-							const result = await downloadWithRetry(
-								(anyMsg.media as { webpage: { photo: unknown } }).webpage.photo,
-							);
-							const photoBuffer = result instanceof Buffer ? result : null;
-							if (photoBuffer) {
-								const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-								console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-								const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
-								if (!coversBucket) {
-									throw new Error(
-										"S3_COVERS_BUCKET_NAME environment variable is not set.",
-									);
-								}
-								await putObject(
-									photoKey,
-									Buffer.from(photoBuffer),
-									coversBucket,
-									"image/jpeg",
-								);
-								const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
-								coverUrls.push(photoUrl);
-								console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-							} else {
-								console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
-							}
-						} catch (err: unknown) {
-							console.error(
-								`  ❌ Ошибка загрузки обложки из веб-превью:`,
-								err instanceof Error ? err.message : "Unknown error",
-							);
-						}
-					}
-					// Если это одно фото (MessageMediaPhoto)
-					else if ((anyMsg.media as { photo?: unknown }).photo) {
-						console.log(`  → Одиночное фото`);
-						try {
-							console.log(`  → Скачиваем фото...`);
-							const result = await downloadWithRetry(msg);
-							const photoBuffer = result instanceof Buffer ? result : null;
-							if (photoBuffer) {
-								const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-								console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-								const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
-								if (!coversBucket) {
-									throw new Error(
-										"S3_COVERS_BUCKET_NAME environment variable is not set.",
-									);
-								}
-								await putObject(
-									photoKey,
-									Buffer.from(photoBuffer),
-									coversBucket,
-									"image/jpeg",
-								);
-								const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
-								coverUrls.push(photoUrl);
-								console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-							} else {
-								console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
-							}
-						} catch (err: unknown) {
-							console.error(
-								`  ❌ Ошибка загрузки обложки:`,
-								err instanceof Error ? err.message : "Unknown error",
-							);
-						}
-					}
-					// Если это документ с изображением
-					else if ((anyMsg.media as { document?: unknown }).document) {
-						const mimeType = (
-							anyMsg.media as { document: { mimeType?: string } }
-						).document.mimeType;
-						if (mimeType?.startsWith("image/")) {
-							console.log(`  → Одиночное изображение (документ: ${mimeType})`);
-							try {
-								console.log(`  → Скачиваем изображение...`);
-								const result = await downloadWithRetry(msg);
-								const photoBuffer = result instanceof Buffer ? result : null;
-								if (photoBuffer) {
-									const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-									console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-									const coversBucket = process.env.S3_COVERS_BUCKET_NAME;
-									if (!coversBucket) {
-										throw new Error(
-											"S3_COVERS_BUCKET_NAME environment variable is not set.",
-										);
-									}
-									await putObject(
-										photoKey,
-										Buffer.from(photoBuffer),
-										coversBucket,
-									);
-									const photoUrl = `https://${coversBucket}.s3.cloud.ru/${photoKey}`;
-									coverUrls.push(photoUrl);
-									console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-								} else {
-									console.warn(
-										`  ⚠️ Не удалось скачать изображение (пустой буфер)`,
-									);
-								}
-							} catch (err: unknown) {
-								console.error(
-									`  ❌ Ошибка загрузки обложки:`,
-									err instanceof Error ? err.message : "Unknown error",
-								);
-							}
-						}
-					}
+					const coverResult = await downloadCoverFromMessage(
+						this.telegramClient,
+						Number(anyMsg.id),
+						anyMsg.media,
+					);
+					coverUrls = coverResult.coverUrls;
 				}
 
 				// Добавляем метаданные в список
