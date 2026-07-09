@@ -1,9 +1,16 @@
 # Progress
 
 ## Контроль изменений
-last_checked_commit: 9afffb22b5b60d5676574762f9476c884888d778
+last_checked_commit: b76d2155706a469adf225b8d0cd991f6685a2d1
 
 ## Changelog
+- 2026-07-09: Stuck job recovery + bulk embeddings + monitoring
+  - cleanupStaleRunningJobs() в saveSyncResult() для всех типов джобов (>60 min timeout)
+  - 30-min timeout для auto-update с автоматическим mark-as-failed
+  - POST /api/admin/embeddings/generate — batch генерация эмбеддингов (150 файлов за раз)
+  - useEmbeddingPolling hook для авто-обновления статистики
+  - EmbeddingProgress компонент с progress bar и retry utility (exponential backoff)
+
 - 2026-07-09: Динамический лимит генерации эмбеддингов
   - Заменён фиксированный лимит 10 на динамический = количество вставленных файлов
   - Все новые файлы теперь получают эмбеддинги в фоне

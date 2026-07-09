@@ -1,17 +1,16 @@
 # Active Context
 
 ## Текущий коммит
-`9afffb2` — fix: dynamic embedding limit based on inserted files count
+`b76d215` — feat: embedding generation progress tracking
 
 ## Текущий фокус
-Улучшение индексации файлов Telegram: динамический лимит генерации эмбеддингов.
-Все новые файлы теперь получают эмбеддинги в фоне после индексации.
+Admin improvements: stuck job recovery, bulk embedding generation, monitoring UI.
 
 ## Что сделано в последней сессии
-1. Заменён фиксированный лимит 10 на динамический = количество вставленных файлов
-2. Все новые файлы теперь получают эмбеддинги в фоне
-3. Добавлено поле `embeddings_queued` в статистику и детали операции
-4. Добавлен лог о запуске фоновой генерации эмбеддингов
+1. Fix stuck jobs: auto-cleanup stale running jobs (>60 min), 30-min timeout for auto-update, recovery in saveSyncResult()
+2. Bulk embeddings: POST /api/admin/embeddings/generate endpoint with batch processing (150 files, 20 per API call)
+3. Monitoring: useEmbeddingPolling hook, EmbeddingProgress component with progress bar, retry utility with exponential backoff
+4. Refactored TelegramFilesIndexer to use reusable EmbeddingProgress component
 
 ## Активные решения
 - Auth вынесен в единый `requireAdminRequest()` — 33 роута используют его
@@ -20,8 +19,8 @@
 - Hybrid matching: 0.6×lexical + 0.4×embedding scoring через pgvector + Voyage AI (1024-dim)
 
 ## Known Issues
-- `sync_job_results` status может застрять в "running" если insert fails silently
 - Vercel Deployment Protection блокирует unauthenticated curl к preview deployments
+- Biome: 147 warnings (noExplicitAny, noUnusedImports) — pre-existing, не блокируют билд
 
 ## Блокеры
 - Нет
