@@ -354,16 +354,21 @@ export async function POST(request: NextRequest) {
 		const SYNC_TIMEOUT_MS = 30 * 60 * 1000;
 
 		// Выполняем обновление асинхронно с таймаутом
-		const _timeoutPromise = new Promise<never>((_, reject) =>
-			setTimeout(
-				() => reject(new Error("Timeout: sync exceeded 30 minutes")),
-				SYNC_TIMEOUT_MS,
-			),
-		);
+		const timeoutId = setTimeout(async () => {
+			console.error("⏰ Auto update sync timed out after 30 minutes");
+			if (syncRecord?.id) {
+				await updateSyncResult(supabaseAdmin, syncRecord.id, {
+					status: "failed",
+					completed_at: new Date().toISOString(),
+					error_message: "Timeout: sync exceeded 30 minutes",
+				});
+			}
+		}, SYNC_TIMEOUT_MS);
 
 		bookWorm
 			.runUpdateSync()
 			.then(async (result) => {
+				clearTimeout(timeoutId);
 				console.log("Auto update completed successfully:", result);
 
 				// Обновляем настройки - фиксируем время последнего запуска и планируем следующий
@@ -423,6 +428,7 @@ export async function POST(request: NextRequest) {
 				}
 			})
 			.catch(async (error) => {
+				clearTimeout(timeoutId);
 				console.error("Auto update failed:", error);
 
 				// Сохраняем ошибку в БД
