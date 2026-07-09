@@ -41,6 +41,12 @@ interface UserProfile {
 	role: string;
 }
 
+interface SelectedSyncResult {
+	job_type: string;
+	status: string;
+	log_output?: string;
+}
+
 export default function AdminPage() {
 	const [supabase] = useState(() => getBrowserSupabase());
 	const router = useRouter();
@@ -58,6 +64,8 @@ export default function AdminPage() {
 	const [user, setUser] = useState<User | null>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [syncRefreshTrigger, setSyncRefreshTrigger] = useState(0);
+	const [selectedResult, setSelectedResult] =
+		useState<SelectedSyncResult | null>(null);
 
 	const [tgPhone, setTgPhone] = useState("");
 	const [tgCode, setTgCode] = useState("");
@@ -690,17 +698,32 @@ export default function AdminPage() {
 											<CardTitle className="flex items-center gap-2">
 												<DatabaseZap className="h-4 w-4 text-muted-foreground" />
 												Операционный журнал
+												{selectedResult && (
+													<Button
+														variant="ghost"
+														size="sm"
+														className="ml-auto h-6 text-xs"
+														onClick={() => setSelectedResult(null)}
+													>
+														Вернуться к текущей сессии
+													</Button>
+												)}
 											</CardTitle>
 										</CardHeader>
 										<CardContent className="pt-0">
 											<pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
-												{lastBookWormReport ||
-													"Событий в текущей сессии пока нет."}
+												{selectedResult
+													? selectedResult.log_output || "Лог пуст"
+													: lastBookWormReport ||
+														"Событий в текущей сессии пока нет."}
 											</pre>
 										</CardContent>
 									</Card>
 									<div className="xl:col-span-3">
-										<SyncResultsPanel refreshTrigger={syncRefreshTrigger} />
+										<SyncResultsPanel
+											refreshTrigger={syncRefreshTrigger}
+											onSelectResult={setSelectedResult}
+										/>
 									</div>
 								</div>
 							</TabsContent>

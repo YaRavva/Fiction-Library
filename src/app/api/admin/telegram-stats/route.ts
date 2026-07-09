@@ -3,11 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
-import type { Database } from "@/lib/database.types";
 import {
 	saveSyncResult,
 	updateSyncResult,
 } from "@/app/api/admin/sync-results/route";
+import type { Database } from "@/lib/database.types";
 import { updateTelegramStats } from "@/lib/telegram/update-stats";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

@@ -430,7 +430,12 @@ export function scoreFileToBook(
 			const bw = bookTitleWords[j];
 			const bwNorm = bookTitleWordsNorm[j];
 			// Match on both original and Telegram-normalized forms
-			if (fuzzyMatch(fw, bw) || fuzzyMatch(fwNorm, bwNorm) || fuzzyMatch(fwNorm, bw) || fuzzyMatch(fw, bwNorm)) {
+			if (
+				fuzzyMatch(fw, bw) ||
+				fuzzyMatch(fwNorm, bwNorm) ||
+				fuzzyMatch(fwNorm, bw) ||
+				fuzzyMatch(fw, bwNorm)
+			) {
 				matchedFileTitleWords.add(fw);
 				matchedBookTitleWords.add(bw);
 				break;

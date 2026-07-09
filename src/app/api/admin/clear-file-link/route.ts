@@ -31,11 +31,11 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Проверяем, что книга существует
-		const { data: book, error: bookError } = await auth.admin
+		const { data: book, error: bookError } = (await auth.admin
 			.from("books")
 			.select("*")
 			.eq("id", bookId)
-			.single() as {
+			.single()) as {
 			data: Database["public"]["Tables"]["books"]["Row"] | null;
 			error: { message: string } | null;
 		};

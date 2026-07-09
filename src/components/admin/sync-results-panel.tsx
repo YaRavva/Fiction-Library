@@ -3,7 +3,6 @@
 import {
 	CheckCircle2,
 	ChevronDown,
-	ChevronUp,
 	Clock,
 	Loader2,
 	RefreshCw,
@@ -17,7 +16,7 @@ import { getBrowserSupabase } from "@/lib/browserSupabase";
 
 interface SyncJobResult {
 	id: string;
-	job_type: string; // full, update, auto, file_index, stats_update, duplicates_resolve, file_link
+	job_type: string;
 	status: "running" | "completed" | "failed";
 	started_at: string;
 	completed_at?: string;
@@ -37,14 +36,20 @@ interface SyncJobResult {
 
 interface SyncResultsPanelProps {
 	refreshTrigger?: number;
+	onSelectResult?: (result: {
+		job_type: string;
+		status: string;
+		log_output?: string;
+	}) => void;
 }
 
 export function SyncResultsPanel({
 	refreshTrigger: _refreshTrigger,
+	onSelectResult,
 }: SyncResultsPanelProps) {
 	const [results, setResults] = useState<SyncJobResult[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [expandedId, setExpandedId] = useState<string | null>(null);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const supabase = getBrowserSupabase();
 
 	const fetchResults = useCallback(async () => {
@@ -76,7 +81,6 @@ export function SyncResultsPanel({
 		fetchResults();
 	}, [fetchResults]);
 
-	// Автообновление каждые 30 секунд если есть running задачи
 	useEffect(() => {
 		const hasRunning = results.some((r) => r.status === "running");
 		if (!hasRunning) return;
@@ -153,8 +157,13 @@ export function SyncResultsPanel({
 		}
 	};
 
-	const toggleExpand = (id: string) => {
-		setExpandedId(expandedId === id ? null : id);
+	const handleSelectResult = (result: SyncJobResult) => {
+		setSelectedId(result.id === selectedId ? null : result.id);
+		onSelectResult?.({
+			job_type: result.job_type,
+			status: result.status,
+			log_output: result.log_output,
+		});
 	};
 
 	return (
@@ -191,13 +200,16 @@ export function SyncResultsPanel({
 							{results.map((result) => (
 								<div
 									key={result.id}
-									className="overflow-hidden rounded-md border"
+									className={`overflow-hidden rounded-md border transition-colors ${
+										selectedId === result.id
+											? "border-primary bg-primary/5"
+											: ""
+									}`}
 								>
-									{/* Заголовок задачи */}
 									<button
 										type="button"
 										className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
-										onClick={() => toggleExpand(result.id)}
+										onClick={() => handleSelectResult(result)}
 									>
 										<div className="flex items-center gap-3">
 											{getStatusIcon(result.status)}
@@ -231,77 +243,8 @@ export function SyncResultsPanel({
 												</div>
 											</div>
 										</div>
-										{expandedId === result.id ? (
-											<ChevronUp className="h-4 w-4 text-muted-foreground" />
-										) : (
-											<ChevronDown className="h-4 w-4 text-muted-foreground" />
-										)}
+										<ChevronDown className="h-4 w-4 text-muted-foreground" />
 									</button>
-
-									{/* Развернутые детали */}
-									{expandedId === result.id && (
-										<div className="px-4 pb-4 pt-2 border-t bg-muted/30">
-											{/* Статистика */}
-											<div className="grid grid-cols-2 gap-2 mb-3">
-												{result.metadata_processed !== undefined && (
-													<div className="text-sm">
-														<span className="text-muted-foreground">
-															Обработано:
-														</span>{" "}
-														{result.metadata_processed}
-													</div>
-												)}
-												{result.metadata_added !== undefined &&
-													result.metadata_added > 0 && (
-														<div className="text-sm">
-															<span className="text-muted-foreground">
-																Добавлено:
-															</span>{" "}
-															<span className="text-green-600 dark:text-green-400">
-																+{result.metadata_added}
-															</span>
-														</div>
-													)}
-												{result.metadata_updated !== undefined &&
-													result.metadata_updated > 0 && (
-														<div className="text-sm">
-															<span className="text-muted-foreground">
-																Обновлено:
-															</span>{" "}
-															{result.metadata_updated}
-														</div>
-													)}
-												{result.files_linked !== undefined &&
-													result.files_linked > 0 && (
-														<div className="text-sm">
-															<span className="text-muted-foreground">
-																Файлов привязано:
-															</span>{" "}
-															{result.files_linked}
-														</div>
-													)}
-											</div>
-
-											{/* Ошибка */}
-											{result.error_message && (
-												<div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-2 rounded mb-3">
-													{result.error_message}
-												</div>
-											)}
-
-											{/* Лог */}
-											{result.log_output && (
-												<details className="text-sm">
-													<summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-														Показать лог
-													</summary>
-													<div className="mt-2 p-2 bg-muted rounded text-sm overflow-x-auto whitespace-pre-wrap">
-														{result.log_output}
-													</div>
-												</details>
-											)}
-										</div>
-									)}
 								</div>
 							))}
 						</div>

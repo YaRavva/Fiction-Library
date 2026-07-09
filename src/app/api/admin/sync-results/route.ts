@@ -173,7 +173,9 @@ export async function saveSyncResult(
 	const typedAdmin = supabaseAdmin as any;
 	const { data, error } = await typedAdmin
 		.from("sync_job_results")
-		.insert(result as Database["public"]["Tables"]["sync_job_results"]["Insert"])
+		.insert(
+			result as Database["public"]["Tables"]["sync_job_results"]["Insert"],
+		)
 		.select()
 		.single();
 
@@ -199,7 +201,9 @@ export async function updateSyncResult(
 	const typedAdmin = supabaseAdmin as any;
 	const { data, error } = await typedAdmin
 		.from("sync_job_results")
-		.update(updates as Database["public"]["Tables"]["sync_job_results"]["Update"])
+		.update(
+			updates as Database["public"]["Tables"]["sync_job_results"]["Update"],
+		)
 		.eq("id", id)
 		.select()
 		.single();

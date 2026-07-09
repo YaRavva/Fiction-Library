@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
-import type { Database } from "@/lib/database.types";
 import {
 	type BookOption,
 	type FileOption,
 	scoreFileToBook,
 } from "@/lib/book-file-scorer";
+import type { Database } from "@/lib/database.types";
 import {
 	DEFAULT_EMBEDDING_MODEL,
 	generateEmbedding,
@@ -94,14 +94,11 @@ export async function POST(request: NextRequest) {
 			const queryText = prepareBookText(title, author);
 			const queryEmbedding = await generateEmbedding(queryText, { model });
 
-			const { data, error } = await typedAdmin.rpc(
-				"match_telegram_files",
-				{
-					query_embedding: `[${queryEmbedding.embedding.join(",")}]`,
-					match_threshold: 0.35,
-					match_count: 250,
-				},
-			);
+			const { data, error } = await typedAdmin.rpc("match_telegram_files", {
+				query_embedding: `[${queryEmbedding.embedding.join(",")}]`,
+				match_threshold: 0.35,
+				match_count: 250,
+			});
 
 			if (!error && data) {
 				vectorCandidates = data as TelegramFileCandidate[];
@@ -175,7 +172,10 @@ export async function POST(request: NextRequest) {
 	} catch (error: unknown) {
 		console.error("Error searching file matches:", error);
 		return NextResponse.json(
-			{ error: error instanceof Error ? error.message : "Failed to search matches" },
+			{
+				error:
+					error instanceof Error ? error.message : "Failed to search matches",
+			},
 			{ status: 500 },
 		);
 	}

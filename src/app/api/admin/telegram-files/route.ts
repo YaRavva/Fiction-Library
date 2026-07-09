@@ -10,8 +10,20 @@ interface TelegramMessage {
 		mimeType?: string;
 	};
 	media?: {
-		document?: { fileName?: string; filename?: string; size?: number; mimeType?: string; mime_type?: string };
-		photo?: { fileName?: string; filename?: string; size?: number; mimeType?: string; mime_type?: string };
+		document?: {
+			fileName?: string;
+			filename?: string;
+			size?: number;
+			mimeType?: string;
+			mime_type?: string;
+		};
+		photo?: {
+			fileName?: string;
+			filename?: string;
+			size?: number;
+			mimeType?: string;
+			mime_type?: string;
+		};
 	};
 	message?: string;
 	fileName?: string;
@@ -93,9 +105,7 @@ export async function GET(request: NextRequest) {
 			const messages = await telegramClient.getAllMessages(channelId, 10000);
 
 			const files = (messages as TelegramMessage[])
-				.filter(
-					(msg) => msg.media && (msg.media.document || msg.media.photo),
-				)
+				.filter((msg) => msg.media && (msg.media.document || msg.media.photo))
 				.map((msg) => {
 					const rawFileName = getOriginalFilename(msg);
 					const normalizedFileName = rawFileName.normalize("NFC");

@@ -378,13 +378,14 @@ export async function POST(request: NextRequest) {
 				); // interval в минутах
 
 				// Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
-				const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] = {
-					id: 1,
-					enabled: true,
-					interval: autoUpdateSettings.interval,
-					last_run: now.toISOString(),
-					next_run: nextRun.toISOString(),
-				};
+				const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] =
+					{
+						id: 1,
+						enabled: true,
+						interval: autoUpdateSettings.interval,
+						last_run: now.toISOString(),
+						next_run: nextRun.toISOString(),
+					};
 
 				console.log(
 					"Attempting to update auto update settings after sync:",
@@ -551,13 +552,14 @@ export async function PUT(request: NextRequest) {
 		}
 
 		// Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
-		const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] = {
-			id: newSettings.id,
-			enabled: newSettings.enabled,
-			interval: newSettings.interval,
-			last_run: newSettings.lastRun,
-			next_run: newSettings.nextRun,
-		};
+		const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] =
+			{
+				id: newSettings.id,
+				enabled: newSettings.enabled,
+				interval: newSettings.interval,
+				last_run: newSettings.lastRun,
+				next_run: newSettings.nextRun,
+			};
 
 		console.log("Attempting to save auto update settings:", settingsForDb); // Отладочный лог
 

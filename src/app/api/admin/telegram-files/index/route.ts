@@ -1,15 +1,13 @@
-import type { Database } from "@/lib/database.types";
 import { type NextRequest, NextResponse } from "next/server";
 import {
 	saveSyncResult,
 	updateSyncResult,
 } from "@/app/api/admin/sync-results/route";
 import { requireAdminRequest } from "@/lib/admin-auth";
+import type { Database } from "@/lib/database.types";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { TelegramService } from "@/lib/telegram/client";
-import {
-	ensureFileEmbedding,
-} from "@/lib/telegram/unified-file-matcher";
+import { ensureFileEmbedding } from "@/lib/telegram/unified-file-matcher";
 
 interface TelegramDocumentAttr {
 	className?: string;
@@ -92,7 +90,9 @@ function extractFileData(message: TelegramMessage): {
 	const fileSize = doc.size || null;
 	const mimeType = doc.mimeType || null;
 	const caption = message.message || null;
-	const date = message.date ? new Date(message.date * 1000).toISOString() : null;
+	const date = message.date
+		? new Date(message.date * 1000).toISOString()
+		: null;
 
 	return {
 		message_id: message.id,
@@ -135,7 +135,9 @@ export async function POST(request: NextRequest) {
 		const telegramClient = await TelegramService.getInstance();
 		const channel = await telegramClient.getFilesChannel();
 
-		log(`Подключились к каналу: ${(channel as unknown as TelegramChannel).title || channel}`);
+		log(
+			`Подключились к каналу: ${(channel as unknown as TelegramChannel).title || channel}`,
+		);
 
 		const allMessages = await telegramClient.getAllMessages(channel, 300, {
 			onLog: log,
@@ -143,7 +145,8 @@ export async function POST(request: NextRequest) {
 
 		log(`📥 Загружено ${allMessages.length} сообщений`);
 
-		const fileRecords: Database["public"]["Tables"]["telegram_files"]["Insert"][] = [];
+		const fileRecords: Database["public"]["Tables"]["telegram_files"]["Insert"][] =
+			[];
 		let skipped = 0;
 
 		for (const msg of allMessages as TelegramMessage[]) {
@@ -214,12 +217,22 @@ export async function POST(request: NextRequest) {
 			.select("message_id, file_name")
 			.is("embedding", null)
 			.limit(10)
-			.then(async ({ data }: { data: { message_id: number; file_name: string | null }[] | null }) => {
-				if (!data || data.length === 0) return;
-				for (const f of data) {
-					await ensureFileEmbedding(supabaseAdmin, f.message_id, f.file_name ?? "");
-				}
-			})
+			.then(
+				async ({
+					data,
+				}: {
+					data: { message_id: number; file_name: string | null }[] | null;
+				}) => {
+					if (!data || data.length === 0) return;
+					for (const f of data) {
+						await ensureFileEmbedding(
+							supabaseAdmin,
+							f.message_id,
+							f.file_name ?? "",
+						);
+					}
+				},
+			)
 			.catch(() => {});
 
 		return NextResponse.json({

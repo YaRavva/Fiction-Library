@@ -77,7 +77,9 @@ export async function POST(request: Request) {
 			} catch (err: unknown) {
 				await client.disconnect();
 				return NextResponse.json(
-					{ error: err instanceof Error ? err.message : "Ошибка отправки кода" },
+					{
+						error: err instanceof Error ? err.message : "Ошибка отправки кода",
+					},
 					{ status: 400 },
 				);
 			}
@@ -145,7 +147,9 @@ export async function POST(request: Request) {
 						await client.disconnect();
 						pendingLogins.delete(phone);
 						return NextResponse.json(
-							{ error: `Ошибка пароля: ${pwError instanceof Error ? pwError.message : String(pwError)}` },
+							{
+								error: `Ошибка пароля: ${pwError instanceof Error ? pwError.message : String(pwError)}`,
+							},
 							{ status: 400 },
 						);
 					}
