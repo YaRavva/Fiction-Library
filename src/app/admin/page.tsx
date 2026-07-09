@@ -193,19 +193,14 @@ export default function AdminPage() {
 				return;
 			}
 
-			const response = await fetch(
-				mode === "full"
-					? "/api/admin/book-worm/full-sync"
-					: "/api/admin/book-worm",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.access_token}`,
-					},
-					body: JSON.stringify({ mode }),
+			const response = await fetch("/api/admin/book-worm", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session.access_token}`,
 				},
-			);
+				body: JSON.stringify({ mode }),
+			});
 
 			const data = await response.json();
 			if (!response.ok) {
@@ -237,7 +232,7 @@ export default function AdminPage() {
 			} = await supabase.auth.getSession();
 			if (!session) return;
 
-			const response = await fetch("/api/admin/book-worm/status", {
+			const response = await fetch("/api/admin/book-worm", {
 				headers: {
 					Authorization: `Bearer ${session.access_token}`,
 				},
@@ -246,7 +241,8 @@ export default function AdminPage() {
 			if (!response.ok) return;
 
 			const data = await response.json();
-			if (data.active) {
+			const isActive = data.lastSync?.status === "running";
+			if (isActive) {
 				setBookWormRunning(true);
 			} else if (bookWormRunning) {
 				setBookWormRunning(false);

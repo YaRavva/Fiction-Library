@@ -11,7 +11,6 @@ import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
 import { FileProcessingService } from "./file-processing-service-enhanced";
-import { TelegramFileService } from "./file-service";
 import { TelegramMetadataService } from "./metadata-service";
 import { type BookMetadata, MetadataParser } from "./parser";
 import {
@@ -36,8 +35,7 @@ export class BookWormService {
 	private static instance: BookWormService;
 	private telegramService: TelegramService | null = null;
 	private metadataService: TelegramMetadataService | null = null;
-	private fileService: TelegramFileService | null = null;
-	private enhancedFileService: FileProcessingService | null = null;
+	private fileService: FileProcessingService | null = null;
 
 	private constructor() {}
 
@@ -52,8 +50,7 @@ export class BookWormService {
 	private async initialize() {
 		this.telegramService = await TelegramService.getInstance();
 		this.metadataService = await TelegramMetadataService.getInstance();
-		this.fileService = await TelegramFileService.getInstance();
-		this.enhancedFileService = await FileProcessingService.getInstance();
+		this.fileService = await FileProcessingService.getInstance();
 	}
 
 	/**
@@ -120,10 +117,9 @@ export class BookWormService {
 
 					try {
 						// Обрабатываем найденный файл
-						const _result =
-							await this.enhancedFileService?.processSingleFileById(
-								parseInt(matchingFile.messageId as string, 10),
-							);
+						const _result = await this.fileService?.processSingleFileById(
+							parseInt(matchingFile.messageId as string, 10),
+						);
 						console.log(`    ✅ Файл успешно обработан и привязан к книге`);
 						matchedCount++;
 					} catch (processError) {
@@ -1079,15 +1075,13 @@ export class BookWormService {
 								try {
 									const matchingFile = filesToProcess.find(
 										(f: any) =>
-											(f.messageId &&
-												f.messageId === fileOpt.message_id) ||
-											(f.message_id &&
-												f.message_id === fileOpt.message_id),
+											(f.messageId && f.messageId === fileOpt.message_id) ||
+											(f.message_id && f.message_id === fileOpt.message_id),
 									);
 
 									if (matchingFile) {
 										const _result =
-											await this.enhancedFileService?.processSingleFileById(
+											await this.fileService?.processSingleFileById(
 												parseInt(matchingFile.messageId as string, 10),
 												match.book.id,
 											);

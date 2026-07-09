@@ -1,3 +1,7 @@
+/**
+ * @deprecated Use BookWormService instead. This file is kept for backward compatibility
+ * with file-link and process-file endpoints. Will be removed when those are migrated.
+ */
 import * as path from "node:path";
 import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
