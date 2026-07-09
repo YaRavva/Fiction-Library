@@ -240,16 +240,6 @@ export function EmbeddingProgress({
 						</div>
 					)}
 
-					{/* Completed state */}
-					{!isGenerating &&
-						!isBackgroundGenerating &&
-						filesPending === 0 &&
-						filesTotal > 0 && (
-							<div className="rounded-md bg-emerald-500/10 p-2 text-emerald-700 text-xs dark:text-emerald-400">
-								Все эмбеддинги сгенерированы ({filesTotal}/{filesTotal})
-							</div>
-						)}
-
 					{/* No embeddings yet */}
 					{filesTotal === 0 && (
 						<div className="text-muted-foreground text-xs">

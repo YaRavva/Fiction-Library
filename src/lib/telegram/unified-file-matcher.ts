@@ -3,7 +3,7 @@
  * Combines lexical (word-based) and embedding (vector similarity) scoring
  * into a single hybrid scoring algorithm.
  *
- * Used by: book-worm, file-processing-service, admin file-linking.
+ * Used by: book-worm and file-processing-service.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

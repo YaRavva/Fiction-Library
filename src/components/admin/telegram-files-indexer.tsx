@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
-import { EmbeddingProgress } from "./embedding-progress";
 
 interface IndexStats {
 	total_files: number;
@@ -143,11 +142,6 @@ export function TelegramFilesIndexer() {
 						{error}
 					</div>
 				)}
-
-				{/* Embedding Section - uses reusable component */}
-				<div className="border-t pt-3">
-					<EmbeddingProgress showControls={true} />
-				</div>
 			</CardContent>
 		</Card>
 	);

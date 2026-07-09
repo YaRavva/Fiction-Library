@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
-import { EmbeddingProgress } from "./embedding-progress";
 
 interface TelegramStats {
 	booksInDatabase: number;
@@ -389,11 +388,6 @@ export function TelegramStatsSection() {
 							{animatedStats.booksWithoutFiles.toLocaleString()}
 						</p>
 					</div>
-				</div>
-
-				{/* Embedding Progress Section */}
-				<div className="mt-4 border-t pt-4">
-					<EmbeddingProgress showControls={false} />
 				</div>
 			</CardContent>
 		</Card>

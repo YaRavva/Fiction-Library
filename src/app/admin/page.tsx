@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { FileLinkingView } from "@/components/admin/file-linking-view";
 import { SyncResultsPanel } from "@/components/admin/sync-results-panel";
 import {
 	AdminToolCards,
@@ -29,7 +28,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageTransition } from "@/components/ui/page-transition";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getValidSession } from "@/lib/auth-helpers";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
@@ -434,7 +432,7 @@ export default function AdminPage() {
 					) : null}
 
 					<main className="flex-1 overflow-y-auto">
-						<Tabs defaultValue="dashboard" className="min-h-full">
+						<div className="min-h-full">
 							<div className="border-b bg-background">
 								<div className="mx-auto flex w-full max-w-[1320px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
 									<div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
@@ -475,16 +473,10 @@ export default function AdminPage() {
 										</div>
 									</div>
 
-									<TabsList className="grid w-full grid-cols-2">
-										<TabsTrigger value="dashboard">Дашборд</TabsTrigger>
-										<TabsTrigger value="file-linking">
-											Привязка файлов
-										</TabsTrigger>
-									</TabsList>
 								</div>
 							</div>
 
-							<TabsContent value="dashboard" className="mt-0">
+							<div>
 								<div className="mx-auto grid w-full max-w-[1320px] items-start gap-6 px-4 py-7 sm:px-6 lg:px-8 xl:grid-cols-[1fr_1fr_420px]">
 									<div className="xl:col-span-2">
 										<TelegramStatsSection />
@@ -673,17 +665,19 @@ export default function AdminPage() {
 										<SyncSettingsShadix
 											bookWormRunning={bookWormRunning}
 											bookWormMode={bookWormMode}
-											bookWormInterval={bookWormInterval}
-											bookWormAutoUpdate={bookWormAutoUpdate}
 											handleRunBookWorm={handleRunBookWorm}
-											handleToggleAutoUpdate={setBookWormAutoUpdate}
-											setBookWormInterval={setBookWormInterval}
 										/>
 									</div>
 									<div className="xl:col-start-2 xl:row-start-2">
 										<TelegramFilesIndexer />
 									</div>
-									<AdminToolCards className="h-full xl:col-start-3 xl:row-start-2 xl:grid-rows-[auto_1fr]" />
+									<AdminToolCards
+										className="h-full xl:col-start-3 xl:row-start-2 xl:grid-rows-[auto_1fr]"
+										bookWormAutoUpdate={bookWormAutoUpdate}
+										bookWormInterval={bookWormInterval}
+										handleToggleAutoUpdate={setBookWormAutoUpdate}
+										setBookWormInterval={setBookWormInterval}
+									/>
 								<Card className="min-h-[156px] rounded-lg xl:col-span-3">
 										<CardHeader className="pb-2">
 											<CardTitle className="flex items-center gap-2">
@@ -717,11 +711,8 @@ export default function AdminPage() {
 										/>
 									</div>
 								</div>
-							</TabsContent>
-							<TabsContent value="file-linking" className="mt-0">
-								<FileLinkingView />
-							</TabsContent>
-						</Tabs>
+							</div>
+						</div>
 					</main>
 				</div>
 			</div>
