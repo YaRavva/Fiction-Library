@@ -195,6 +195,10 @@ export async function POST(request: NextRequest) {
 			`   📊 Всего: ${fileRecords.length}, Сохранено: ${inserted}, Ошибок: ${errors}`,
 		);
 
+		if (inserted > 0) {
+			log(`\n⏳ Запуск генерации эмбеддингов для ${inserted} файлов в фоне...`);
+		}
+
 		if (operationId) {
 			await updateSyncResult(supabaseAdmin, operationId, {
 				status: "completed",
@@ -206,34 +210,44 @@ export async function POST(request: NextRequest) {
 				details: {
 					total_messages: allMessages.length,
 					skipped,
+					embeddings_queued: inserted,
 					duration_seconds: parseFloat(duration),
 				},
 			});
 		}
 
-		// Генерация эмбеддингов — в фоне, не блокируя ответ
-		(supabaseAdmin as any)
-			.from("telegram_files")
-			.select("message_id, file_name")
-			.is("embedding", null)
-			.limit(10)
-			.then(
-				async ({
-					data,
-				}: {
-					data: { message_id: number; file_name: string | null }[] | null;
-				}) => {
-					if (!data || data.length === 0) return;
-					for (const f of data) {
-						await ensureFileEmbedding(
-							supabaseAdmin,
-							f.message_id,
-							f.file_name ?? "",
+		// Генерация эмбеддингов для всех новых файлов — в фоне, не блокируя ответ
+		// Лимит = количество вставленных файлов (все новые файлы)
+		const filesNeedingEmbeddings = inserted;
+		if (filesNeedingEmbeddings > 0) {
+			(supabaseAdmin as any)
+				.from("telegram_files")
+				.select("message_id, file_name")
+				.is("embedding", null)
+				.limit(filesNeedingEmbeddings)
+				.then(
+					async ({
+						data,
+					}: {
+						data: { message_id: number; file_name: string | null }[] | null;
+					}) => {
+						if (!data || data.length === 0) return;
+						let embeddingsGenerated = 0;
+						for (const f of data) {
+							const success = await ensureFileEmbedding(
+								supabaseAdmin,
+								f.message_id,
+								f.file_name ?? "",
+							);
+							if (success) embeddingsGenerated++;
+						}
+						log(
+							`\n✨ Сгенерировано эмбеддингов: ${embeddingsGenerated}/${data.length}`,
 						);
-					}
-				},
-			)
-			.catch(() => {});
+					},
+				)
+				.catch(() => {});
+		}
 
 		return NextResponse.json({
 			success: true,
@@ -243,6 +257,7 @@ export async function POST(request: NextRequest) {
 				skipped,
 				inserted,
 				errors,
+				embeddings_queued: inserted, // Все вставленные файлы будут иметь эмбеддинги
 				duration_seconds: parseFloat(duration),
 			},
 			logs,
