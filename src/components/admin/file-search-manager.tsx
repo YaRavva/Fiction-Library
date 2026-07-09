@@ -48,7 +48,7 @@ export function FileSearchManager() {
 	const currentBookRef = useRef<BookWithoutFile | null>(null);
 
 	// Функция для логирования в окно результатов
-	const logToResults = (message: string) => {
+	const logToResults = useCallback((message: string) => {
 		const timestamp = new Date().toLocaleTimeString("ru-RU");
 		const logMessage = `[${timestamp}] ${message}\n`;
 
@@ -63,10 +63,10 @@ export function FileSearchManager() {
 				// Игнорируем ошибки отправки
 			}
 		}
-	};
+	}, []);
 
 	// Получение токена авторизации
-	const getAuthToken = async (): Promise<string> => {
+	const getAuthToken = useCallback(async (): Promise<string> => {
 		const supabase = getBrowserSupabase();
 		const {
 			data: { session },
@@ -82,7 +82,7 @@ export function FileSearchManager() {
 		}
 
 		return session.access_token;
-	};
+	}, []);
 
 	// Очистка привязки файла к книге
 	const _clearFileLink = async (bookId: string): Promise<void> => {
@@ -161,46 +161,49 @@ export function FileSearchManager() {
 	};
 
 	// Серверный поиск файлов с использованием UniversalFileMatcher на сервере
-	const performServerSearch = async (
-		book: BookWithoutFile,
-	): Promise<FileOption[]> => {
-		const token = await getAuthToken();
-		logToResults(`🔍 Серверный поиск: "${book.author}" - "${book.title}"...`);
+	const performServerSearch = useCallback(
+		async (book: BookWithoutFile): Promise<FileOption[]> => {
+			const token = await getAuthToken();
+			logToResults(`🔍 Серверный поиск: "${book.author}" - "${book.title}"...`);
 
-		try {
-			const params = new URLSearchParams({
-				author: book.author,
-				title: book.title,
-				limit: "15",
-			});
+			try {
+				const params = new URLSearchParams({
+					author: book.author,
+					title: book.title,
+					limit: "15",
+				});
 
-			const response = await fetch(
-				`/api/admin/file-search/query?${params.toString()}`,
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				},
-			);
+				const response = await fetch(
+					`/api/admin/file-search/query?${params.toString()}`,
+					{
+						headers: { Authorization: `Bearer ${token}` },
+					},
+				);
 
-			if (!response.ok) {
-				throw new Error(`Ошибка поиска: ${response.statusText}`);
+				if (!response.ok) {
+					throw new Error(`Ошибка поиска: ${response.statusText}`);
+				}
+
+				const data = await response.json();
+
+				if (data.message) {
+					logToResults(`⚠️ ${data.message}`);
+				}
+
+				logToResults(
+					`✅ Найдено релевантных файлов: ${data.files?.length || 0}`,
+				);
+				return data.files || [];
+			} catch (error) {
+				console.error("Server search error:", error);
+				logToResults(
+					`❌ Ошибка поиска: ${error instanceof Error ? error.message : String(error)}`,
+				);
+				return [];
 			}
-
-			const data = await response.json();
-
-			if (data.message) {
-				logToResults(`⚠️ ${data.message}`);
-			}
-
-			logToResults(`✅ Найдено релевантных файлов: ${data.files?.length || 0}`);
-			return data.files || [];
-		} catch (error) {
-			console.error("Server search error:", error);
-			logToResults(
-				`❌ Ошибка поиска: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			return [];
-		}
-	};
+		},
+		[getAuthToken, logToResults],
+	);
 
 	// Загрузка всех файлов из Telegram канала (DEPRECATED - теперь используем серверный поиск)
 	// Оставляем пустышку для совместимости с типами, если нужно, или удаляем

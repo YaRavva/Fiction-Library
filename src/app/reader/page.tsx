@@ -141,7 +141,7 @@ function ReaderContent() {
 		}
 	};
 
-	const formatContent = (text: string, fileName: string) => {
+	const formatContent = useCallback((text: string, fileName: string) => {
 		if (fileName.toLowerCase().endsWith(".fb2")) {
 			// Basic FB2-to-HTML conversion
 			let body = text;
@@ -183,7 +183,7 @@ function ReaderContent() {
 				.join("");
 		}
 		return text;
-	};
+	}, []);
 
 	// Parse Chapters & Update Stats & Initial Scroll
 	useEffect(() => {
@@ -244,7 +244,7 @@ function ReaderContent() {
 		}
 	}, [content]);
 
-	const decodeText = (buffer: ArrayBuffer | Uint8Array): string => {
+	const decodeText = useCallback((buffer: ArrayBuffer | Uint8Array): string => {
 		try {
 			// Try UTF-8 first with fatal=true to catch invalid sequences
 			const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -260,7 +260,7 @@ function ReaderContent() {
 				return safeDecoder.decode(buffer);
 			}
 		}
-	};
+	}, []);
 
 	// Загрузка содержимого одиночного файла
 	const loadFileContent = useCallback(async () => {
@@ -374,14 +374,17 @@ function ReaderContent() {
 	>([]);
 
 	// Helper to fetch history
-	const getHistory = async (uId: string, bId: string) => {
-		const { data } = await supabase
-			.from("reading_history")
-			.select("*")
-			.match({ user_id: uId, book_id: bId })
-			.maybeSingle();
-		return data;
-	};
+	const getHistory = useCallback(
+		async (uId: string, bId: string) => {
+			const { data } = await supabase
+				.from("reading_history")
+				.select("*")
+				.match({ user_id: uId, book_id: bId })
+				.maybeSingle();
+			return data;
+		},
+		[supabase],
+	);
 
 	// Загрузка данных
 	useEffect(() => {
@@ -776,6 +779,7 @@ function ReaderContent() {
 								<div
 									className="prose prose-zinc dark:prose-invert max-w-none container mx-auto px-4 md:px-12 lg:px-20 leading-relaxed transition-all duration-200 text-justify hyphens-auto pb-20"
 									style={{ fontSize: `${fontSize}px` }}
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: content is sanitized via DOMPurify
 									dangerouslySetInnerHTML={{
 										__html: DOMPurify.sanitize(content, {
 											ALLOWED_TAGS: [

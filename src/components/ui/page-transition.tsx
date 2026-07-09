@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
 interface PageTransitionProps {
 	children: ReactNode;
@@ -106,6 +106,8 @@ export function ListTransition({
 	className?: string;
 	staggerDelay?: number;
 }) {
+	const baseId = useId();
+
 	return (
 		<motion.div
 			initial="hidden"
@@ -123,7 +125,8 @@ export function ListTransition({
 		>
 			{children.map((child, index) => (
 				<motion.div
-					key={index}
+					// biome-ignore lint/suspicious/noArrayIndexKey: items have no stable id
+					key={`${baseId}-${index}`}
 					variants={{
 						hidden: { opacity: 0, y: 10 },
 						visible: { opacity: 1, y: 0 },

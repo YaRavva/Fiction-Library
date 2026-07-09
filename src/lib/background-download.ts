@@ -26,6 +26,7 @@ function translateSkipReason(reason: string): string {
 /**
  * Фоновый обработчик для загрузки файлов
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: static utility class
 export class BackgroundDownloadHandler {
 	/**
 	 * Запускает фоновую загрузку файлов

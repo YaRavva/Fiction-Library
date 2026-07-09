@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parseMessage, MetadataParser } from "./parser";
+import { describe, expect, it } from "vitest";
+import { MetadataParser, parseMessage } from "./parser";
 
 const sampleMessage = `
 Название: Мастер и Маргарита
@@ -85,7 +85,9 @@ describe("MetadataParser extract functions", () => {
 	});
 
 	it("extractGenres parses hashtag genres", () => {
-		const genres = MetadataParser.extractGenres("Жанр: #фантастика #приключения");
+		const genres = MetadataParser.extractGenres(
+			"Жанр: #фантастика #приключения",
+		);
 		expect(genres).toContain("фантастика");
 		expect(genres).toContain("приключения");
 	});

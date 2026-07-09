@@ -1,7 +1,7 @@
 "use client";
 
 import { Database, RotateCcw, Search, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -43,7 +43,7 @@ export function SyncSettingsShadix({
 	const [timerValue, setTimerValue] = useState(bookWormInterval);
 	const [initialLoad, setInitialLoad] = useState(true);
 
-	const loadAutoUpdateSettings = async () => {
+	const loadAutoUpdateSettings = useCallback(async () => {
 		try {
 			const {
 				data: { session },
@@ -75,7 +75,7 @@ export function SyncSettingsShadix({
 		} finally {
 			setInitialLoad(false);
 		}
-	};
+	}, [supabase, handleToggleAutoUpdate, setBookWormInterval]);
 
 	useEffect(() => {
 		loadAutoUpdateSettings();

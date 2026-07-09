@@ -3,7 +3,7 @@
 import type { Session } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { UserAuthForm } from "@/components/auth/user-auth-form";
 import { Icons } from "@/components/ui/icons";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
@@ -18,7 +18,7 @@ function RegisterContent() {
 	const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
 	// Validate redirect URL to prevent open redirect attacks
-	const isValidRedirectUrl = (url: string | null): boolean => {
+	const isValidRedirectUrl = useCallback((url: string | null): boolean => {
 		if (!url) return false;
 		// Only allow relative URLs starting with /
 		// Reject URLs with protocol (http://, https://, javascript:, etc.)
@@ -28,7 +28,7 @@ function RegisterContent() {
 		// Reject URLs with colon (potential javascript: protocol)
 		if (url.includes(":") && !url.startsWith("/")) return false;
 		return true;
-	};
+	}, []);
 
 	useEffect(() => {
 		const rawRedirect = searchParams.get("redirectTo");

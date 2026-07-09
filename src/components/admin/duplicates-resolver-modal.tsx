@@ -7,7 +7,7 @@ import {
 	Loader2,
 	Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,7 +60,7 @@ export function DuplicatesResolverModal({
 
 	const supabase = getBrowserSupabase();
 
-	const loadDuplicates = async () => {
+	const loadDuplicates = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		try {
@@ -91,7 +91,7 @@ export function DuplicatesResolverModal({
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [supabase]);
 
 	// Load duplicates when opened
 	useEffect(() => {

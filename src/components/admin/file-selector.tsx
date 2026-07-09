@@ -162,7 +162,7 @@ export function FileSelector({
 				) : (
 					files.map((file, index) => (
 						<div
-							key={`${file.message_id}-${index}`}
+							key={file.message_id}
 							data-file-index={index}
 							className={`p-3 rounded-lg border cursor-pointer transition-all ${
 								index === selectedIndex

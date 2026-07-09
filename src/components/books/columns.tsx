@@ -6,11 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Book } from "@/lib/supabase";
 
-// Define the extended column type that includes the tag click handler
-type BookColumn = Book & {
-	onTagClick?: (tag: string) => void;
-};
-
 export const columns: ColumnDef<Book>[] = [
 	{
 		accessorKey: "author",
@@ -81,9 +76,9 @@ export const columns: ColumnDef<Book>[] = [
 
 			return (
 				<div className="flex flex-wrap gap-1">
-					{tags?.map((tag, index) => (
+					{tags?.map((tag) => (
 						<Badge
-							key={`${row.original.id}-${tag}-${index}`}
+							key={`${row.original.id}-${tag}`}
 							variant="secondary"
 							className="text-xs cursor-pointer hover:bg-secondary/80"
 							onClick={() => onTagClick?.(tag)}

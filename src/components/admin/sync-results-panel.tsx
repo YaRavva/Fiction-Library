@@ -39,7 +39,9 @@ interface SyncResultsPanelProps {
 	refreshTrigger?: number;
 }
 
-export function SyncResultsPanel({ refreshTrigger }: SyncResultsPanelProps) {
+export function SyncResultsPanel({
+	refreshTrigger: _refreshTrigger,
+}: SyncResultsPanelProps) {
 	const [results, setResults] = useState<SyncJobResult[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [expandedId, setExpandedId] = useState<string | null>(null);

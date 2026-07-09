@@ -49,8 +49,7 @@ export class BookWormService {
 		this.telegramService = await TelegramService.getInstance();
 		this.metadataService = await TelegramMetadataService.getInstance();
 		this.fileService = await TelegramFileService.getInstance();
-		this.enhancedFileService =
-			await FileProcessingService.getInstance();
+		this.enhancedFileService = await FileProcessingService.getInstance();
 	}
 
 	/**

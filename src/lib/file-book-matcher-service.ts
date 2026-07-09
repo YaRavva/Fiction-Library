@@ -13,6 +13,7 @@ export type { BookOption, FileOption, MatchResult };
 /**
  * Универсальный сервис для сопоставления файлов и книг
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: static utility class
 export class FileBookMatcherService {
 	/**
 	 * Находит наиболее релевантные книги для файла

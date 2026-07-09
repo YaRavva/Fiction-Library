@@ -41,6 +41,7 @@ interface WordExtractionResult {
 	authorWords: string[];
 }
 
+// biome-ignore lint/complexity/noStaticOnlyClass: static utility class
 export class UniversalFileMatcher {
 	// Список русских союзов, которые будут исключаться из анализа
 	private static readonly CONJUNCTIONS = [

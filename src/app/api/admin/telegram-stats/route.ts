@@ -264,7 +264,7 @@ export async function POST(request: NextRequest) {
 			// Фоновое обновление (для обратной совместимости)
 			console.log("Performing background update...");
 			// Просто возвращаем последние данные из таблицы
-			const { data: latestStats, error: statsError } = await supabaseAdmin
+			const { error: statsError } = await supabaseAdmin
 				.from("telegram_stats")
 				.select("*")
 				.order("updated_at", { ascending: false })

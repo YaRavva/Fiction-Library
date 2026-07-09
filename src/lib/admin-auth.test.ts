@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireAdminRequest } from "./admin-auth";
 
 vi.mock("./supabase", () => ({
@@ -20,7 +20,7 @@ describe("requireAdminRequest", () => {
 		vi.mocked(getSupabaseAdmin).mockReturnValue(null as any);
 		const result = await requireAdminRequest(makeRequest());
 		expect("error" in result).toBe(true);
-		expect(("error" in result && result.error)).toBeInstanceOf(Response);
+		expect("error" in result && result.error).toBeInstanceOf(Response);
 		const res = ("error" in result && result.error)!;
 		expect(res.status).toBe(500);
 	});
@@ -36,7 +36,12 @@ describe("requireAdminRequest", () => {
 
 	it("returns 401 if token is invalid", async () => {
 		const mockAdmin = {
-			auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: { message: "bad" } }) },
+			auth: {
+				getUser: vi.fn().mockResolvedValue({
+					data: { user: null },
+					error: { message: "bad" },
+				}),
+			},
 		};
 		vi.mocked(getSupabaseAdmin).mockReturnValue(mockAdmin as any);
 		const result = await requireAdminRequest(

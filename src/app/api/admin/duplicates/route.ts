@@ -16,13 +16,6 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-interface UserProfile {
-	id: string;
-	username?: string;
-	display_name?: string;
-	role: string;
-}
-
 /**
  * GET /api/admin/duplicates
  * Поиск дубликатов книг
