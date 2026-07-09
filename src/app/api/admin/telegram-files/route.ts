@@ -1,10 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
 
+interface TelegramMessage {
+	id: number;
+	document?: {
+		attributes?: Array<{ className?: string; fileName?: string }>;
+		fileName?: string;
+		size?: number;
+		mimeType?: string;
+	};
+	media?: {
+		document?: { fileName?: string; filename?: string; size?: number; mimeType?: string; mime_type?: string };
+		photo?: { fileName?: string; filename?: string; size?: number; mimeType?: string; mime_type?: string };
+	};
+	message?: string;
+	fileName?: string;
+	date?: number;
+}
+
 /**
  * Извлекает оригинальное имя файла из сообщения Telegram
  */
-function getOriginalFilename(message: any): string {
+function getOriginalFilename(message: TelegramMessage): string {
 	let originalFilename = `file_${message.id}`;
 
 	try {
@@ -75,14 +92,14 @@ export async function GET(request: NextRequest) {
 			console.log(`📂 Загрузка файлов из канала ${channelId}...`);
 			const messages = await telegramClient.getAllMessages(channelId, 10000);
 
-			const files = messages
+			const files = (messages as TelegramMessage[])
 				.filter(
-					(msg: any) => msg.media && (msg.media.document || msg.media.photo),
+					(msg) => msg.media && (msg.media.document || msg.media.photo),
 				)
-				.map((msg: any) => {
+				.map((msg) => {
 					const rawFileName = getOriginalFilename(msg);
 					const normalizedFileName = rawFileName.normalize("NFC");
-					const media = msg.media.document || msg.media.photo;
+					const media = msg.media?.document || msg.media?.photo;
 
 					return {
 						message_id: msg.id,

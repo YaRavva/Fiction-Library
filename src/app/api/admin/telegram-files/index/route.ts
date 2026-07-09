@@ -1,3 +1,4 @@
+import type { Database } from "@/lib/database.types";
 import { type NextRequest, NextResponse } from "next/server";
 import {
 	saveSyncResult,
@@ -8,13 +9,43 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { TelegramService } from "@/lib/telegram/client";
 import {
 	ensureFileEmbedding,
-	prepareFileEmbeddingText,
 } from "@/lib/telegram/unified-file-matcher";
+
+interface TelegramDocumentAttr {
+	className?: string;
+	fileName?: string;
+}
+
+interface TelegramDocument {
+	attributes?: TelegramDocumentAttr[];
+	fileName?: string;
+	size?: number;
+	mimeType?: string;
+}
+
+interface TelegramMedia {
+	document?: TelegramDocument;
+	photo?: TelegramDocument;
+}
+
+interface TelegramMessage {
+	id: number;
+	document?: TelegramDocument;
+	media?: TelegramMedia;
+	message?: string;
+	fileName?: string;
+	date?: number;
+}
+
+interface TelegramChannel {
+	id: number | string;
+	title?: string;
+}
 
 /**
  * Извлекает оригинальное имя файла из сообщения Telegram
  */
-function getOriginalFilename(message: any): string | null {
+function getOriginalFilename(message: TelegramMessage): string | null {
 	try {
 		if (message.document?.attributes) {
 			for (const attr of message.document.attributes) {
@@ -44,13 +75,13 @@ function getOriginalFilename(message: any): string | null {
 /**
  * Извлекает метаданные файла из сообщения Telegram
  */
-function extractFileData(message: any): {
+function extractFileData(message: TelegramMessage): {
 	message_id: number;
 	file_name: string | null;
 	file_size: number | null;
 	mime_type: string | null;
 	caption: string | null;
-	date: Date | null;
+	date: string | null;
 } | null {
 	if (!message?.id) return null;
 
@@ -61,7 +92,7 @@ function extractFileData(message: any): {
 	const fileSize = doc.size || null;
 	const mimeType = doc.mimeType || null;
 	const caption = message.message || null;
-	const date = message.date ? new Date(message.date * 1000) : null;
+	const date = message.date ? new Date(message.date * 1000).toISOString() : null;
 
 	return {
 		message_id: message.id,
@@ -93,7 +124,7 @@ export async function POST(request: NextRequest) {
 
 		log("🚀 Начинаем индексацию файлов из Telegram...");
 
-		const operation = await saveSyncResult(supabaseAdmin as any, {
+		const operation = await saveSyncResult(supabaseAdmin, {
 			job_type: "file_index",
 			status: "running",
 			started_at: new Date().toISOString(),
@@ -104,7 +135,7 @@ export async function POST(request: NextRequest) {
 		const telegramClient = await TelegramService.getInstance();
 		const channel = await telegramClient.getFilesChannel();
 
-		log(`📡 Подключились к каналу: ${(channel as any).title || channel}`);
+		log(`Подключились к каналу: ${(channel as unknown as TelegramChannel).title || channel}`);
 
 		const allMessages = await telegramClient.getAllMessages(channel, 300, {
 			onLog: log,
@@ -112,10 +143,10 @@ export async function POST(request: NextRequest) {
 
 		log(`📥 Загружено ${allMessages.length} сообщений`);
 
-		const fileRecords: any[] = [];
+		const fileRecords: Database["public"]["Tables"]["telegram_files"]["Insert"][] = [];
 		let skipped = 0;
 
-		for (const msg of allMessages) {
+		for (const msg of allMessages as TelegramMessage[]) {
 			const fileData = extractFileData(msg);
 			if (fileData?.file_name) {
 				fileRecords.push(fileData);
@@ -137,7 +168,7 @@ export async function POST(request: NextRequest) {
 
 			const { error } = await (supabaseAdmin as any)
 				.from("telegram_files")
-				.upsert(batch as any, {
+				.upsert(batch, {
 					onConflict: "message_id",
 					ignoreDuplicates: false,
 				});
@@ -163,7 +194,7 @@ export async function POST(request: NextRequest) {
 
 		// Генерация эмбеддингов для новых файлов без эмбеддингов
 		try {
-			const { data: filesWithoutEmbedding } = await supabaseAdmin
+			const { data: filesWithoutEmbedding } = await (supabaseAdmin as any)
 				.from("telegram_files")
 				.select("message_id, file_name")
 				.is("embedding", null)
@@ -174,9 +205,9 @@ export async function POST(request: NextRequest) {
 				let embGenerated = 0;
 				for (const f of filesWithoutEmbedding) {
 					const ok = await ensureFileEmbedding(
-						supabaseAdmin as any,
-						(f as any).message_id,
-						(f as any).file_name,
+						supabaseAdmin,
+						f.message_id,
+						f.file_name ?? "",
 					);
 					if (ok) embGenerated++;
 				}
@@ -187,7 +218,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (operationId) {
-			await updateSyncResult(supabaseAdmin as any, operationId, {
+			await updateSyncResult(supabaseAdmin, operationId, {
 				status: "completed",
 				completed_at: new Date().toISOString(),
 				files_processed: fileRecords.length,
@@ -219,7 +250,7 @@ export async function POST(request: NextRequest) {
 		log(`❌ Критическая ошибка: ${errorMessage}`);
 
 		if (operationId) {
-			await updateSyncResult(getSupabaseAdmin() as any, operationId, {
+			await updateSyncResult(getSupabaseAdmin()!, operationId, {
 				status: "failed",
 				completed_at: new Date().toISOString(),
 				error_message: errorMessage,

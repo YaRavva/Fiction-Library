@@ -4,12 +4,18 @@ import { TelegramMetadataService } from "@/lib/telegram/metadata-service";
 export const dynamic = "force-dynamic";
 
 // Храним состояние синхронизации в памяти (в реальном приложении лучше использовать БД или Redis)
-const syncStatus = {
+const syncStatus: {
+	isRunning: boolean;
+	startTime: number | null;
+	progress: number;
+	message: string;
+	lastResult: Record<string, unknown> | null;
+} = {
 	isRunning: false,
-	startTime: null as number | null,
+	startTime: null,
 	progress: 0,
 	message: "Готов к синхронизации",
-	lastResult: null as any,
+	lastResult: null,
 };
 
 export async function POST(request: Request) {

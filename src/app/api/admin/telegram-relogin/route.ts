@@ -74,10 +74,10 @@ export async function POST(request: Request) {
 				});
 
 				return NextResponse.json({ ok: true });
-			} catch (err: any) {
+			} catch (err: unknown) {
 				await client.disconnect();
 				return NextResponse.json(
-					{ error: err.message || "Ошибка отправки кода" },
+					{ error: err instanceof Error ? err.message : "Ошибка отправки кода" },
 					{ status: 400 },
 				);
 			}
@@ -115,10 +115,10 @@ export async function POST(request: Request) {
 				const session = client.session.save();
 				await client.disconnect();
 				return NextResponse.json({ session });
-			} catch (signInError: any) {
+			} catch (signInError: unknown) {
 				const msg =
-					signInError?.errorMessage ||
-					signInError?.message ||
+					(signInError as { errorMessage?: string })?.errorMessage ||
+					(signInError instanceof Error ? signInError.message : undefined) ||
 					String(signInError);
 
 				if (msg === "SESSION_PASSWORD_NEEDED" || msg.includes("password")) {
@@ -141,11 +141,11 @@ export async function POST(request: Request) {
 						const session = client.session.save();
 						await client.disconnect();
 						return NextResponse.json({ session });
-					} catch (pwError: any) {
+					} catch (pwError: unknown) {
 						await client.disconnect();
 						pendingLogins.delete(phone);
 						return NextResponse.json(
-							{ error: `Ошибка пароля: ${pwError.message || pwError}` },
+							{ error: `Ошибка пароля: ${pwError instanceof Error ? pwError.message : String(pwError)}` },
 							{ status: 400 },
 						);
 					}
@@ -164,10 +164,10 @@ export async function POST(request: Request) {
 			{ error: "Неизвестное действие" },
 			{ status: 400 },
 		);
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Telegram relogin error:", error);
 		return NextResponse.json(
-			{ error: error.message || "Ошибка авторизации" },
+			{ error: error instanceof Error ? error.message : "Ошибка авторизации" },
 			{ status: 500 },
 		);
 	}

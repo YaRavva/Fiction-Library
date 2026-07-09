@@ -1,4 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import type { Database } from "@/lib/database.types";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 /**
@@ -115,6 +117,8 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
+		const typedAdmin = supabaseAdmin as any;
+
 		// Получаем параметры запроса
 		const { searchParams } = new URL(request.url);
 		const limit = Math.min(
@@ -123,8 +127,8 @@ export async function GET(request: NextRequest) {
 		);
 		const jobType = searchParams.get("type"); // 'full' | 'update' | 'auto' | null
 
-		// Формируем запрос (используем as any для работы с новой таблицей)
-		let query = (supabaseAdmin as any)
+		// Формируем запрос
+		let query = typedAdmin
 			.from("sync_job_results")
 			.select("*")
 			.order("started_at", { ascending: false })
@@ -166,10 +170,10 @@ export async function saveSyncResult(
 	supabaseAdmin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
 	result: Omit<OperationResult, "id" | "created_at">,
 ): Promise<OperationResult | null> {
-	// Используем as any для работы с новой таблицей без автогенерированных типов
-	const { data, error } = await (supabaseAdmin as any)
+	const typedAdmin = supabaseAdmin as any;
+	const { data, error } = await typedAdmin
 		.from("sync_job_results")
-		.insert(result)
+		.insert(result as Database["public"]["Tables"]["sync_job_results"]["Insert"])
 		.select()
 		.single();
 
@@ -192,10 +196,10 @@ export async function updateSyncResult(
 	id: string,
 	updates: Partial<Omit<OperationResult, "id" | "job_type" | "created_at">>,
 ): Promise<OperationResult | null> {
-	// Используем as any для работы с новой таблицей без автогенерированных типов
-	const { data, error } = await (supabaseAdmin as any)
+	const typedAdmin = supabaseAdmin as any;
+	const { data, error } = await typedAdmin
 		.from("sync_job_results")
-		.update(updates)
+		.update(updates as Database["public"]["Tables"]["sync_job_results"]["Update"])
 		.eq("id", id)
 		.select()
 		.single();
@@ -215,8 +219,9 @@ async function cleanupOldResults(
 	supabaseAdmin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
 ) {
 	try {
+		const typedAdmin = supabaseAdmin as any;
 		// Получаем ID записей, которые нужно оставить
-		const { data: recentResults } = await (supabaseAdmin as any)
+		const { data: recentResults } = await typedAdmin
 			.from("sync_job_results")
 			.select("id")
 			.order("started_at", { ascending: false })
@@ -229,7 +234,7 @@ async function cleanupOldResults(
 		const keepIds = recentResults.map((r: { id: string }) => r.id);
 
 		// Удаляем все записи, кроме последних MAX_RESULTS
-		await (supabaseAdmin as any)
+		await typedAdmin
 			.from("sync_job_results")
 			.delete()
 			.not("id", "in", `(${keepIds.join(",")})`);

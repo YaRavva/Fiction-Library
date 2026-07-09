@@ -1,5 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
+import type { Database } from "@/lib/database.types";
 
 /**
  * GET /api/admin/timer-settings
@@ -9,22 +11,12 @@ export async function GET(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		const typedAdmin = auth.admin as any;
 
 		// Получаем настройки таймеров для всех процессов
-		const { data: timerSettings, error: timerError } = (await (
-			auth.admin as any
-		)
+		const { data: timerSettings, error: timerError } = await typedAdmin
 			.from("timer_settings")
-			.select("*")) as {
-			data: Array<{
-				process_name: string;
-				enabled: boolean;
-				interval_minutes: number;
-				last_run: string | null;
-				next_run: string | null;
-			}> | null;
-			error: any;
-		};
+			.select("*");
 
 		if (timerError) {
 			console.error("Error fetching timer settings:", timerError);
@@ -39,7 +31,7 @@ export async function GET(request: NextRequest) {
 		let lastRun: string | null = null;
 		let nextRun: string | null = null;
 
-		timerSettings?.forEach((setting) => {
+		timerSettings?.forEach((setting: any) => {
 			formattedSettings[setting.process_name] = {
 				enabled: setting.enabled,
 				intervalMinutes: setting.interval_minutes,
@@ -79,6 +71,7 @@ export async function PUT(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		const typedAdmin = auth.admin as any;
 
 		// Получаем параметры из body
 		const body = await request.json();
@@ -115,7 +108,7 @@ export async function PUT(request: NextRequest) {
 					updateData.next_run = nextRun;
 				}
 
-				const { error: updateError } = await (auth.admin as any)
+				const { error: updateError } = await typedAdmin
 					.from("timer_settings")
 					.update(updateData)
 					.eq("process_name", process);

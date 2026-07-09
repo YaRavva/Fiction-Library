@@ -270,9 +270,9 @@ export async function POST(request: NextRequest) {
 				settingsForDb,
 			); // Отладочный лог
 
-			const { data, error: updateError } = await autoUpdateTable(
-				supabaseAdmin,
-			).upsert(settingsForDb as any, { onConflict: "id" });
+			const { data, error: updateError } = await supabaseAdmin
+				.from("auto_update_settings")
+				.upsert(settingsForDb as any, { onConflict: "id" });
 
 			if (updateError) {
 				console.error("Error updating auto update settings:", updateError);
@@ -378,7 +378,8 @@ export async function POST(request: NextRequest) {
 				); // interval в минутах
 
 				// Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
-				const settingsForDb = {
+				const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] = {
+					id: 1,
 					enabled: true,
 					interval: autoUpdateSettings.interval,
 					last_run: now.toISOString(),
@@ -390,9 +391,9 @@ export async function POST(request: NextRequest) {
 					settingsForDb,
 				); // Отладочный лог
 
-				const { data, error: updateError } = await autoUpdateTable(
-					supabaseAdmin,
-				).upsert(settingsForDb as any, { onConflict: "id" });
+				const { data, error: updateError } = await supabaseAdmin
+					.from("auto_update_settings")
+					.upsert(settingsForDb as any, { onConflict: "id" });
 
 				if (updateError) {
 					console.error(
@@ -550,7 +551,7 @@ export async function PUT(request: NextRequest) {
 		}
 
 		// Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
-		const settingsForDb = {
+		const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] = {
 			id: newSettings.id,
 			enabled: newSettings.enabled,
 			interval: newSettings.interval,
@@ -561,9 +562,9 @@ export async function PUT(request: NextRequest) {
 		console.log("Attempting to save auto update settings:", settingsForDb); // Отладочный лог
 
 		// Сохраняем настройки в базе данных
-		const { data, error: updateError } = await autoUpdateTable(
-			supabaseAdmin,
-		).upsert(settingsForDb as any, { onConflict: "id" });
+		const { data, error: updateError } = await supabaseAdmin
+			.from("auto_update_settings")
+			.upsert(settingsForDb as any, { onConflict: "id" });
 
 		if (updateError) {
 			console.error("Error saving auto update settings:", updateError);

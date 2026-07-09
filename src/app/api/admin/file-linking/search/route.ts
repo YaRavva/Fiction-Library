@@ -1,5 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
+import type { Database } from "@/lib/database.types";
 import {
 	type BookOption,
 	type FileOption,
@@ -67,6 +69,7 @@ export async function POST(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		const typedAdmin = auth.admin as any;
 
 		const body = await request.json();
 		const { title, author, limit = 10, model = DEFAULT_EMBEDDING_MODEL } = body;
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
 			const queryText = prepareBookText(title, author);
 			const queryEmbedding = await generateEmbedding(queryText, { model });
 
-			const { data, error } = await (auth.admin as any).rpc(
+			const { data, error } = await typedAdmin.rpc(
 				"match_telegram_files",
 				{
 					query_embedding: `[${queryEmbedding.embedding.join(",")}]`,
@@ -169,10 +172,10 @@ export async function POST(request: NextRequest) {
 			vectorReady,
 			model,
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error searching file matches:", error);
 		return NextResponse.json(
-			{ error: error.message || "Failed to search matches" },
+			{ error: error instanceof Error ? error.message : "Failed to search matches" },
 			{ status: 500 },
 		);
 	}

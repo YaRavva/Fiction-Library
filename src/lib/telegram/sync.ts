@@ -5,11 +5,10 @@
 import * as path from "node:path";
 import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
-import { uploadFileToStorage, upsertBookRecord } from "../supabase";
+import { upsertBookRecord } from "../supabase";
 import { TelegramService } from "./client";
-import { TelegramFileService } from "./file-service";
+import { FileProcessingService } from "./file-processing-service-enhanced";
 import { TelegramMetadataService } from "./metadata-service";
-import { type BookMetadata, MetadataParser } from "./parser";
 
 // Local type definition for Telegram Message (node-telegram-bot-api was removed)
 interface Message {
@@ -25,24 +24,11 @@ interface Message {
 	caption?: string;
 }
 
-/**
- * Скачивает файл из Telegram по его ID
- */
-export async function downloadFile(fileId: string): Promise<Buffer | null> {
-	try {
-		const client = await TelegramService.getInstance();
-		return await client.downloadFile(fileId);
-	} catch (error) {
-		console.error("Error downloading file:", error);
-		return null;
-	}
-}
-
 export class TelegramSyncService {
 	private static instance: TelegramSyncService;
 	private telegramClient: TelegramService | null = null;
 	private metadataService: TelegramMetadataService | null = null;
-	private fileService: TelegramFileService | null = null;
+	private fileService: FileProcessingService | null = null;
 
 	private constructor() {}
 
@@ -54,252 +40,9 @@ export class TelegramSyncService {
 			TelegramSyncService.instance.metadataService =
 				await TelegramMetadataService.getInstance();
 			TelegramSyncService.instance.fileService =
-				await TelegramFileService.getInstance();
+				await FileProcessingService.getInstance();
 		}
 		return TelegramSyncService.instance;
-	}
-
-	public async syncMetadata(limit: number = 10): Promise<BookMetadata[]> {
-		if (!this.telegramClient) {
-			throw new Error("Telegram client not initialized");
-		}
-
-		try {
-			// Получаем канал с метаданными
-			const channel = await this.telegramClient.getMetadataChannel();
-
-			// Получаем ID последнего обработанного сообщения
-			console.log("🔍 Получаем ID последнего обработанного сообщения...");
-			const { data: lastProcessed, error: lastProcessedError } =
-				await serverSupabase
-					.from("telegram_processed_messages")
-					.select("message_id")
-					.order("processed_at", { ascending: false })
-					.limit(1)
-					.single();
-
-			let offsetId: number | undefined;
-			if (
-				!lastProcessedError &&
-				lastProcessed &&
-				(lastProcessed as { message_id?: string }).message_id
-			) {
-				// Если есть последнее обработанное сообщение, начинаем с него
-				offsetId = parseInt(
-					(lastProcessed as { message_id: string }).message_id,
-					10,
-				);
-				console.log(`  📌 Начинаем с сообщения ID: ${offsetId}`);
-			} else {
-				console.log("  🆕 Начинаем с самых новых сообщений");
-			}
-
-			// Получаем сообщения с учетом offsetId
-			// Convert BigInteger to string for compatibility
-			const channelId =
-				typeof channel.id === "object" && channel.id !== null
-					? (channel.id as { toString: () => string }).toString()
-					: String(channel.id);
-			const messages = (await this.telegramClient.getMessages(
-				channelId,
-				limit,
-				offsetId,
-			)) as unknown as Message[];
-			console.log(`✅ Получено ${messages.length} сообщений\n`);
-
-			// Парсим метаданные из каждого сообщения
-			const metadataList: BookMetadata[] = [];
-
-			// Обрабатываем каждое сообщение
-			for (const msg of messages) {
-				const anyMsg = msg as unknown as { [key: string]: unknown };
-				console.log(`📝 Обрабатываем сообщение ${anyMsg.id}...`);
-
-				// Пропускаем сообщения без текста
-				if (!(msg as { text?: string }).text) {
-					console.log(
-						`  ℹ️ Сообщение ${anyMsg.id} не содержит текста, пропускаем`,
-					);
-					continue;
-				}
-
-				// Парсим текст сообщения
-				const metadata = MetadataParser.parseMessage(
-					(msg as { text: string }).text,
-				);
-
-				// Проверяем наличие книги в БД по названию и автору ПЕРЕД обработкой медиа
-				let bookExists = false;
-				try {
-					const { data: foundBooks, error: findError } = await serverSupabase
-						.from("books")
-						.select("*")
-						.eq("title", metadata.title)
-						.eq("author", metadata.author);
-
-					if (!findError && foundBooks && foundBooks.length > 0) {
-						bookExists = true;
-						console.log(
-							`  ℹ️ Книга "${metadata.title}" автора ${metadata.author} уже существует в БД, пропускаем обработку обложек`,
-						);
-					}
-				} catch (checkError) {
-					console.warn(
-						`  ⚠️ Ошибка при проверке существования книги:`,
-						checkError,
-					);
-				}
-
-				// Извлекаем URL обложек из медиа-файлов сообщения ТОЛЬКО если книга не существует
-				const coverUrls: string[] = [];
-
-				// Проверяем наличие медиа в сообщении ТОЛЬКО если книга не существует
-				if (!bookExists && anyMsg.media) {
-					console.log(
-						`📸 Обнаружено медиа в сообщении ${anyMsg.id} (тип: ${(anyMsg.media as { className: string }).className})`,
-					);
-
-					// Если это веб-превью (MessageMediaWebPage) - основной случай для обложек
-					if (
-						(anyMsg.media as { className: string }).className ===
-							"MessageMediaWebPage" &&
-						(anyMsg.media as { webpage?: { photo?: unknown } }).webpage?.photo
-					) {
-						console.log(`  → Веб-превью с фото`);
-						try {
-							console.log(`  → Скачиваем фото из веб-превью...`);
-							const result = await Promise.race([
-								this.telegramClient.downloadMedia(
-									(anyMsg.media as { webpage: { photo: unknown } }).webpage
-										.photo,
-								),
-								new Promise<never>((_, reject) =>
-									setTimeout(
-										() =>
-											reject(
-												new Error("Timeout: Downloading media took too long"),
-											),
-										30000,
-									),
-								),
-							]);
-							const photoBuffer = result instanceof Buffer ? result : null;
-							if (photoBuffer) {
-								const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-								console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-								await uploadFileToStorage(
-									"covers",
-									photoKey,
-									Buffer.from(photoBuffer),
-									"image/jpeg",
-								);
-								const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
-								coverUrls.push(photoUrl);
-								console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-							} else {
-								console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
-							}
-						} catch (err) {
-							console.error(`  ❌ Ошибка загрузки обложки из веб-превью:`, err);
-						}
-					}
-					// Если это одно фото (MessageMediaPhoto)
-					else if ((anyMsg.media as { photo?: unknown }).photo) {
-						console.log(`  → Одиночное фото`);
-						try {
-							console.log(`  → Скачиваем фото...`);
-							const result = await Promise.race([
-								this.telegramClient.downloadMedia(msg),
-								new Promise<never>((_, reject) =>
-									setTimeout(
-										() =>
-											reject(
-												new Error("Timeout: Downloading media took too long"),
-											),
-										30000,
-									),
-								),
-							]);
-							const photoBuffer = result instanceof Buffer ? result : null;
-							if (photoBuffer) {
-								const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-								console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-								await uploadFileToStorage(
-									"covers",
-									photoKey,
-									Buffer.from(photoBuffer),
-									"image/jpeg",
-								);
-								const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
-								coverUrls.push(photoUrl);
-								console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-							} else {
-								console.warn(`  ⚠️ Не удалось скачать фото (пустой буфер)`);
-							}
-						} catch (err) {
-							console.error(`  ❌ Ошибка загрузки обложки:`, err);
-						}
-					}
-					// Если это документ с изображением
-					else if ((anyMsg.media as { document?: unknown }).document) {
-						const mimeType = (
-							anyMsg.media as { document: { mimeType?: string } }
-						).document.mimeType;
-						if (mimeType?.startsWith("image/")) {
-							console.log(`  → Одиночное изображение (документ: ${mimeType})`);
-							try {
-								console.log(`  → Скачиваем изображение...`);
-								const result = await Promise.race([
-									this.telegramClient.downloadMedia(msg),
-									new Promise<never>((_, reject) =>
-										setTimeout(
-											() =>
-												reject(
-													new Error("Timeout: Downloading media took too long"),
-												),
-											30000,
-										),
-									),
-								]);
-
-								const photoBuffer = result instanceof Buffer ? result : null;
-								if (photoBuffer) {
-									const photoKey = `${anyMsg.id}_${Date.now()}.jpg`;
-									console.log(`  → Загружаем в Storage: covers/${photoKey}`);
-									await uploadFileToStorage(
-										"covers",
-										photoKey,
-										Buffer.from(photoBuffer),
-										"image/jpeg",
-									);
-									const photoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/covers/${photoKey}`;
-									coverUrls.push(photoUrl);
-									console.log(`  ✅ Обложка загружена: ${photoUrl}`);
-								} else {
-									console.warn(
-										`  ⚠️ Не удалось скачать изображение (пустой буфер)`,
-									);
-								}
-							} catch (err) {
-								console.error(`  ❌ Ошибка загрузки обложки:`, err);
-							}
-						}
-					}
-				}
-
-				// Добавляем метаданные в список
-				metadataList.push({
-					...metadata,
-					coverUrls:
-						coverUrls.length > 0 ? coverUrls : metadata.coverUrls || [],
-				});
-			}
-
-			return metadataList;
-		} catch (error) {
-			console.error("Error in syncMetadata:", error);
-			throw error;
-		}
 	}
 
 	public async downloadBook(messageId: number): Promise<Buffer> {

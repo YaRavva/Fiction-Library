@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
+import type { Database } from "@/lib/database.types";
 import {
 	saveSyncResult,
 	updateSyncResult,
@@ -201,10 +203,11 @@ export async function POST(request: NextRequest) {
 
 		if (syncParam === "true") {
 			// Синхронное обновление с возвратом прогресса
+			const typedAdmin = supabaseAdmin as any;
 			let operationId: string | null = null;
 			try {
 				// Создаём запись об операции
-				const operation = await saveSyncResult(supabaseAdmin as any, {
+				const operation = await saveSyncResult(typedAdmin, {
 					job_type: "stats_update",
 					status: "running",
 					started_at: new Date().toISOString(),
@@ -227,7 +230,7 @@ export async function POST(request: NextRequest) {
 
 				// Обновляем запись об операции
 				if (operationId) {
-					await updateSyncResult(supabaseAdmin as any, operationId, {
+					await updateSyncResult(typedAdmin, operationId, {
 						status: "completed",
 						completed_at: new Date().toISOString(),
 						log_output: `✅ Статистика обновлена: ${stats.booksInDatabase} книг в БД, ${stats.booksInTelegram} в Telegram`,
@@ -243,7 +246,7 @@ export async function POST(request: NextRequest) {
 			} catch (error) {
 				// Обновляем запись об операции с ошибкой
 				if (operationId) {
-					await updateSyncResult(supabaseAdmin as any, operationId, {
+					await updateSyncResult(typedAdmin, operationId, {
 						status: "failed",
 						completed_at: new Date().toISOString(),
 						error_message:

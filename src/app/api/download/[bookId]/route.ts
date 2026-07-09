@@ -162,7 +162,7 @@ export async function GET(
 
 		// Обновляем счетчик скачиваний
 		try {
-			await supabase.rpc("increment_downloads", { book_id: bookId } as any);
+			await (supabase as any).rpc("increment_downloads", { book_id: bookId });
 		} catch (error) {
 			console.error("Error incrementing download count:", error);
 		}
