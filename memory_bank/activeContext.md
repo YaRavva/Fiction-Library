@@ -1,11 +1,11 @@
 # Active Context
 
 ## Current focus
-- Admin dashboard card grid is restored after the embedding controls increased card content.
+- Admin operations dashboard is simplified around automatic updates and embeddings.
 
 ## Active decisions
 - The dashboard uses direct CSS grid placement with a uniform `gap-6`.
-- Cards in the second desktop row stretch to the row height so their lower edges remain aligned.
+- Automatic BookWorm matching remains; only its manual admin interfaces and endpoints are removed.
 
 ## Blockers
 - None.
