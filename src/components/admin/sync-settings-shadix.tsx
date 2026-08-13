@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label";
 import { getBrowserSupabase } from "@/lib/browserSupabase";
 import { cn } from "@/lib/utils";
 import { DuplicatesResolverModal } from "./duplicates-resolver-modal";
-import { EmbeddingProgress } from "./embedding-progress";
 
 interface SyncSettingsShadixProps {
 	bookWormRunning: boolean;
@@ -36,9 +35,7 @@ export function SyncSettingsShadix({
 					<RotateCcw className="size-4" />
 					Синхронизация контента
 				</CardTitle>
-				<CardDescription>
-					Загрузка книг и файлов из Telegram
-				</CardDescription>
+				<CardDescription>Загрузка книг и файлов из Telegram</CardDescription>
 			</CardHeader>
 			<CardContent className="pt-0">
 				<div className="grid gap-3 sm:grid-cols-2">
@@ -83,7 +80,8 @@ function AutomationSettingsCard({
 	setBookWormInterval,
 }: AutomationSettingsCardProps) {
 	const [supabase] = useState(() => getBrowserSupabase());
-	const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(bookWormAutoUpdate);
+	const [autoUpdateEnabled, setAutoUpdateEnabled] =
+		useState(bookWormAutoUpdate);
 	const [timerValue, setTimerValue] = useState(bookWormInterval);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -210,12 +208,7 @@ function AutomationSettingsCard({
 						className="h-8 w-20 font-mono text-sm"
 					/>
 				</div>
-				<div className="border-t pt-4">
-					<EmbeddingProgress showControls />
-				</div>
-				{error ? (
-					<p className="text-destructive text-xs">{error}</p>
-				) : null}
+				{error ? <p className="text-destructive text-xs">{error}</p> : null}
 			</CardContent>
 		</Card>
 	);

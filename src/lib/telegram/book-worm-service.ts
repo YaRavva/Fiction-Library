@@ -7,17 +7,14 @@ import {
 	type FileOption,
 	findBestFileForBook,
 } from "../book-file-scorer";
+import { isEmbeddingGenerationEnabled } from "../embedding-service";
 import { putObject } from "../s3-service";
 import { serverSupabase } from "../serverSupabase";
 import { TelegramService } from "./client";
 import { FileProcessingService } from "./file-processing-service-enhanced";
 import { TelegramMetadataService } from "./metadata-service";
 import { type BookMetadata, MetadataParser } from "./parser";
-import {
-	ensureBookEmbedding,
-	matchFileToBook,
-	prepareBookEmbeddingText,
-} from "./unified-file-matcher";
+import { ensureBookEmbedding, matchFileToBook } from "./unified-file-matcher";
 import { extractExtension } from "./utils";
 
 const db = serverSupabase as any;
@@ -436,7 +433,7 @@ export class BookWormService {
 					author: d.author as string,
 				}));
 
-			if (newBookIdsForEmbedding.length > 0) {
+			if (isEmbeddingGenerationEnabled() && newBookIdsForEmbedding.length > 0) {
 				console.log(
 					`🧠 Генерация эмбеддингов для ${newBookIdsForEmbedding.length} новых книг...`,
 				);
@@ -1059,7 +1056,7 @@ export class BookWormService {
 						for (const fileOpt of fileOptions) {
 							const match = await matchFileToBook(fileOpt, db, {
 								threshold: 50,
-								useEmbeddings: true,
+								useEmbeddings: false,
 							});
 							if (match && !matchedBookIds.has(match.book.id)) {
 								matchedBookIds.add(match.book.id);

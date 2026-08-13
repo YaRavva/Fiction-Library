@@ -42,6 +42,7 @@ interface UserProfile {
 interface SelectedSyncResult {
 	job_type: string;
 	status: string;
+	error_message?: string;
 	log_output?: string;
 }
 
@@ -472,7 +473,6 @@ export default function AdminPage() {
 											</div>
 										</div>
 									</div>
-
 								</div>
 							</div>
 
@@ -482,185 +482,178 @@ export default function AdminPage() {
 										<TelegramStatsSection />
 									</div>
 									<Card className="min-h-[142px] gap-2 rounded-lg xl:col-start-3 xl:row-start-1">
-											<CardHeader className="pb-0">
-													<CardTitle className="flex items-center gap-2">
-														<Key className="h-4 w-4 text-muted-foreground" />
-														Переподключение Telegram
-													</CardTitle>
-												</CardHeader>
-												<CardContent className="pt-0">
-													{tgStep === "done" && tgSession ? (
-														<div className="space-y-3">
-															<div className="flex items-center gap-2 text-emerald-600 text-sm">
-																<CheckCircle2 className="size-4" />
-																Сессия получена
-															</div>
-															<div className="relative">
-																<pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs break-all">
-																	{tgSession}
-																</pre>
-																<Button
-																	size="icon"
-																	variant="ghost"
-																	className="absolute top-1 right-1 h-7 w-7"
-																	onClick={handleCopySession}
-																>
-																	<Copy className="size-3" />
-																</Button>
-															</div>
-															<p className="text-muted-foreground text-xs">
-																Скопируйте и вставьте в{" "}
-																<code>TELEGRAM_SESSION</code> в{" "}
-																<code>.env</code>, затем перезапустите сервер.
-															</p>
-															<Button
-																variant="outline"
-																size="sm"
-																className="w-full"
-																onClick={() => {
-																	setTgStep("phone");
-																	setTgPhone("");
-																	setTgCode("");
-																	setTgPassword("");
-																	setTgSession(null);
-																	setTgError(null);
-																}}
-															>
-																Ещё раз
-															</Button>
-														</div>
-													) : (
-														<div className="space-y-3">
-															{tgError && (
-																<div className="text-destructive text-xs p-2 bg-destructive/10 rounded-md">
-																	{tgError}
-																</div>
-															)}
-
-															{tgStep === "phone" && (
-																<div className="space-y-2">
-																	<Label className="text-xs">Телефон</Label>
-																	<div className="flex gap-2">
-																		<Input
-																			placeholder="+79001234567"
-																			value={tgPhone}
-																			onChange={(e) =>
-																				setTgPhone(e.target.value)
-																			}
-																			className="h-8 text-sm"
-																			onKeyDown={(e) =>
-																				e.key === "Enter" && handleTgRelogin()
-																			}
-																		/>
-																		<Button
-																			size="sm"
-																			onClick={handleTgRelogin}
-																			disabled={tgLoading || !tgPhone}
-																		>
-																			Далее
-																		</Button>
-																	</div>
-																</div>
-															)}
-
-															{tgStep === "code" && (
-																<>
-																	<p className="text-muted-foreground text-xs">
-																		Введите код, полученный в Telegram на{" "}
-																		{tgPhone}
-																	</p>
-																	<div className="space-y-1">
-																		<Label className="text-xs">
-																			Код из Telegram
-																		</Label>
-																		<div className="flex gap-2">
-																			<Input
-																				placeholder="12345"
-																				value={tgCode}
-																				onChange={(e) =>
-																					setTgCode(e.target.value)
-																				}
-																				className="h-8 text-sm font-mono"
-																				onKeyDown={(e) =>
-																					e.key === "Enter" && handleTgRelogin()
-																				}
-																			/>
-																			<Button
-																				size="sm"
-																				onClick={handleTgRelogin}
-																				disabled={tgLoading || !tgCode}
-																			>
-																				{tgLoading ? (
-																					<Loader2 className="size-3 animate-spin" />
-																				) : (
-																					"OK"
-																				)}
-																			</Button>
-																		</div>
-																	</div>
-																	<Button
-																		variant="ghost"
-																		size="sm"
-																		className="h-7 text-xs"
-																		onClick={() => {
-																			setTgStep("phone");
-																			setTgCode("");
-																		}}
-																	>
-																		Назад
-																	</Button>
-																</>
-															)}
-
-															{tgStep === "password" && (
-																<>
-																	<p className="text-muted-foreground text-xs">
-																		Введите пароль двухфакторной аутентификации
-																	</p>
-																	<div className="space-y-1">
-																		<Label className="text-xs">
-																			Пароль 2FA
-																		</Label>
-																		<div className="flex gap-2">
-																			<Input
-																				type="password"
-																				placeholder="Пароль"
-																				value={tgPassword}
-																				onChange={(e) =>
-																					setTgPassword(e.target.value)
-																				}
-																				className="h-8 text-sm"
-																				onKeyDown={(e) =>
-																					e.key === "Enter" && handleTgRelogin()
-																				}
-																			/>
-																			<Button
-																				size="sm"
-																				onClick={handleTgRelogin}
-																				disabled={tgLoading || !tgPassword}
-																			>
-																				{tgLoading ? (
-																					<Loader2 className="size-3 animate-spin" />
-																				) : (
-																					"OK"
-																				)}
-																			</Button>
-																		</div>
-																	</div>
-																	<Button
-																		variant="ghost"
-																		size="sm"
-																		className="h-7 text-xs"
-																		onClick={() => setTgStep("code")}
-																	>
-																		Назад
-																	</Button>
-																</>
-															)}
+										<CardHeader className="pb-0">
+											<CardTitle className="flex items-center gap-2">
+												<Key className="h-4 w-4 text-muted-foreground" />
+												Переподключение Telegram
+											</CardTitle>
+										</CardHeader>
+										<CardContent className="pt-0">
+											{tgStep === "done" && tgSession ? (
+												<div className="space-y-3">
+													<div className="flex items-center gap-2 text-emerald-600 text-sm">
+														<CheckCircle2 className="size-4" />
+														Сессия получена
+													</div>
+													<div className="relative">
+														<pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs break-all">
+															{tgSession}
+														</pre>
+														<Button
+															size="icon"
+															variant="ghost"
+															className="absolute top-1 right-1 h-7 w-7"
+															onClick={handleCopySession}
+														>
+															<Copy className="size-3" />
+														</Button>
+													</div>
+													<p className="text-muted-foreground text-xs">
+														Скопируйте и вставьте в{" "}
+														<code>TELEGRAM_SESSION</code> в <code>.env</code>,
+														затем перезапустите сервер.
+													</p>
+													<Button
+														variant="outline"
+														size="sm"
+														className="w-full"
+														onClick={() => {
+															setTgStep("phone");
+															setTgPhone("");
+															setTgCode("");
+															setTgPassword("");
+															setTgSession(null);
+															setTgError(null);
+														}}
+													>
+														Ещё раз
+													</Button>
+												</div>
+											) : (
+												<div className="space-y-3">
+													{tgError && (
+														<div className="text-destructive text-xs p-2 bg-destructive/10 rounded-md">
+															{tgError}
 														</div>
 													)}
-												</CardContent>
-											</Card>
+
+													{tgStep === "phone" && (
+														<div className="space-y-2">
+															<Label className="text-xs">Телефон</Label>
+															<div className="flex gap-2">
+																<Input
+																	placeholder="+79001234567"
+																	value={tgPhone}
+																	onChange={(e) => setTgPhone(e.target.value)}
+																	className="h-8 text-sm"
+																	onKeyDown={(e) =>
+																		e.key === "Enter" && handleTgRelogin()
+																	}
+																/>
+																<Button
+																	size="sm"
+																	onClick={handleTgRelogin}
+																	disabled={tgLoading || !tgPhone}
+																>
+																	Далее
+																</Button>
+															</div>
+														</div>
+													)}
+
+													{tgStep === "code" && (
+														<>
+															<p className="text-muted-foreground text-xs">
+																Введите код, полученный в Telegram на {tgPhone}
+															</p>
+															<div className="space-y-1">
+																<Label className="text-xs">
+																	Код из Telegram
+																</Label>
+																<div className="flex gap-2">
+																	<Input
+																		placeholder="12345"
+																		value={tgCode}
+																		onChange={(e) => setTgCode(e.target.value)}
+																		className="h-8 text-sm font-mono"
+																		onKeyDown={(e) =>
+																			e.key === "Enter" && handleTgRelogin()
+																		}
+																	/>
+																	<Button
+																		size="sm"
+																		onClick={handleTgRelogin}
+																		disabled={tgLoading || !tgCode}
+																	>
+																		{tgLoading ? (
+																			<Loader2 className="size-3 animate-spin" />
+																		) : (
+																			"OK"
+																		)}
+																	</Button>
+																</div>
+															</div>
+															<Button
+																variant="ghost"
+																size="sm"
+																className="h-7 text-xs"
+																onClick={() => {
+																	setTgStep("phone");
+																	setTgCode("");
+																}}
+															>
+																Назад
+															</Button>
+														</>
+													)}
+
+													{tgStep === "password" && (
+														<>
+															<p className="text-muted-foreground text-xs">
+																Введите пароль двухфакторной аутентификации
+															</p>
+															<div className="space-y-1">
+																<Label className="text-xs">Пароль 2FA</Label>
+																<div className="flex gap-2">
+																	<Input
+																		type="password"
+																		placeholder="Пароль"
+																		value={tgPassword}
+																		onChange={(e) =>
+																			setTgPassword(e.target.value)
+																		}
+																		className="h-8 text-sm"
+																		onKeyDown={(e) =>
+																			e.key === "Enter" && handleTgRelogin()
+																		}
+																	/>
+																	<Button
+																		size="sm"
+																		onClick={handleTgRelogin}
+																		disabled={tgLoading || !tgPassword}
+																	>
+																		{tgLoading ? (
+																			<Loader2 className="size-3 animate-spin" />
+																		) : (
+																			"OK"
+																		)}
+																	</Button>
+																</div>
+															</div>
+															<Button
+																variant="ghost"
+																size="sm"
+																className="h-7 text-xs"
+																onClick={() => setTgStep("code")}
+															>
+																Назад
+															</Button>
+														</>
+													)}
+												</div>
+											)}
+										</CardContent>
+									</Card>
 									<div className="xl:col-start-1 xl:row-start-2">
 										<SyncSettingsShadix
 											bookWormRunning={bookWormRunning}
@@ -678,7 +671,7 @@ export default function AdminPage() {
 										handleToggleAutoUpdate={setBookWormAutoUpdate}
 										setBookWormInterval={setBookWormInterval}
 									/>
-								<Card className="min-h-[156px] rounded-lg xl:col-span-3">
+									<Card className="min-h-[156px] rounded-lg xl:col-span-3">
 										<CardHeader className="pb-2">
 											<CardTitle className="flex items-center gap-2">
 												<DatabaseZap className="h-4 w-4 text-muted-foreground" />
@@ -696,6 +689,12 @@ export default function AdminPage() {
 											</CardTitle>
 										</CardHeader>
 										<CardContent className="pt-0">
+											{selectedResult?.error_message ? (
+												<div className="mb-3 rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+													<strong>Причина ошибки:</strong>{" "}
+													{selectedResult.error_message}
+												</div>
+											) : null}
 											<pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-muted-foreground text-xs">
 												{selectedResult
 													? selectedResult.log_output || "Лог пуст"

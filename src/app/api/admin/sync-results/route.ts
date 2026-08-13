@@ -129,6 +129,20 @@ export async function GET(request: NextRequest) {
 			50,
 		);
 		const jobType = searchParams.get("type"); // 'full' | 'update' | 'auto' | null
+		const jobTypes = jobType
+			? [jobType]
+			: [
+					"full",
+					"update",
+					"auto",
+					"file_index",
+					"stats_update",
+					"duplicates_resolve",
+					"file_link",
+				];
+		await Promise.all(
+			jobTypes.map((type) => cleanupStaleRunningJobs(supabaseAdmin, type)),
+		);
 
 		// Формируем запрос
 		let query = typedAdmin

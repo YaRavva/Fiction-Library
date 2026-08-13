@@ -5,6 +5,7 @@ import {
 } from "@/app/api/admin/sync-results/route";
 import { requireAdminRequest } from "@/lib/admin-auth";
 import type { Database } from "@/lib/database.types";
+import { isEmbeddingGenerationEnabled } from "@/lib/embedding-service";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { TelegramService } from "@/lib/telegram/client";
 import { ensureFileEmbedding } from "@/lib/telegram/unified-file-matcher";
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
 				details: {
 					total_messages: allMessages.length,
 					skipped,
-					embeddings_queued: inserted,
+					embeddings_queued: 0,
 					duration_seconds: parseFloat(duration),
 				},
 			});
@@ -219,7 +220,7 @@ export async function POST(request: NextRequest) {
 		// Генерация эмбеддингов для всех новых файлов — в фоне, не блокируя ответ
 		// Лимит = количество вставленных файлов (все новые файлы)
 		const filesNeedingEmbeddings = inserted;
-		if (filesNeedingEmbeddings > 0) {
+		if (isEmbeddingGenerationEnabled() && filesNeedingEmbeddings > 0) {
 			(supabaseAdmin as any)
 				.from("telegram_files")
 				.select("message_id, file_name")
@@ -257,7 +258,7 @@ export async function POST(request: NextRequest) {
 				skipped,
 				inserted,
 				errors,
-				embeddings_queued: inserted, // Все вставленные файлы будут иметь эмбеддинги
+				embeddings_queued: 0,
 				duration_seconds: parseFloat(duration),
 			},
 			logs,

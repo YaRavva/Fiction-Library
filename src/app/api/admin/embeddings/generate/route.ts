@@ -4,6 +4,7 @@ import { requireAdminRequest } from "@/lib/admin-auth";
 import {
 	DEFAULT_EMBEDDING_MODEL,
 	generateEmbeddings,
+	isEmbeddingGenerationEnabled,
 } from "@/lib/embedding-service";
 
 interface FileEmbeddingRow {
@@ -35,6 +36,15 @@ export async function POST(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		if (!isEmbeddingGenerationEnabled()) {
+			return NextResponse.json(
+				{
+					success: false,
+					error: "Embedding generation is temporarily disabled",
+				},
+				{ status: 503 },
+			);
+		}
 
 		const body = await request.json();
 		const {

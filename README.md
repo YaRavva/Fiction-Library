@@ -119,6 +119,7 @@ S3_COVERS_BUCKET_NAME=covers
 # Автоматизация
 BOOKWORM_GITHUB_ACTION_TOKEN=
 CRON_AUTH_TOKEN=
+EMBEDDINGS_ENABLED=false
 ```
 
 Примечания:
@@ -126,6 +127,7 @@ CRON_AUTH_TOKEN=
 - `TELEGRAM_METADATA_CHANNEL` используется клиентом Telegram для получения канала по ссылке или username.
 - `TELEGRAM_METADATA_CHANNEL_ID` используется в части сервисов синхронизации и статистики.
 - `S3_COVERS_BUCKET_NAME` нужен для загрузки и переобработки обложек.
+- `EMBEDDINGS_ENABLED=true` повторно включает генерацию эмбеддингов после восстановления модели; по умолчанию она отключена.
 
 ## Структура проекта
 

@@ -1,10 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
-import type { Database } from "@/lib/database.types";
 import {
 	DEFAULT_EMBEDDING_MODEL,
 	generateEmbeddings,
+	isEmbeddingGenerationEnabled,
 	listEmbeddingModels,
 	prepareBookText,
 } from "@/lib/embedding-service";
@@ -37,6 +36,12 @@ export async function GET(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		if (!isEmbeddingGenerationEnabled()) {
+			return NextResponse.json(
+				{ error: "Embedding generation is temporarily disabled" },
+				{ status: 503 },
+			);
+		}
 
 		const models = await listEmbeddingModels();
 		return NextResponse.json({
@@ -56,6 +61,12 @@ export async function POST(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		if (!isEmbeddingGenerationEnabled()) {
+			return NextResponse.json(
+				{ error: "Embedding generation is temporarily disabled" },
+				{ status: 503 },
+			);
+		}
 
 		const body = await request.json();
 		const { title, author, model = DEFAULT_EMBEDDING_MODEL } = body;
@@ -90,6 +101,12 @@ export async function PUT(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		if (!isEmbeddingGenerationEnabled()) {
+			return NextResponse.json(
+				{ error: "Embedding generation is temporarily disabled" },
+				{ status: 503 },
+			);
+		}
 
 		const body = await request.json();
 		const {

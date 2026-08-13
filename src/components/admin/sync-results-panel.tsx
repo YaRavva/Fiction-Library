@@ -39,6 +39,7 @@ interface SyncResultsPanelProps {
 	onSelectResult?: (result: {
 		job_type: string;
 		status: string;
+		error_message?: string;
 		log_output?: string;
 	}) => void;
 }
@@ -110,6 +111,13 @@ export function SyncResultsPanel({
 		return `${minutes} мин ${remainingSeconds} сек`;
 	};
 
+	const getErrorMessage = (message?: string) => {
+		if (!message) return "";
+		return message.startsWith("Timeout:")
+			? "Операция не завершилась вовремя"
+			: message;
+	};
+
 	const getJobTypeLabel = (type: string) => {
 		switch (type) {
 			case "full":
@@ -162,6 +170,7 @@ export function SyncResultsPanel({
 		onSelectResult?.({
 			job_type: result.job_type,
 			status: result.status,
+			error_message: getErrorMessage(result.error_message),
 			log_output: result.log_output,
 		});
 	};
@@ -230,17 +239,23 @@ export function SyncResultsPanel({
 												</div>
 												<div className="text-sm text-muted-foreground">
 													{formatDate(result.started_at)}
-													{result.completed_at && (
-														<span className="ml-2">
-															(
-															{formatDuration(
-																result.started_at,
-																result.completed_at,
-															)}
-															)
-														</span>
-													)}
+													{result.status === "completed" &&
+														result.completed_at && (
+															<span className="ml-2">
+																(
+																{formatDuration(
+																	result.started_at,
+																	result.completed_at,
+																)}
+																)
+															</span>
+														)}
 												</div>
+												{result.status === "failed" && result.error_message ? (
+													<div className="mt-1 max-w-[260px] truncate text-destructive text-xs">
+														{getErrorMessage(result.error_message)}
+													</div>
+												) : null}
 											</div>
 										</div>
 										<ChevronDown className="h-4 w-4 text-muted-foreground" />

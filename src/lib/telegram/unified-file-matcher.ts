@@ -15,6 +15,7 @@ import {
 	type MatchResult,
 	parseFileName,
 } from "../book-file-scorer";
+import { isEmbeddingGenerationEnabled } from "../embedding-service";
 
 export interface UnifiedMatchResult {
 	book: BookOption;
@@ -96,6 +97,8 @@ export function prepareFileEmbeddingText(fileName: string): string {
 async function checkEmbeddingAvailable(
 	supabase: SupabaseClient,
 ): Promise<boolean> {
+	if (!isEmbeddingGenerationEnabled()) return false;
+
 	try {
 		const { error } = await supabase.rpc("match_books", {
 			query_embedding: new Array(1024).fill(0),
@@ -188,6 +191,8 @@ export async function generateBookEmbedding(
 	title: string,
 	author: string,
 ): Promise<boolean> {
+	if (!isEmbeddingGenerationEnabled()) return false;
+
 	try {
 		const text = prepareBookEmbeddingText(title, author);
 
@@ -233,6 +238,8 @@ export async function generateFileEmbedding(
 	messageId: number,
 	fileName: string,
 ): Promise<boolean> {
+	if (!isEmbeddingGenerationEnabled()) return false;
+
 	try {
 		const text = prepareFileEmbeddingText(fileName);
 
@@ -285,7 +292,8 @@ export async function matchFileToBook(
 	options?: { threshold?: number; useEmbeddings?: boolean },
 ): Promise<UnifiedMatchResult | null> {
 	const threshold = options?.threshold ?? 50;
-	const useEmbeddings = options?.useEmbeddings ?? true;
+	const useEmbeddings =
+		isEmbeddingGenerationEnabled() && (options?.useEmbeddings ?? false);
 
 	// === PHASE 1: Lexical search ===
 	const { fileAuthor, fileTitle } = parseFileName(file.file_name);
@@ -449,6 +457,8 @@ export async function ensureBookEmbedding(
 	title: string,
 	author: string,
 ): Promise<boolean> {
+	if (!isEmbeddingGenerationEnabled()) return false;
+
 	// Check if embedding already exists
 	const { data } = await supabase
 		.from("books")
@@ -469,6 +479,8 @@ export async function ensureFileEmbedding(
 	messageId: number,
 	fileName: string,
 ): Promise<boolean> {
+	if (!isEmbeddingGenerationEnabled()) return false;
+
 	const { data } = await supabase
 		.from("telegram_files")
 		.select("embedding")

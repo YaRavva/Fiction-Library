@@ -354,102 +354,110 @@ export async function POST(request: NextRequest) {
 		const SYNC_TIMEOUT_MS = 30 * 60 * 1000;
 
 		// Выполняем обновление асинхронно с таймаутом
-		const timeoutId = setTimeout(async () => {
-			console.error("⏰ Auto update sync timed out after 30 minutes");
-			if (syncRecord?.id) {
-				await updateSyncResult(supabaseAdmin, syncRecord.id, {
-					status: "failed",
-					completed_at: new Date().toISOString(),
-					error_message: "Timeout: sync exceeded 30 minutes",
-				});
-			}
-		}, SYNC_TIMEOUT_MS);
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+		const timeoutPromise = new Promise<never>((_, reject) => {
+			timeoutId = setTimeout(
+				() => reject(new Error("Timeout: sync exceeded 30 minutes")),
+				SYNC_TIMEOUT_MS,
+			);
+		});
 
-		bookWorm
-			.runUpdateSync()
-			.then(async (result) => {
-				clearTimeout(timeoutId);
-				console.log("Auto update completed successfully:", result);
+		try {
+			const result = await Promise.race([
+				bookWorm.runUpdateSync(),
+				timeoutPromise,
+			]);
+			if (timeoutId) clearTimeout(timeoutId);
+			console.log("Auto update completed successfully:", result);
 
-				// Обновляем настройки - фиксируем время последнего запуска и планируем следующий
-				const now = new Date();
-				const nextRun = new Date(
-					now.getTime() + autoUpdateSettings.interval * 60000,
-				); // interval в минутах
+			// Обновляем настройки - фиксируем время последнего запуска и планируем следующий
+			const now = new Date();
+			const nextRun = new Date(
+				now.getTime() + autoUpdateSettings.interval * 60000,
+			); // interval в минутах
 
-				// Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
-				const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] =
-					{
-						id: 1,
-						enabled: true,
-						interval: autoUpdateSettings.interval,
-						last_run: now.toISOString(),
-						next_run: nextRun.toISOString(),
-					};
+			// Преобразуем camelCase поля в snake_case для соответствия схеме PostgreSQL
+			const settingsForDb: Database["public"]["Tables"]["auto_update_settings"]["Insert"] =
+				{
+					id: 1,
+					enabled: true,
+					interval: autoUpdateSettings.interval,
+					last_run: now.toISOString(),
+					next_run: nextRun.toISOString(),
+				};
 
+			console.log(
+				"Attempting to update auto update settings after sync:",
+				settingsForDb,
+			); // Отладочный лог
+
+			const { data, error: updateError } = await supabaseAdmin
+				.from("auto_update_settings")
+				.upsert(settingsForDb as any, { onConflict: "id" });
+
+			if (updateError) {
+				console.error(
+					"Error updating auto update settings after sync:",
+					updateError,
+				);
+			} else {
 				console.log(
-					"Attempting to update auto update settings after sync:",
-					settingsForDb,
-				); // Отладочный лог
+					"Auto update settings updated after sync:",
+					data,
+					". Next run:",
+					nextRun.toISOString(),
+				);
+			}
 
-				const { data, error: updateError } = await supabaseAdmin
-					.from("auto_update_settings")
-					.upsert(settingsForDb as any, { onConflict: "id" });
-
-				if (updateError) {
-					console.error(
-						"Error updating auto update settings after sync:",
-						updateError,
-					);
-				} else {
-					console.log(
-						"Auto update settings updated after sync:",
-						data,
-						". Next run:",
-						nextRun.toISOString(),
-					);
-				}
-
-				// Сохраняем результат в БД
-				if (syncRecord?.id) {
-					const formattedMessage = `🔄 Автосинхронизация завершена:
+			// Сохраняем результат в БД
+			if (syncRecord?.id) {
+				const formattedMessage = `🔄 Автосинхронизация завершена:
 📊 Обработано: ${result.processed}
 ➕ Добавлено: ${result.added}
 🔄 Обновлено: ${result.updated}
 🔗 Привязано: ${result.matched}`;
 
-					await updateSyncResult(supabaseAdmin, syncRecord.id, {
-						status: "completed",
-						completed_at: now.toISOString(),
-						metadata_processed: result.processed || 0,
-						metadata_added: result.added || 0,
-						metadata_updated: result.updated || 0,
-						files_linked: result.matched || 0,
-						log_output: formattedMessage,
-					});
-				}
-			})
-			.catch(async (error) => {
-				clearTimeout(timeoutId);
-				console.error("Auto update failed:", error);
+				await updateSyncResult(supabaseAdmin, syncRecord.id, {
+					status: "completed",
+					completed_at: now.toISOString(),
+					metadata_processed: result.processed || 0,
+					metadata_added: result.added || 0,
+					metadata_updated: result.updated || 0,
+					files_linked: result.matched || 0,
+					log_output: formattedMessage,
+				});
+			}
+		} catch (error) {
+			if (timeoutId) clearTimeout(timeoutId);
+			console.error("Auto update failed:", error);
 
-				// Сохраняем ошибку в БД
-				if (syncRecord?.id) {
-					await updateSyncResult(supabaseAdmin, syncRecord.id, {
-						status: "failed",
-						completed_at: new Date().toISOString(),
-						error_message:
-							error instanceof Error ? error.message : "Неизвестная ошибка",
-					});
-				}
-			});
+			// Сохраняем ошибку в БД
+			if (syncRecord?.id) {
+				await updateSyncResult(supabaseAdmin, syncRecord.id, {
+					status: "failed",
+					completed_at: new Date().toISOString(),
+					error_message:
+						error instanceof Error ? error.message : "Неизвестная ошибка",
+				});
+			}
+
+			return NextResponse.json(
+				{
+					success: false,
+					mode: "update",
+					status: "failed",
+					error: error instanceof Error ? error.message : "Неизвестная ошибка",
+				},
+				{ status: 500 },
+			);
+		}
 
 		// Возвращаем ответ сразу, не ожидая завершения операции
 		return NextResponse.json({
 			success: true,
-			message: "Auto update started",
+			message: "Auto update completed",
 			mode: "update",
-			status: "processing",
+			status: "completed",
 		});
 	} catch (error: unknown) {
 		console.error("Auto Update API error:", error);

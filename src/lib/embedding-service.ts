@@ -7,6 +7,11 @@ const OMNIROUTE_BASE_URL =
 	process.env.OMNIROUTE_BASE_URL || "http://omniroute.ravva.su:20128";
 const OMNIROUTE_API_KEY = process.env.OMNIROUTE_API_KEY || "";
 export const DEFAULT_EMBEDDING_MODEL = "voyage-ai/voyage-4";
+export const EMBEDDINGS_ENABLED = process.env.EMBEDDINGS_ENABLED === "true";
+
+export function isEmbeddingGenerationEnabled(): boolean {
+	return EMBEDDINGS_ENABLED;
+}
 
 function getOmnirouteApiBaseUrl(): string {
 	const baseUrl = OMNIROUTE_BASE_URL.trim().replace(/\/+$/, "");
@@ -39,6 +44,10 @@ export interface ModelInfo {
 }
 
 export async function listEmbeddingModels(): Promise<ModelInfo[]> {
+	if (!isEmbeddingGenerationEnabled()) {
+		throw new Error("Embedding generation is temporarily disabled");
+	}
+
 	if (!OMNIROUTE_API_KEY) {
 		throw new Error("OMNIROUTE_API_KEY not configured");
 	}
@@ -90,6 +99,10 @@ export async function generateEmbedding(
 	text: string,
 	options: EmbeddingOptions = {},
 ): Promise<EmbeddingResult> {
+	if (!isEmbeddingGenerationEnabled()) {
+		throw new Error("Embedding generation is temporarily disabled");
+	}
+
 	if (!OMNIROUTE_API_KEY) {
 		throw new Error("OMNIROUTE_API_KEY not configured");
 	}
@@ -130,6 +143,10 @@ export async function generateEmbeddings(
 	texts: string[],
 	options: EmbeddingOptions = {},
 ): Promise<EmbeddingResult[]> {
+	if (!isEmbeddingGenerationEnabled()) {
+		throw new Error("Embedding generation is temporarily disabled");
+	}
+
 	if (!OMNIROUTE_API_KEY) {
 		throw new Error("OMNIROUTE_API_KEY not configured");
 	}

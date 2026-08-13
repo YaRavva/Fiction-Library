@@ -15,5 +15,7 @@
 | DLV-03 | Аутентификация и админ-панель (Supabase Auth, RLS, админка) | completed | 15 |
 | DLV-04 | Качество данных (дедупликация, hybrid file matching, чистка) | completed | 10 |
 | DLV-05 | Файловое хранилище (S3, скачивание, обработка) | completed | 10 |
-| DLV-06 | Инфраструктура (code quality, архитектура, БД, API consolidation) | completed | 15 |
+| DLV-06 | Инфраструктура (code quality, архитектура, БД, API consolidation) | completed | 5 |
 | DLV-07 | Читалка и социальные функции (FB2 reader, закладки, история) | completed | 10 |
+| DLV-08 | Временное отключение генерации эмбеддингов с fallback на lexical matching | completed | 5 |
+| DLV-09 | Понятный журнал операций с корректными статусами | completed | 5 |

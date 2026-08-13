@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
+import { isEmbeddingGenerationEnabled } from "@/lib/embedding-service";
 
 function isMissingColumnError(
 	error: { message?: string; code?: string } | null,
@@ -16,6 +17,12 @@ export async function GET(request: NextRequest) {
 	try {
 		const auth = await requireAdminRequest(request);
 		if ("error" in auth) return auth.error;
+		if (!isEmbeddingGenerationEnabled()) {
+			return NextResponse.json(
+				{ error: "Embedding generation is temporarily disabled" },
+				{ status: 503 },
+			);
+		}
 		let booksEmbeddingReady = true;
 		let filesEmbeddingReady = true;
 
