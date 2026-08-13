@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireAdminRequest } from "@/lib/admin-auth";
+import { getDownloadUrlForReference } from "@/lib/s3";
 import { serverSupabase } from "@/lib/serverSupabase";
 
 interface Book {
@@ -9,10 +10,10 @@ interface Book {
 
 interface DownloadTask {
 	id: string;
-	file_url: string;
+	storage_path: string;
 }
 
-const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "books";
+const BUCKET = process.env.S3_BUCKET_NAME || "books";
 const SIGNED_URL_EXPIRY = 3600;
 
 /**
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
 		} else if (taskId) {
 			const { data: task, error: taskError } = await serverSupabase
 				.from("download_queue")
-				.select("file_url")
+				.select("storage_path")
 				.eq("id", taskId)
 				.single<DownloadTask>();
 
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
 				return NextResponse.json({ error: "Task not found" }, { status: 404 });
 			}
 
-			storagePath = task.file_url;
+			storagePath = task.storage_path;
 		}
 
 		if (!storagePath) {
@@ -74,13 +75,11 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const { data: signedUrlData, error: signedUrlError } =
-			await serverSupabase.storage
-				.from(BUCKET)
-				.createSignedUrl(storagePath, expiresIn);
-
-		if (signedUrlError || !signedUrlData) {
-			console.error("Ошибка создания подписанного URL:", signedUrlError);
+		let url: string;
+		try {
+			url = await getDownloadUrlForReference(storagePath, BUCKET, expiresIn);
+		} catch (error) {
+			console.error("Ошибка создания подписанного URL:", error);
 			return NextResponse.json(
 				{ error: "Не удалось сгенерировать URL для загрузки" },
 				{ status: 500 },
@@ -88,7 +87,7 @@ export async function GET(request: NextRequest) {
 		}
 
 		return NextResponse.json({
-			url: signedUrlData.signedUrl,
+			url,
 			expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
 			storagePath,
 		});

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDownloadUrl } from "@/lib/s3";
+import { getDownloadUrlForReference } from "@/lib/s3";
 import { serverSupabase } from "@/lib/serverSupabase";
 
 export async function GET(
@@ -91,17 +91,11 @@ export async function GET(
 				console.log(
 					`[Download API] URL is Cloud.ru S3, generating presigned URL...`,
 				);
-				const urlParts = new URL(bookData.file_url);
 				const bucketName = process.env.S3_BUCKET_NAME || "books";
-				// Извлекаем ключ из пути (удаляем ведущий слэш и имя бакета если оно в пути)
-				let key = urlParts.pathname.startsWith("/")
-					? urlParts.pathname.substring(1)
-					: urlParts.pathname;
-				if (key.startsWith(`${bucketName}/`)) {
-					key = key.substring(bucketName.length + 1);
-				}
-
-				const presignedUrl = await getDownloadUrl(bucketName, key);
+				const presignedUrl = await getDownloadUrlForReference(
+					bookData.file_url,
+					bucketName,
+				);
 				console.log(`[Download API] Presigned URL generated, fetching...`);
 				const response = await fetch(presignedUrl);
 				if (!response.ok)

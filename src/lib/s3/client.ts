@@ -29,7 +29,7 @@ export function getS3Client(): S3Client {
 				accessKeyId,
 				secretAccessKey,
 			},
-			forcePathStyle: true, // Важно для S3-совместимых хранилищ
+			forcePathStyle: false,
 		});
 	}
 	return s3Client;

@@ -139,6 +139,59 @@ export async function getDownloadUrl(
 	return getSignedUrl(client, command, { expiresIn });
 }
 
+/**
+ * Extracts an object key from a Cloud.ru S3 URL or a storage path.
+ * Supports both virtual-hosted and legacy path-style references.
+ */
+export function getS3KeyFromReference(
+	reference: string,
+	bucketName: string,
+): string {
+	if (!reference.trim()) {
+		throw new Error("S3 file reference is empty");
+	}
+
+	if (reference.startsWith("http://") || reference.startsWith("https://")) {
+		const url = new URL(reference);
+		const hostname = url.hostname.toLowerCase();
+		const virtualHostedHostname = `${bucketName}.s3.cloud.ru`.toLowerCase();
+
+		if (hostname === virtualHostedHostname) {
+			return decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+		}
+
+		if (hostname === "s3.cloud.ru") {
+			const pathParts = url.pathname
+				.split("/")
+				.filter(Boolean)
+				.map((part) => decodeURIComponent(part));
+			if (pathParts[0] === bucketName && pathParts.length > 1) {
+				return pathParts.slice(1).join("/");
+			}
+		}
+
+		throw new Error(`Unsupported S3 host: ${url.hostname}`);
+	}
+
+	const normalizedReference = reference.replace(/^\/+/, "");
+	const bucketPrefix = `${bucketName}/`;
+	return normalizedReference.startsWith(bucketPrefix)
+		? normalizedReference.slice(bucketPrefix.length)
+		: normalizedReference;
+}
+
+/**
+ * Generates a presigned URL from either a Cloud.ru URL or an object key.
+ */
+export async function getDownloadUrlForReference(
+	reference: string,
+	bucketName: string,
+	expiresIn = 3600,
+): Promise<string> {
+	const key = getS3KeyFromReference(reference, bucketName);
+	return getDownloadUrl(key, bucketName, expiresIn);
+}
+
 export interface S3Object {
 	key: string;
 	size: number;

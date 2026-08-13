@@ -64,48 +64,9 @@ function BookTableContent() {
 		loadBook();
 	}, [bookId, router, supabase]);
 
-	const handleDownload = (_bookId: string, fileUrl: string | undefined) => {
+	const handleDownload = (bookId: string, fileUrl: string | undefined) => {
 		if (fileUrl) {
-			// Find the book to get its title and author
-			if (book) {
-				// Create a custom filename in the format "author - title.ext"
-				// Use the actual file format instead of defaulting to .zip
-				const sanitizedTitle = book.title.replace(
-					/[<>:"/\\|?*\x00-\x1F]/g,
-					"_",
-				);
-				const sanitizedAuthor = book.author.replace(
-					/[<>:"/\\|?*\x00-\x1F]/g,
-					"_",
-				);
-				// Get the file extension from the file_url or file_format field
-				const fileExtension =
-					book.file_format && book.file_format !== ""
-						? book.file_format
-						: book.file_url
-							? book.file_url.split("/").pop()?.split(".").pop()
-							: "zip";
-				const filename = `${sanitizedAuthor} - ${sanitizedTitle}.${fileExtension}`;
-
-				// Fetch the file and trigger download with custom filename
-				fetch(fileUrl)
-					.then((response) => response.blob())
-					.then((blob) => {
-						const url = window.URL.createObjectURL(blob);
-						const a = document.createElement("a");
-						a.href = url;
-						a.download = filename;
-						document.body.appendChild(a);
-						a.click();
-						document.body.removeChild(a);
-						window.URL.revokeObjectURL(url);
-					})
-					.catch((error) => {
-						console.error("Error downloading file:", error);
-						// Fallback to opening in new tab if download fails
-						window.open(fileUrl, "_blank");
-					});
-			}
+			window.location.href = `/api/download/${bookId}`;
 		}
 	};
 
@@ -127,18 +88,6 @@ function BookTableContent() {
 			}
 		} catch (error) {
 			console.error("Error incrementing views:", error);
-		}
-	};
-
-	const _incrementDownloads = async (bookId: string) => {
-		try {
-			await supabase.rpc("increment_downloads", { book_id: bookId });
-			// Обновляем локальное состояние
-			if (book && book.id === bookId) {
-				setBook({ ...book, downloads_count: book.downloads_count + 1 });
-			}
-		} catch (error) {
-			console.error("Error incrementing downloads:", error);
 		}
 	};
 

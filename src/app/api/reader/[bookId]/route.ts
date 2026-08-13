@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getDownloadUrlForReference } from "@/lib/s3";
 import { serverSupabase } from "@/lib/serverSupabase";
 
 export async function GET(
@@ -20,23 +21,21 @@ export async function GET(
 			.eq("id", bookId)
 			.single<BookData>();
 
-		// Mock content if file not found (for testing)
-		if (bookError || !bookData || !bookData.file_url) {
-			console.warn("File not found via DB, serving mock content for testing.");
-			const mockContent = `
-                <h1>Тестовая книга</h1>
-                <p>Это автоматическая заглушка, так как реальный файл книги не был найден в базе данных.</p>
-                <p>Здесь должен быть текст книги с ID: ${bookId}</p>
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
-            `;
-			return new NextResponse(mockContent, {
-				headers: {
-					"Content-Type": "text/html; charset=utf-8",
-				},
-			});
+		if (bookError || !bookData) {
+			return NextResponse.json({ error: "Book not found" }, { status: 404 });
 		}
 
-		const response = await fetch(bookData.file_url);
+		if (!bookData.file_url) {
+			return NextResponse.json({ error: "File not found" }, { status: 404 });
+		}
+
+		const sourceUrl = bookData.file_url.includes("s3.cloud.ru")
+			? await getDownloadUrlForReference(
+					bookData.file_url,
+					process.env.S3_BUCKET_NAME || "books",
+				)
+			: bookData.file_url;
+		const response = await fetch(sourceUrl);
 
 		if (!response.ok) {
 			return new NextResponse("Failed to fetch file", {
@@ -59,7 +58,6 @@ export async function GET(
 		return new NextResponse(arrayBuffer, {
 			headers: {
 				"Content-Type": contentType,
-				"Content-Disposition": `attachment; filename="book.${bookData.file_format}"`,
 			},
 		});
 	} catch (error) {

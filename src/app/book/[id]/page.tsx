@@ -120,20 +120,8 @@ function BookDetailPageContent() {
 		}
 	};
 
-	const incrementDownloads = async (id: string) => {
-		try {
-			await supabase.rpc("increment_downloads", { book_id: id });
-			if (book) {
-				setBook({ ...book, downloads_count: (book.downloads_count || 0) + 1 });
-			}
-		} catch (error) {
-			console.error("Error incrementing downloads:", error);
-		}
-	};
-
 	const handleDownload = (book: Book) => {
 		if (book.file_url) {
-			incrementDownloads(book.id);
 			window.location.href = `/api/download/${book.id}`;
 		}
 	};

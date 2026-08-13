@@ -253,21 +253,6 @@ function LibraryContent() {
 		router.push("/");
 	};
 
-	const incrementDownloads = async (bookId: string) => {
-		try {
-			await supabase.rpc("increment_downloads", { book_id: bookId });
-			setBooks((items) =>
-				items.map((book) =>
-					book.id === bookId
-						? { ...book, downloads_count: book.downloads_count + 1 }
-						: book,
-				),
-			);
-		} catch (error) {
-			console.error("Error incrementing downloads:", error);
-		}
-	};
-
 	const incrementViews = async (bookId: string) => {
 		try {
 			await supabase.rpc("increment_views", { book_id: bookId });
@@ -285,7 +270,6 @@ function LibraryContent() {
 
 	const handleDownload = (book: Book) => {
 		if (book.file_url) {
-			incrementDownloads(book.id);
 			window.location.href = `/api/download/${book.id}`;
 		}
 	};

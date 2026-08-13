@@ -556,7 +556,7 @@ function ReaderContent() {
 				window.URL.revokeObjectURL(url);
 			} catch (error) {
 				console.error("Error downloading file:", error);
-				if (book.file_url) window.open(book.file_url, "_blank");
+				if (book.id) window.location.href = `/api/download/${book.id}`;
 			}
 		}
 	};

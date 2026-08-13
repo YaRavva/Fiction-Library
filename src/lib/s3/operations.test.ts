@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getS3AuthHeaders } from "./operations";
+import { getS3AuthHeaders, getS3KeyFromReference } from "./operations";
 
 vi.mock("./client", () => ({
 	getS3Client: vi.fn(),
@@ -44,6 +44,28 @@ describe("getS3AuthHeaders", () => {
 
 		expect(headers.Authorization).toMatch(
 			/Credential=tid:ak\/\d{8}\/eu-west-1\/s3\/aws4_request/,
+		);
+	});
+});
+
+describe("getS3KeyFromReference", () => {
+	const bucket = "fiction-library";
+
+	it("extracts keys from virtual-hosted URLs", () => {
+		expect(
+			getS3KeyFromReference(`https://${bucket}.s3.cloud.ru/2806.zip`, bucket),
+		).toBe("2806.zip");
+	});
+
+	it("extracts keys from legacy path-style URLs", () => {
+		expect(
+			getS3KeyFromReference(`https://s3.cloud.ru/${bucket}/3382.zip`, bucket),
+		).toBe("3382.zip");
+	});
+
+	it("extracts keys from storage paths", () => {
+		expect(getS3KeyFromReference(`${bucket}/nested/book.fb2`, bucket)).toBe(
+			"nested/book.fb2",
 		);
 	});
 });
