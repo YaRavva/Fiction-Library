@@ -3,6 +3,7 @@
 - Admin operations dashboard is simplified around automatic updates; embedding controls are temporarily disabled.
 - Temporarily disable embedding generation while preserving lexical file matching.
 - Operation history shows final status, real duration only for completed jobs, and a readable failure reason.
+- Auto-update failures are now recorded immediately, including BookWorm/Telegram initialization errors; GitHub Actions fails on API errors.
 - S3 book downloads use Cloud.ru virtual-hosted presigned URLs.
 - All book reading and download entry points use the shared server-side S3 proxy.
 ## Active decisions

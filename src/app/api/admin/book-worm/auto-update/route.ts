@@ -347,9 +347,6 @@ export async function POST(request: NextRequest) {
 			started_at: new Date().toISOString(),
 		});
 
-		// Получаем экземпляр сервиса
-		const bookWorm = await BookWormService.getInstance();
-
 		// Максимальное время выполнения — 30 минут
 		const SYNC_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -363,6 +360,10 @@ export async function POST(request: NextRequest) {
 		});
 
 		try {
+			// Инициализация Telegram/BookWorm также должна находиться внутри этого
+			// try: если конфигурация или соединение недоступны, операция обязана
+			// завершиться с конкретной ошибкой, а не остаться running до очистки.
+			const bookWorm = await BookWormService.getInstance();
 			const result = await Promise.race([
 				bookWorm.runUpdateSync(),
 				timeoutPromise,

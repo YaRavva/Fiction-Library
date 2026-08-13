@@ -11,3 +11,4 @@ last_checked_commit: 2026-08-13 (working tree)
 - 2026-07-09: Preserved direct-grid layout with a uniform `gap-6` and automatic BookWorm matching.
 - 2026-08-13: Temporarily disabled embedding generation behind `EMBEDDINGS_ENABLED=false`; BookWorm now uses lexical-only matching and admin controls are hidden.
 - 2026-08-13: Made auto-update await completion or timeout and simplified operation history statuses and error display.
+- 2026-08-13: Ensured auto-update initialization failures close the operation with the real error; GitHub Actions now fails on non-2xx API responses.

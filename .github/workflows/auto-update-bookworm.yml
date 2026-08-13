@@ -12,7 +12,8 @@ jobs:
     steps:
       - name: Call BookWorm Auto Update API
         run: |
-          curl -X POST "${{ secrets.BOOKWORM_API_URL }}/api/admin/book-worm/auto-update" \
+          curl --fail-with-body --show-error --silent --max-time 1800 \
+            -X POST "${{ secrets.BOOKWORM_API_URL }}/api/admin/book-worm/auto-update" \
             -H "Content-Type: application/json" \
             -H "X-GitHub-Token: ${{ secrets.BOOKWORM_GITHUB_ACTION_TOKEN }}" \
             -d '{"source": "github-action"}'
