@@ -3,8 +3,8 @@
 import type { Session } from "@supabase/supabase-js";
 import {
 	BookOpen,
-	ChevronsLeft,
-	ChevronsRight,
+	ChevronLeft,
+	ChevronRight,
 	Library,
 	LogOut,
 	ShieldCheck,
@@ -141,25 +141,19 @@ export function AppSidebar({
 
 			<div className="mt-auto border-sidebar-border border-t p-3">
 				{collapsible ? (
-					<Button
-						variant="ghost"
-						size="icon"
-						className={cn(
-							"mb-2 hidden h-9 rounded-md border border-sidebar-border bg-background/40 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground lg:flex",
-							isCollapsed ? "w-full" : "w-full justify-center gap-2",
-						)}
-						onClick={() => setCollapsed((value) => !value)}
+					<button
+						type="button"
+						aria-label={isCollapsed ? "Развернуть меню" : "Свернуть меню"}
 						title={isCollapsed ? "Развернуть меню" : "Свернуть меню"}
+						onClick={() => setCollapsed((value) => !value)}
+						className="absolute top-5 z-20 hidden size-6 -right-3 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground lg:flex"
 					>
 						{isCollapsed ? (
-							<ChevronsRight className="size-4" />
+							<ChevronRight className="size-3.5" />
 						) : (
-							<>
-								<ChevronsLeft className="size-4" />
-								<span className="font-medium text-xs">Свернуть</span>
-							</>
+							<ChevronLeft className="size-3.5" />
 						)}
-					</Button>
+					</button>
 				) : null}
 
 				{user ? (
